@@ -31,6 +31,21 @@ Leaft est un SaaS dédié à la transparence salariale et à la gestion des parc
 - Render détectera les commits sur la branche principale et déclenchera les builds.
 - Les migrations et accès aux services tiers se font directement en production.
 
+### Variables d'environnement (à définir sur Render)
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
+- `CLERK_WEBHOOK_SECRET` (si webhooks Clerk déclenchés)
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` *(alias recommandé si besoin côté client)*
+- `STRIPE_SECRET_KEY`
+- `STRIPE_PUBLISHABLE_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `NEXT_PUBLIC_APP_URL` (URL Render / production)
+- `HASDATA_API_KEY` *(si connexion HasData/Indeed disponible)*
+
 ## Ressources internes
 
 - Règles et vision produit : `.cursor/rules/project.mdc`.
