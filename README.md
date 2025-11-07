@@ -20,13 +20,11 @@ Leaft est un SaaS dédié à la transparence salariale et à la gestion des parc
 
 ## Démarrage
 
-1. Installer Node.js 18+ et pnpm (ou npm/yarn).
+1. Installer Node.js 18+ et `pnpm`.
 2. Cloner ce dépôt (une fois le dépôt GitHub distant configuré).
-3. Installer les dépendances : `pnpm install` (à confirmer après bootstrap Next.js).
+3. Installer les dépendances : `pnpm install` (si `pnpm` bloque certains scripts, exécuter `pnpm approve-builds`).
 4. Définir les variables d’environnement (Supabase, Clerk, Stripe, Render).
 5. Lancer le serveur de développement : `pnpm dev`.
-
-> L’environnement local reste à initialiser (création de l’app Next.js, configuration Supabase, etc.).
 
 ## Déploiement
 
@@ -42,5 +40,5 @@ Leaft est un SaaS dédié à la transparence salariale et à la gestion des parc
 
 ---
 
-_Dernière mise à jour : initialisation du dépôt local._
+_Dernière mise à jour : bootstrap Next.js + dépendances._
 
