@@ -13,7 +13,7 @@ export function SiteHeader() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-10">
         <Link href="/" className="flex items-center gap-3">
           <Image
-            src="/brand/logo-light.svg"
+            src="/brand/logo-light.png"
             width={140}
             height={56}
             alt="Leaft"

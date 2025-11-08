@@ -53,7 +53,7 @@ Leaft est un SaaS dédié à la transparence salariale et à la gestion des parc
 - Workspace Render : “Vincent's workspace”.
 - Compte Stripe : “leaft”.
 - Env runtime : `src/env.ts` (throws si une variable obligatoire est absente).
-- Assets marque : `public/brand/` (`logo-light.svg`, `logo-dark.svg`).
+- Assets marque : `public/brand/` (`logo-light.png`, `logo-dark.png`).
 
 ---
 

@@ -1,7 +1,0 @@
-<svg width="500" height="200" viewBox="0 0 500 200" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="leaftLogoDarkTitle">
-  <title id="leaftLogoDarkTitle">Leaft logo (inverse)</title>
-  <path d="M64 24C41.9086 24 24 41.9086 24 64V144C24 166.091 41.9086 184 64 184H200C222.091 184 240 166.091 240 144C240 121.909 222.091 104 200 104H112V64C112 41.9086 94.0914 24 72 24H64Z" fill="#095228" />
-  <text x="272" y="130" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="96" font-weight="600" fill="#FFFFFF">Leaft</text>
-  <circle cx="462" cy="120" r="18" fill="#095228" />
-</svg>
-
