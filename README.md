@@ -54,6 +54,7 @@ Leaft est un SaaS dédié à la transparence salariale et à la gestion des parc
 - Compte Stripe : “leaft”.
 - Env runtime : `src/env.ts` (throws si une variable obligatoire est absente).
 - Assets marque : `public/brand/` (`logo-light.png`, `logo-dark.png`).
+- SDK : `src/lib/supabase/*` (browser/server) et `src/lib/stripe.ts`.
 
 ---
 
