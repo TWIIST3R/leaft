@@ -1,11 +1,7 @@
- "use client";
-
-import { useState } from "react";
 import { Hero } from "@/components/marketing/hero";
+import { PricingTable } from "./pricing-table";
 
-type BillingCycle = "monthly" | "annual";
-
-type Plan = {
+export type PricingPlan = {
   range: string;
   monthly: {
     perSeat: string;
@@ -29,7 +25,7 @@ export const metadata = {
     "Découvrez la tarification Leaft : formules mensuelles et annuelles pour structurer vos politiques salariales.",
 };
 
-const plans: Plan[] = [
+const plans: PricingPlan[] = [
   {
     range: "1 à 5 talents",
     monthly: {
@@ -149,8 +145,6 @@ const plans: Plan[] = [
 ];
 
 export default function PricingPage() {
-  const [billing, setBilling] = useState<BillingCycle>("monthly");
-
   return (
     <main className="bg-[var(--brand)] text-white">
       <section className="mx-auto flex max-w-6xl flex-col gap-16 px-6 pb-24 pt-20 sm:px-10 lg:px-16">
@@ -163,68 +157,7 @@ export default function PricingPage() {
           tone="dark"
         />
 
-        <div className="flex justify-center">
-          <div className="inline-flex items-center rounded-full border border-white/30 bg-white/10 p-1 text-sm font-medium">
-            <button
-              type="button"
-              onClick={() => setBilling("monthly")}
-              className={`rounded-full px-4 py-2 transition ${
-                billing === "monthly" ? "bg-white text-[var(--brand)]" : "text-white/80 hover:text-white"
-              }`}
-            >
-              Mensuel
-            </button>
-            <button
-              type="button"
-              onClick={() => setBilling("annual")}
-              className={`rounded-full px-4 py-2 transition ${
-                billing === "annual" ? "bg-white text-[var(--brand)]" : "text-white/80 hover:text-white"
-              }`}
-            >
-              Annuel
-            </button>
-          </div>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-4">
-          {plans.map((plan) => {
-            const data = plan[billing];
-            return (
-              <article
-                key={plan.range}
-                className="flex h-full flex-col rounded-[40px] border border-white/20 bg-white p-8 text-left text-[var(--text)] shadow-[0_20px_60px_rgba(9,82,40,0.25)]"
-              >
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-[color:rgba(9,82,40,0.75)]">
-                  {plan.range}
-                </h2>
-                <div className="mt-6 flex items-baseline gap-2">
-                  <span className="text-4xl font-semibold text-[var(--brand)]">{data.perSeat}</span>
-                  <span className="text-sm font-medium text-[color:rgba(11,11,11,0.65)]">{data.suffix}</span>
-                </div>
-                <p className="mt-1 text-xs uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">{data.fixed}</p>
-                <button
-                  type="button"
-                  className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-[var(--brand)] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
-                >
-                  {data.ctaLabel}
-                </button>
-                <div className="mt-6 space-y-3 text-sm text-[color:rgba(11,11,11,0.7)]">
-                  <p className="font-semibold">Est inclus :</p>
-                  <ul className="space-y-2">
-                    {data.features.map((feature) => (
-                      <li key={feature} className="flex items-start gap-2">
-                        <span className="mt-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-[var(--brand)] text-[10px] text-white">
-                          ✓
-                        </span>
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+        <PricingTable plans={plans} />
 
         <div className="rounded-[var(--radius)] border border-white/20 bg-white/10 p-8 text-sm text-white">
           Facturation annuelle : forfait mensuel ×10 + (Nombre de talents × Prix/talent mensuel ×10). Pour un plan
