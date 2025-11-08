@@ -1,3 +1,5 @@
+import { Hero } from "@/components/marketing/hero";
+
 export const metadata = {
   title: "Leaft – Ressources",
   description:
@@ -26,17 +28,12 @@ export default function ResourcesPage() {
   return (
     <main className="bg-muted">
       <section className="mx-auto flex max-w-5xl flex-col gap-12 px-6 pb-24 pt-20 sm:px-10 lg:px-16">
-        <header className="max-w-3xl space-y-5">
-          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-4 py-1 text-sm font-medium text-[color:var(--brand)] shadow-[var(--shadow)]">
-            Guides & ressources
-          </span>
-          <h1 className="text-4xl font-semibold leading-tight sm:text-5xl">
-            Outils pour piloter la rémunération, les promotions et l’expérience collaborateur.
-          </h1>
-          <p className="text-lg text-[color:rgba(11,11,11,0.7)]">
-            Téléchargez gratuitement nos ressources avant de basculer vos process sur Leaft.
-          </p>
-        </header>
+        <Hero
+          eyebrow="Guides & ressources"
+          title="Outils pour piloter la rémunération, les promotions et l’expérience collaborateur."
+          description="Téléchargez gratuitement nos ressources avant de basculer vos process sur Leaft."
+          ctas={[{ href: "/contact", label: "Accéder aux ressources", variant: "primary" }]}
+        />
 
         <div className="grid gap-6 sm:grid-cols-2">
           {resources.map((resource) => (

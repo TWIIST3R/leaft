@@ -1,3 +1,5 @@
+import { Hero } from "@/components/marketing/hero";
+
 export const metadata = {
   title: "Leaft – Tarifs",
   description:
@@ -35,18 +37,20 @@ export default function PricingPage() {
   return (
     <main className="bg-muted">
       <section className="mx-auto flex max-w-6xl flex-col gap-16 px-6 pb-24 pt-20 sm:px-10 lg:px-16">
-        <header className="max-w-3xl space-y-5">
-          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-4 py-1 text-sm font-medium text-[color:var(--brand)] shadow-[var(--shadow)]">
-            Tarification Leaft
-          </span>
-          <h1 className="text-4xl font-semibold leading-tight sm:text-5xl">
-            Des plans transparents pour accompagner la croissance de votre entreprise.
-          </h1>
-          <p className="text-lg text-[color:rgba(11,11,11,0.7)]">
-            Choisissez la facturation mensuelle ou annuelle (2 mois offerts) et gardez une vision claire des coûts :
-            <strong> Total = Forfait + (Employés × Prix/emp)</strong>.
-          </p>
-        </header>
+        <Hero
+          eyebrow="Tarification Leaft"
+          title="Des plans transparents pour accompagner la croissance de votre entreprise."
+          description={
+            <>
+              Choisissez la facturation mensuelle ou annuelle (2 mois offerts) et gardez une vision claire des coûts :
+              <strong> Total = Forfait + (Employés × Prix/emp)</strong>.
+            </>
+          }
+          ctas={[
+            { href: "/contact", label: "Demander un devis", variant: "primary" },
+            { href: "/contact", label: "Discuter avec nous", variant: "secondary" },
+          ]}
+        />
 
         <div className="grid gap-6 md:grid-cols-2">
           {plans.map((plan) => (

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Hero } from "@/components/marketing/hero";
 
 export const metadata = {
   title: "Leaft – Contact",
@@ -9,18 +10,12 @@ export default function ContactPage() {
   return (
     <main className="bg-muted">
       <section className="mx-auto flex max-w-4xl flex-col gap-12 px-6 pb-24 pt-20 sm:px-10 lg:px-16">
-        <header className="space-y-5">
-          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-4 py-1 text-sm font-medium text-[color:var(--brand)] shadow-[var(--shadow)]">
-            Contact & démo
-          </span>
-          <h1 className="text-4xl font-semibold leading-tight sm:text-5xl">
-            Discutons transparence salariale, organigramme et expérience collaborateur.
-          </h1>
-          <p className="text-lg text-[color:rgba(11,11,11,0.7)]">
-            Laissez-nous vos coordonnées – nous revenons vers vous sous 24h ouvrées pour organiser une démo adaptée à
-            votre contexte (RH, finance ou managers).
-          </p>
-        </header>
+        <Hero
+          eyebrow="Contact & démo"
+          title="Discutons transparence salariale, organigramme et expérience collaborateur."
+          description="Laissez-nous vos coordonnées – nous revenons vers vous sous 24h ouvrées pour organiser une démo adaptée à votre contexte (RH, finance ou managers)."
+          ctas={[{ href: "/pricing", label: "Voir les tarifs" }]}
+        />
 
         <form className="grid gap-6 rounded-[var(--radius)] border border-border bg-white p-6 shadow-[var(--shadow)] sm:grid-cols-2">
           <div className="flex flex-col gap-2">

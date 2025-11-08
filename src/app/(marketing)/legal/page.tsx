@@ -1,3 +1,5 @@
+import { Hero } from "@/components/marketing/hero";
+
 export const metadata = {
   title: "Leaft – Mentions légales",
   description: "Informations légales et coordonnées de l’éditeur Leaft.",
@@ -7,13 +9,11 @@ export default function LegalPage() {
   return (
     <main className="bg-muted">
       <section className="mx-auto flex max-w-4xl flex-col gap-10 px-6 pb-24 pt-20 sm:px-10 lg:px-16">
-        <header className="space-y-4">
-          <h1 className="text-4xl font-semibold">Mentions légales</h1>
-          <p className="text-sm text-[color:rgba(11,11,11,0.7)]">
-            Ces informations seront complétées avec les détails officiels (raison sociale, hébergeur, contact) lors du
-            lancement public de Leaft.
-          </p>
-        </header>
+        <Hero
+          title="Mentions légales"
+          description="Ces informations seront complétées avec les détails officiels (raison sociale, hébergeur, contact) lors du lancement public de Leaft."
+          align="start"
+        />
 
         <div className="space-y-6 rounded-[var(--radius)] border border-border bg-white p-6 text-sm text-[color:rgba(11,11,11,0.74)] shadow-[var(--shadow)]">
           <section>

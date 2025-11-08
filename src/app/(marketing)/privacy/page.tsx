@@ -1,3 +1,5 @@
+import { Hero } from "@/components/marketing/hero";
+
 export const metadata = {
   title: "Leaft – Politique de confidentialité",
   description: "Politique RGPD de Leaft concernant les données collaborateurs et utilisateurs.",
@@ -34,13 +36,11 @@ export default function PrivacyPage() {
   return (
     <main className="bg-muted">
       <section className="mx-auto flex max-w-4xl flex-col gap-10 px-6 pb-24 pt-20 sm:px-10 lg:px-16">
-        <header className="space-y-4">
-          <h1 className="text-4xl font-semibold">Politique de confidentialité</h1>
-          <p className="text-sm text-[color:rgba(11,11,11,0.7)]">
-            Dernière mise à jour : {new Date().getFullYear()} – Cette page sera enrichie au fur et à mesure de
-            l’ouverture du service.
-          </p>
-        </header>
+        <Hero
+          title="Politique de confidentialité"
+          description={`Dernière mise à jour : ${new Date().getFullYear()} – Cette page sera enrichie au fur et à mesure de l’ouverture du service.`}
+          align="start"
+        />
 
         <div className="space-y-6 rounded-[var(--radius)] border border-border bg-white p-6 text-sm text-[color:rgba(11,11,11,0.74)] shadow-[var(--shadow)]">
           {sections.map((section) => (
