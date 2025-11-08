@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { ClerkProvider } from "@clerk/nextjs";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { SiteFooter } from "@/components/layout/site-footer";
@@ -23,16 +22,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
-      <html lang="fr">
-        <body className={`${inter.variable} antialiased bg-[var(--bg)] text-[var(--text)]`}>
-          <div className="flex min-h-screen flex-col">
-            <SiteHeader />
-            <div className="grow">{children}</div>
-            <SiteFooter />
-          </div>
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="fr">
+      <body className={`${inter.variable} antialiased bg-[var(--bg)] text-[var(--text)]`}>
+        <div className="flex min-h-screen flex-col">
+          <SiteHeader />
+          <div className="grow">{children}</div>
+          <SiteFooter />
+        </div>
+      </body>
+    </html>
   );
 }
