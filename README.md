@@ -55,6 +55,7 @@ Leaft est un SaaS dédié à la transparence salariale et à la gestion des parc
 - Env runtime : `src/env.ts` (throws si une variable obligatoire est absente).
 - Assets marque : `public/brand/` (`logo-light.png`, `logo-dark.png`).
 - SDK : `src/lib/supabase/*` (browser/server) et `src/lib/stripe.ts`.
+- Routing : groupe marketing `src/app/(marketing)/` (site public) et squelette applicatif `src/app/(app)/dashboard`.
 
 ---
 

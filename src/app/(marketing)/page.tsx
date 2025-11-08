@@ -31,7 +31,8 @@ export default function Home() {
             Pilotez vos grilles salariales, vos augmentations et le parcours de chaque collaborateur.
           </h1>
           <p className="text-pretty text-lg text-[color:rgba(11,11,11,0.72)]">
-            Leaft centralise vos rémunérations, automatise l’organigramme et offre à chaque employé un espace personnel avec simulateur, benchmarks marché et historique de progression.
+            Leaft centralise vos rémunérations, automatise l’organigramme et offre à chaque employé un espace personnel
+            avec simulateur, benchmarks marché et historique de progression.
           </p>
           <div className="flex flex-col gap-3 sm:flex-row">
             <Link
@@ -55,12 +56,8 @@ export default function Home() {
               key={feature.title}
               className="rounded-[var(--radius)] border border-border bg-white p-6 shadow-[var(--shadow)]"
             >
-              <h2 className="text-lg font-semibold text-[var(--text)]">
-                {feature.title}
-              </h2>
-              <p className="mt-3 text-sm leading-relaxed text-[color:rgba(11,11,11,0.7)]">
-                {feature.description}
-              </p>
+              <h2 className="text-lg font-semibold text-[var(--text)]">{feature.title}</h2>
+              <p className="mt-3 text-sm leading-relaxed text-[color:rgba(11,11,11,0.7)]">{feature.description}</p>
             </article>
           ))}
         </section>
@@ -68,3 +65,4 @@ export default function Home() {
     </main>
   );
 }
+

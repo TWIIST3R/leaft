@@ -19,9 +19,12 @@ export default function LegalPage() {
           <section>
             <h2 className="text-base font-semibold text-[var(--text)]">Éditeur</h2>
             <p className="mt-2">
-              Leaft SAS<br />
-              10 rue de la Transparence<br />
-              75000 Paris – France<br />
+              Leaft SAS
+              <br />
+              10 rue de la Transparence
+              <br />
+              75000 Paris – France
+              <br />
               contact@leaft.io
             </p>
           </section>
@@ -32,7 +35,8 @@ export default function LegalPage() {
           <section>
             <h2 className="text-base font-semibold text-[var(--text)]">Hébergement</h2>
             <p className="mt-2">
-              Render – 123 Mission Street, San Francisco, CA 94105, États-Unis.<br />
+              Render – 123 Mission Street, San Francisco, CA 94105, États-Unis.
+              <br />
               https://render.com
             </p>
           </section>

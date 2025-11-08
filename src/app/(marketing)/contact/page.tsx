@@ -2,8 +2,7 @@ import Link from "next/link";
 
 export const metadata = {
   title: "Leaft – Contact",
-  description:
-    "Parlez avec l’équipe Leaft pour découvrir comment structurer vos grilles salariales et vos entretiens.",
+  description: "Parlez avec l’équipe Leaft pour découvrir comment structurer vos grilles salariales et vos entretiens.",
 };
 
 export default function ContactPage() {
@@ -72,8 +71,7 @@ export default function ContactPage() {
             Envoyer ma demande
           </button>
           <p className="sm:col-span-2 text-xs text-[color:rgba(11,11,11,0.6)]">
-            En soumettant ce formulaire vous acceptez notre
-            {" "}
+            En soumettant ce formulaire vous acceptez notre{" "}
             <Link href="/privacy" className="font-medium text-[var(--text)] underline">
               politique de confidentialité
             </Link>

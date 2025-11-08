@@ -52,9 +52,7 @@ export default function PricingPage() {
           {plans.map((plan) => (
             <article key={plan.name} className="rounded-[var(--radius)] border border-border bg-white p-6 shadow-[var(--shadow)]">
               <h2 className="text-xl font-semibold text-[var(--text)]">{plan.name}</h2>
-              <p className="mt-2 text-sm font-medium uppercase tracking-wide text-[color:rgba(11,11,11,0.64)]">
-                {plan.price}
-              </p>
+              <p className="mt-2 text-sm font-medium uppercase tracking-wide text-[color:rgba(11,11,11,0.64)]">{plan.price}</p>
               <p className="text-sm text-[color:rgba(11,11,11,0.64)]">+ {plan.fixed}</p>
               <p className="mt-4 text-sm leading-relaxed text-[color:rgba(11,11,11,0.7)]">{plan.details}</p>
               <p className="mt-4 text-sm font-medium text-[color:rgba(11,11,11,0.76)]">

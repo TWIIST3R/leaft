@@ -26,8 +26,7 @@ const sections = [
   },
   {
     title: "5. Droits RGPD",
-    content:
-      "Accès, rectification, suppression, opposition, portabilité. Contact : privacy@leaft.io.",
+    content: "Accès, rectification, suppression, opposition, portabilité. Contact : privacy@leaft.io.",
   },
 ];
 
@@ -38,7 +37,8 @@ export default function PrivacyPage() {
         <header className="space-y-4">
           <h1 className="text-4xl font-semibold">Politique de confidentialité</h1>
           <p className="text-sm text-[color:rgba(11,11,11,0.7)]">
-            Dernière mise à jour : {new Date().getFullYear()} – Cette page sera enrichie au fur et à mesure de l’ouverture du service.
+            Dernière mise à jour : {new Date().getFullYear()} – Cette page sera enrichie au fur et à mesure de
+            l’ouverture du service.
           </p>
         </header>
 

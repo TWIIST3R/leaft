@@ -40,14 +40,15 @@ export default function ResourcesPage() {
 
         <div className="grid gap-6 sm:grid-cols-2">
           {resources.map((resource) => (
-            <article key={resource.title} className="rounded-[var(--radius)] border border-border bg-white p-6 shadow-[var(--shadow)]">
+            <article
+              key={resource.title}
+              className="rounded-[var(--radius)] border border-border bg-white p-6 shadow-[var(--shadow)]"
+            >
               <span className="inline-flex w-fit rounded-full bg-[color:rgba(9,82,40,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[color:var(--brand)]">
                 {resource.badge}
               </span>
               <h2 className="mt-4 text-lg font-semibold text-[var(--text)]">{resource.title}</h2>
-              <p className="mt-3 text-sm leading-relaxed text-[color:rgba(11,11,11,0.7)]">
-                {resource.description}
-              </p>
+              <p className="mt-3 text-sm leading-relaxed text-[color:rgba(11,11,11,0.7)]">{resource.description}</p>
             </article>
           ))}
         </div>
