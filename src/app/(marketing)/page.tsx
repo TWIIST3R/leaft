@@ -10,12 +10,12 @@ const features = [
   {
     title: "Suivi des parcours",
     description:
-      "Historisez les entretiens, préparez les ajustements et offrez un espace collaborateur clair et actionnable.",
+      "Historisez les entretiens, éclairez les décisions d’augmentation et assurez à chacun une trajectoire de progression lisible.",
   },
   {
-    title: "Benchmarks marché",
+    title: "Transparence marché",
     description:
-      "Croisez vos données internes avec HasData / Indeed (p25, p50, p75) et pilotez vos politiques salariales.",
+      "Croisez vos données internes avec les repères Indeed (p25, p50, p75) actualisés et faites évoluer vos politiques salariales en confiance.",
   },
 ];
 
@@ -48,22 +48,24 @@ export default function Home() {
 
         <section className="grid gap-6 rounded-[var(--radius)] border border-border bg-white p-8 shadow-[var(--shadow)] lg:grid-cols-2">
           <div className="space-y-5">
-            <h2 className="text-3xl font-semibold text-[var(--text)]">Une vision complète des rémunérations</h2>
+            <h2 className="text-3xl font-semibold text-[var(--text)]">La transparence comme levier d’équité salariale</h2>
             <p className="text-sm leading-relaxed text-[color:rgba(11,11,11,0.7)]">
-              Grâce à Supabase, Leaft agrège vos salaires, bonus et évolutions dans une base unique. Les compa-ratios
-              sont recalculés en temps réel pour chaque employé.
+              Grâce à Supabase, Leaft agrège salaires, bonus et évolutions dans une base unique. Les compa-ratios sont
+              recalculés en temps réel pour chaque talent, et partagés en toute transparence avec vos managers.
             </p>
             <ul className="space-y-3 text-sm text-[color:rgba(11,11,11,0.75)]">
-              <li>• Benchmarks HasData / Indeed pour valider vos fourchettes.</li>
+              <li>• Repères marché Indeed actualisés pour valider vos fourchettes.</li>
               <li>• Organigramme dynamique construit depuis le manager direct.</li>
-              <li>• Historique d’entretiens et décisions accessible à chaque manager.</li>
+              <li>• Historique d’entretiens et décisions accessible pour suivre chaque talent.</li>
             </ul>
           </div>
           <div className="grid gap-4 rounded-[var(--radius)] border border-dashed border-[color:rgba(9,82,40,0.25)] bg-muted p-6">
             <div className="rounded-[var(--radius)] bg-white p-5 shadow-[var(--shadow)]">
               <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--brand)]">KPI People</p>
               <p className="mt-4 text-2xl font-semibold text-[var(--text)]">+12 %</p>
-              <p className="text-xs text-[color:rgba(11,11,11,0.6)]">d’augmentation moyenne alignée avec le marché.</p>
+              <p className="text-xs text-[color:rgba(11,11,11,0.6)]">
+                d’augmentation moyenne alignée avec vos repères de marché.
+              </p>
             </div>
             <div className="rounded-[var(--radius)] bg-white p-5 shadow-[var(--shadow)]">
               <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--brand)]">Organigramme</p>

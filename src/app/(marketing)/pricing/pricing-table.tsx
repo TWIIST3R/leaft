@@ -1,12 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { PricingPlan } from "./page";
 
 type BillingCycle = "monthly" | "annual";
 
 export function PricingTable({ plans }: { plans: PricingPlan[] }) {
   const [billing, setBilling] = useState<BillingCycle>("monthly");
+  const [pendingBilling, setPendingBilling] = useState<BillingCycle | null>(null);
+  const [isFading, setIsFading] = useState(false);
+
+  const handleBillingChange = (mode: BillingCycle) => {
+    if (mode === billing || pendingBilling) return;
+    setPendingBilling(mode);
+    setIsFading(true);
+  };
+
+  useEffect(() => {
+    if (!isFading || !pendingBilling) return;
+
+    const timeout = setTimeout(() => {
+      setBilling(pendingBilling);
+      setPendingBilling(null);
+      setIsFading(false);
+    }, 200);
+
+    return () => clearTimeout(timeout);
+  }, [isFading, pendingBilling, billing]);
 
   return (
     <div className="flex flex-col gap-10">
@@ -14,8 +34,8 @@ export function PricingTable({ plans }: { plans: PricingPlan[] }) {
         <div className="inline-flex items-center rounded-full border border-white/30 bg-white/10 p-1 text-sm font-medium">
           <button
             type="button"
-            onClick={() => setBilling("monthly")}
-            className={`rounded-full px-4 py-2 transition ${
+            onClick={() => handleBillingChange("monthly")}
+            className={`cursor-pointer rounded-full px-4 py-2 transition ${
               billing === "monthly" ? "bg-white text-[var(--brand)]" : "text-white/80 hover:text-white"
             }`}
           >
@@ -23,8 +43,8 @@ export function PricingTable({ plans }: { plans: PricingPlan[] }) {
           </button>
           <button
             type="button"
-            onClick={() => setBilling("annual")}
-            className={`rounded-full px-4 py-2 transition ${
+            onClick={() => handleBillingChange("annual")}
+            className={`cursor-pointer rounded-full px-4 py-2 transition ${
               billing === "annual" ? "bg-white text-[var(--brand)]" : "text-white/80 hover:text-white"
             }`}
           >
@@ -33,7 +53,11 @@ export function PricingTable({ plans }: { plans: PricingPlan[] }) {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-4">
+      <div
+        className={`grid gap-6 transition-[opacity,transform] duration-200 ease-in-out lg:grid-cols-4 ${
+          isFading ? "pointer-events-none opacity-0 translate-y-2" : "opacity-100 translate-y-0"
+        }`}
+      >
         {plans.map((plan) => {
           const data = plan[billing];
           return (
