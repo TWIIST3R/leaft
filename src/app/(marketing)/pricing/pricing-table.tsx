@@ -1,35 +1,32 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { gsap } from "gsap";
+import { useEffect, useState } from "react";
 import type { PricingPlan } from "./page";
 
 type BillingCycle = "monthly" | "annual";
 
 export function PricingTable({ plans }: { plans: PricingPlan[] }) {
   const [billing, setBilling] = useState<BillingCycle>("monthly");
-  const cardsContainerRef = useRef<HTMLDivElement | null>(null);
+  const [pendingBilling, setPendingBilling] = useState<BillingCycle | null>(null);
+  const [isFading, setIsFading] = useState(false);
+
+  const handleBillingChange = (mode: BillingCycle) => {
+    if (mode === billing || pendingBilling) return;
+    setPendingBilling(mode);
+    setIsFading(true);
+  };
 
   useEffect(() => {
-    if (!cardsContainerRef.current) return;
+    if (!isFading || !pendingBilling) return;
 
-    const ctx = gsap.context(() => {
-      const cards = gsap.utils.toArray<HTMLDivElement>("[data-plan-card]");
-      gsap.fromTo(
-        cards,
-        { opacity: 0, y: 30 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.5,
-          ease: "power3.out",
-          stagger: 0.08,
-        },
-      );
-    }, cardsContainerRef);
+    const timeout = setTimeout(() => {
+      setBilling(pendingBilling);
+      setPendingBilling(null);
+      setIsFading(false);
+    }, 200);
 
-    return () => ctx.revert();
-  }, [billing]);
+    return () => clearTimeout(timeout);
+  }, [isFading, pendingBilling, billing]);
 
   return (
     <div className="flex flex-col gap-10">
@@ -37,7 +34,7 @@ export function PricingTable({ plans }: { plans: PricingPlan[] }) {
         <div className="inline-flex items-center rounded-full border border-white/30 bg-white/10 p-1 text-sm font-medium">
           <button
             type="button"
-            onClick={() => setBilling("monthly")}
+            onClick={() => handleBillingChange("monthly")}
             className={`cursor-pointer rounded-full px-4 py-2 transition ${
               billing === "monthly" ? "bg-white text-[var(--brand)]" : "text-white/80 hover:text-white"
             }`}
@@ -46,7 +43,7 @@ export function PricingTable({ plans }: { plans: PricingPlan[] }) {
           </button>
           <button
             type="button"
-            onClick={() => setBilling("annual")}
+            onClick={() => handleBillingChange("annual")}
             className={`cursor-pointer rounded-full px-4 py-2 transition ${
               billing === "annual" ? "bg-white text-[var(--brand)]" : "text-white/80 hover:text-white"
             }`}
@@ -56,14 +53,17 @@ export function PricingTable({ plans }: { plans: PricingPlan[] }) {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-4" ref={cardsContainerRef}>
+      <div
+        className={`grid gap-6 transition-[opacity,transform] duration-200 ease-in-out lg:grid-cols-4 ${
+          isFading ? "pointer-events-none opacity-0 translate-y-2" : "opacity-100 translate-y-0"
+        }`}
+      >
         {plans.map((plan) => {
           const data = plan[billing];
           return (
             <article
               key={plan.range}
               className="flex h-full flex-col rounded-[40px] border border-white/20 bg-white p-8 text-left text-[var(--text)] shadow-[0_20px_60px_rgba(9,82,40,0.25)]"
-              data-plan-card
             >
               <h2 className="text-sm font-semibold uppercase tracking-wide text-[color:rgba(9,82,40,0.75)]">
                 {plan.range}
@@ -83,11 +83,11 @@ export function PricingTable({ plans }: { plans: PricingPlan[] }) {
                 <p className="font-semibold">Est inclus :</p>
                 <ul className="space-y-2">
                   {data.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-3">
-                      <span className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--brand-leaf)] text-sm font-semibold text-white shadow-[0_6px_14px_rgba(9,82,40,0.25)]">
+                    <li key={feature} className="flex items-start gap-2">
+                      <span className="mt-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-[var(--brand)] text-[10px] text-white">
                         ✓
                       </span>
-                      <span className="text-[color:rgba(11,11,11,0.7)]">{feature}</span>
+                      <span>{feature}</span>
                     </li>
                   ))}
                 </ul>

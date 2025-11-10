@@ -38,7 +38,7 @@ export default function Home() {
           {features.map((feature) => (
             <article
               key={feature.title}
-              className="rounded-[var(--radius)] border border-[color:rgba(9,82,40,0.1)] bg-[var(--brand-foam)] p-6 shadow-[var(--shadow)]"
+              className="rounded-[var(--radius)] border border-border bg-white p-6 shadow-[var(--shadow)]"
             >
               <h2 className="text-lg font-semibold text-[var(--text)]">{feature.title}</h2>
               <p className="mt-3 text-sm leading-relaxed text-[color:rgba(11,11,11,0.7)]">{feature.description}</p>
@@ -46,7 +46,7 @@ export default function Home() {
           ))}
         </section>
 
-        <section className="grid gap-6 rounded-[var(--radius)] border border-[color:rgba(9,82,40,0.12)] bg-[var(--brand-mint)]/60 p-8 shadow-[var(--shadow)] lg:grid-cols-2">
+        <section className="grid gap-6 rounded-[var(--radius)] border border-border bg-white p-8 shadow-[var(--shadow)] lg:grid-cols-2">
           <div className="space-y-5">
             <h2 className="text-3xl font-semibold text-[var(--text)]">La transparence comme levier d’équité salariale</h2>
             <p className="text-sm leading-relaxed text-[color:rgba(11,11,11,0.7)]">
@@ -59,7 +59,7 @@ export default function Home() {
               <li>• Historique d’entretiens et décisions accessible pour suivre chaque talent.</li>
             </ul>
           </div>
-          <div className="grid gap-4 rounded-[var(--radius)] border border-dashed border-[color:rgba(9,82,40,0.25)] bg-[var(--brand-foam)] p-6">
+          <div className="grid gap-4 rounded-[var(--radius)] border border-dashed border-[color:rgba(9,82,40,0.25)] bg-muted p-6">
             <div className="rounded-[var(--radius)] bg-white p-5 shadow-[var(--shadow)]">
               <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--brand)]">KPI People</p>
               <p className="mt-4 text-2xl font-semibold text-[var(--text)]">+12 %</p>
@@ -77,20 +77,20 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="rounded-[var(--radius)] border border-[color:rgba(9,82,40,0.12)] bg-[var(--brand-foam)] p-8 text-center shadow-[var(--shadow)]">
+        <section className="rounded-[var(--radius)] border border-border bg-white p-8 text-center shadow-[var(--shadow)]">
           <p className="text-sm font-medium uppercase tracking-wide text-[color:rgba(11,11,11,0.6)]">
             Déjà en place chez nos clients pilotes
           </p>
           <div className="mt-6 flex flex-col gap-6 text-sm text-[color:rgba(11,11,11,0.7)] sm:flex-row sm:justify-center">
-            <div className="rounded-[var(--radius)] bg-[var(--brand-mint)] px-6 py-4 text-[var(--text)]">
+            <div className="rounded-[var(--radius)] bg-muted px-6 py-4">
               <p className="text-lg font-semibold text-[var(--text)]">+40%</p>
               <p className="text-xs uppercase tracking-wide text-[color:rgba(11,11,11,0.6)]">transparence perçue</p>
             </div>
-            <div className="rounded-[var(--radius)] bg-[var(--brand-mint)] px-6 py-4 text-[var(--text)]">
+            <div className="rounded-[var(--radius)] bg-muted px-6 py-4">
               <p className="text-lg font-semibold text-[var(--text)]">3 semaines</p>
               <p className="text-xs uppercase tracking-wide text-[color:rgba(11,11,11,0.6)]">pour déployer Leaft</p>
             </div>
-            <div className="rounded-[var(--radius)] bg-[var(--brand-mint)] px-6 py-4 text-[var(--text)]">
+            <div className="rounded-[var(--radius)] bg-muted px-6 py-4">
               <p className="text-lg font-semibold text-[var(--text)]">1 seul outil</p>
               <p className="text-xs uppercase tracking-wide text-[color:rgba(11,11,11,0.6)]">pour RH, managers et employés</p>
             </div>
