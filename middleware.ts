@@ -13,7 +13,10 @@ const isPublicRoute = createRouteMatcher([
 
 export default clerkMiddleware((auth, request) => {
   if (!isPublicRoute(request)) {
-    auth().requireAuth();
+    const { userId, redirectToSignIn } = auth();
+    if (!userId) {
+      return redirectToSignIn({ returnBackUrl: request.url });
+    }
   }
 });
 
