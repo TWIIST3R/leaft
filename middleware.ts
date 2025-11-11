@@ -1,7 +1,14 @@
-import { authMiddleware } from "@clerk/nextjs";
+import { clerkMiddleware } from "@clerk/nextjs/server";
 
-export default authMiddleware({
-  publicRoutes: [
+export default clerkMiddleware((auth) => {
+  auth().protect((request) => {
+    if (request.isPublicRoute) return;
+  });
+});
+
+export const config = {
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp)).*)",
     "/",
     "/pricing",
     "/contact",
@@ -11,10 +18,5 @@ export default authMiddleware({
     "/sign-in(.*)",
     "/sign-up(.*)",
   ],
-  ignoredRoutes: ["/api/(.*)"],
-});
-
-export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp)).*)"],
 };
 
