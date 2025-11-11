@@ -1,23 +1,28 @@
-function readEnv(name: string, required: boolean) {
+function readEnv(name: string, required: boolean): string | undefined {
   const value = process.env[name];
   if (required && (!value || value.length === 0)) {
     throw new Error(`[env] Missing required environment variable: ${name}`);
   }
-  return value ?? "";
+  return value;
 }
 
+const requireEnv = (name: string) => {
+  const value = readEnv(name, true);
+  return value ?? "";
+};
+
 export const serverEnv = {
-  SUPABASE_SERVICE_ROLE_KEY: readEnv("SUPABASE_SERVICE_ROLE_KEY", true),
-  CLERK_SECRET_KEY: readEnv("CLERK_SECRET_KEY", true),
-  STRIPE_SECRET_KEY: readEnv("STRIPE_SECRET_KEY", true),
-  STRIPE_WEBHOOK_SECRET: readEnv("STRIPE_WEBHOOK_SECRET", true),
+  SUPABASE_SERVICE_ROLE_KEY: readEnv("SUPABASE_SERVICE_ROLE_KEY", false),
+  CLERK_SECRET_KEY: requireEnv("CLERK_SECRET_KEY"),
+  STRIPE_SECRET_KEY: requireEnv("STRIPE_SECRET_KEY"),
+  STRIPE_WEBHOOK_SECRET: requireEnv("STRIPE_WEBHOOK_SECRET"),
 };
 
 export const clientEnv = {
-  NEXT_PUBLIC_SUPABASE_URL: readEnv("NEXT_PUBLIC_SUPABASE_URL", true),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: readEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", true),
-  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: readEnv("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", true),
-  NEXT_PUBLIC_APP_URL: readEnv("NEXT_PUBLIC_APP_URL", true),
+  NEXT_PUBLIC_SUPABASE_URL: requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: requireEnv("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"),
+  NEXT_PUBLIC_APP_URL: requireEnv("NEXT_PUBLIC_APP_URL"),
 };
 
 export const optionalEnv = {
