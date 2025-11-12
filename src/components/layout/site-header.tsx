@@ -1,6 +1,6 @@
 "use client";
 
-import { ClerkLoaded, ClerkLoading, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -32,39 +32,29 @@ export function SiteHeader() {
         </nav>
         <div className="hidden items-center gap-3 sm:flex">
         <div className="flex items-center gap-3">
-          <ClerkLoaded>
-            <SignedOut>
-              <Link
-                href="/sign-in"
-                className="rounded-full border border-border px-4 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-muted"
-              >
-                Connexion
-              </Link>
-              <Link
-                href="/sign-up"
-                className="rounded-full border border-border px-4 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-[var(--brand)]/10"
-              >
-                Créer un compte
-              </Link>
-            </SignedOut>
-            <SignedIn>
-              <Link
-                href="/dashboard"
-                className="rounded-full border border-border px-4 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-muted"
-              >
-                Accéder au dashboard
-              </Link>
-              <UserButton afterSignOutUrl="/" />
-            </SignedIn>
-          </ClerkLoaded>
-          <ClerkLoading>
-              <Link
-                href="/sign-in"
-                className="rounded-full border border-border px-4 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-muted"
-              >
-                Connexion
-              </Link>
-          </ClerkLoading>
+          <SignedOut>
+            <Link
+              href="/sign-in"
+              className="rounded-full border border-border px-4 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-muted"
+            >
+              Connexion
+            </Link>
+            <Link
+              href="/sign-up"
+              className="rounded-full border border-border px-4 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-[var(--brand)]/10"
+            >
+              Créer un compte
+            </Link>
+          </SignedOut>
+          <SignedIn>
+            <Link
+              href="/dashboard"
+              className="rounded-full border border-border px-4 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-muted"
+            >
+              Accéder au dashboard
+            </Link>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
           <Link
             href="/contact"
             className="rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
