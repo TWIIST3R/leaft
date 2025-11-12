@@ -24,7 +24,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider publishableKey={clientEnv.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}>
+    <ClerkProvider
+      publishableKey={clientEnv.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      clerkJSUrl="https://clerkjs.com/clerk.js"
+      clerkJSVersion="latest"
+    >
       <html lang="fr">
         <body className={`${inter.variable} antialiased bg-[var(--bg)] text-[var(--text)]`}>
           <div className="flex min-h-screen flex-col">
