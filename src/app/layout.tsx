@@ -23,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider publishableKey={clientEnv.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}>
       <html lang="fr">
         <body className={`${inter.variable} antialiased bg-[var(--bg)] text-[var(--text)]`}>
           <div className="flex min-h-screen flex-col">
