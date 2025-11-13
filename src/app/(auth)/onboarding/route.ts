@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -18,7 +18,16 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = await supabaseServer();
-    const user = await currentUser();
+
+    // Get organization name from Clerk
+    let organizationName = "Mon entreprise";
+    try {
+      const organization = await clerkClient().organizations.getOrganization({ organizationId: orgId });
+      organizationName = organization.name || "Mon entreprise";
+    } catch (error) {
+      console.error("Error fetching organization from Clerk:", error);
+      // Use default name
+    }
 
     // Check if organization already exists in database
     const { data: existingOrg } = await supabase
@@ -37,7 +46,7 @@ export async function GET(request: NextRequest) {
         .from("organizations")
         .insert({
           clerk_organization_id: orgId,
-          name: user?.organizationMemberships?.[0]?.organization.name || "Mon entreprise",
+          name: organizationName,
         })
         .select("id")
         .single();
