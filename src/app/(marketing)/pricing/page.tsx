@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Hero } from "@/components/marketing/hero";
 import { PricingPageClient } from "./pricing-client";
 
@@ -145,6 +146,23 @@ const plans: PricingPlan[] = [
 ];
 
 export default function PricingPage() {
-  return <PricingPageClient plans={plans} />;
+  return (
+    <Suspense fallback={
+      <main className="bg-[var(--brand)] text-white">
+        <section className="mx-auto flex max-w-6xl flex-col gap-16 px-6 pb-24 pt-20 sm:px-10 lg:px-16">
+          <Hero
+            eyebrow="Tarification Leaft"
+            title="Des plans transparents pour accompagner la croissance de votre entreprise."
+            description="Des tarifs accessibles pour accompagner vos talents, sans compromis sur la qualité."
+            ctas={[{ href: "/contact", label: "Parler à un expert", variant: "primary" }]}
+            align="center"
+            tone="dark"
+          />
+        </section>
+      </main>
+    }>
+      <PricingPageClient plans={plans} />
+    </Suspense>
+  );
 }
 
