@@ -232,19 +232,27 @@ export async function syncSubscriptionFromStripe(subscription: Stripe.Subscripti
   const seatCount = parseInt(subscription.metadata.seat_count || "0", 10);
   const planType = (subscription.metadata.plan_type || "monthly") as "monthly" | "annual";
 
+  // Extract period dates (Stripe uses Unix timestamps)
+  // Type assertion needed because TypeScript types may not be fully up to date
+  const sub = subscription as Stripe.Subscription & {
+    current_period_start: number;
+    current_period_end: number;
+    canceled_at: number | null;
+  };
+
   // Upsert subscription
   const { error } = await supabase.from("subscriptions").upsert(
     {
       organization_id: organizationId,
       stripe_subscription_id: subscription.id,
-      stripe_customer_id: subscription.customer as string,
+      stripe_customer_id: typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id,
       status: subscription.status,
       plan_type: planType,
       seat_count: seatCount,
-      current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
+      current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
       cancel_at_period_end: subscription.cancel_at_period_end ?? false,
-      canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
+      canceled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000).toISOString() : null,
     },
     {
       onConflict: "stripe_subscription_id",
