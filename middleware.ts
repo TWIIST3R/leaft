@@ -9,6 +9,7 @@ const isPublicRoute = createRouteMatcher([
   "/privacy",
   "/sign-in(.*)",
   "/sign-up(.*)",
+  "/api/stripe/webhook", // Stripe webhooks don't need auth
 ]);
 
 export default clerkMiddleware(async (auth, request) => {

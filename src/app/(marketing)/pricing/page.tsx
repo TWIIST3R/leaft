@@ -1,5 +1,5 @@
 import { Hero } from "@/components/marketing/hero";
-import { PricingTable } from "./pricing-table";
+import { PricingPageClient } from "./pricing-client";
 
 export type PricingPlan = {
   range: string;
@@ -145,27 +145,6 @@ const plans: PricingPlan[] = [
 ];
 
 export default function PricingPage() {
-  return (
-    <main className="bg-[var(--brand)] text-white">
-      <section className="mx-auto flex max-w-6xl flex-col gap-16 px-6 pb-24 pt-20 sm:px-10 lg:px-16">
-        <Hero
-          eyebrow="Tarification Leaft"
-          title="Des plans transparents pour accompagner la croissance de votre entreprise."
-          description="Des tarifs accessibles pour accompagner vos talents, sans compromis sur la qualité."
-          ctas={[{ href: "/contact", label: "Parler à un expert", variant: "primary" }]}
-          align="center"
-          tone="dark"
-        />
-
-        <PricingTable plans={plans} />
-
-        <div className="rounded-[var(--radius)] border border-white/20 bg-white/10 p-8 text-sm text-white">
-          Facturation annuelle : forfait mensuel ×10 + (Nombre de talents × Prix/talent mensuel ×10). Pour un plan
-          supérieur à 200 talents ou des besoins avancés (multi-entités, intégrations SIRH), contactez-nous pour un
-          accompagnement dédié.
-        </div>
-      </section>
-    </main>
-  );
+  return <PricingPageClient plans={plans} />;
 }
 

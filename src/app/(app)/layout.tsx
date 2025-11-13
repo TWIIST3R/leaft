@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ReactNode } from "react";
+import { redirect } from "next/navigation";
 import { DashboardTopbar } from "@/components/dashboard/topbar";
+import { checkSubscriptionAccess } from "@/lib/subscription-check";
 
 const navigation = [
   { label: "Rémunération", href: "/dashboard", badge: "En cours" },
@@ -10,7 +12,15 @@ const navigation = [
   { label: "Objectifs", href: "/dashboard/objectives" },
 ];
 
-export default function AppLayout({ children }: { children: ReactNode }) {
+export default async function AppLayout({ children }: { children: ReactNode }) {
+  // Check subscription access
+  const subscriptionCheck = await checkSubscriptionAccess();
+
+  // If no subscription, redirect to pricing (except if coming from checkout)
+  if (!subscriptionCheck.hasAccess && subscriptionCheck.reason === "no_subscription") {
+    redirect("/pricing?subscription_required=true");
+  }
+
   return (
     <div className="flex min-h-screen bg-[#f7f9f7] text-[var(--text)]">
       <aside className="hidden w-64 border-r border-[#e2e7e2] bg-white/90 px-6 py-8 lg:flex lg:flex-col lg:backdrop-blur">
