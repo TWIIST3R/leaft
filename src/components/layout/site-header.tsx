@@ -39,12 +39,6 @@ export function SiteHeader() {
             >
               Connexion
             </Link>
-            <Link
-              href="/sign-up"
-              className="rounded-full border border-border px-4 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-[var(--brand)]/10"
-            >
-              Créer un compte
-            </Link>
           </SignedOut>
           <SignedIn>
             <Link

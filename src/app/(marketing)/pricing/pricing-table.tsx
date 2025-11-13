@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
+import Link from "next/link";
 import type { PricingPlan } from "./page";
 
 type BillingCycle = "monthly" | "annual";
@@ -74,22 +75,17 @@ export function PricingTable({ plans }: { plans: PricingPlan[] }) {
                 <span className="text-sm font-medium text-[color:rgba(11,11,11,0.65)]">{data.suffix}</span>
               </div>
               <p className="mt-1 text-xs uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">{data.fixed}</p>
-              <button
-                type="button"
+              <Link
+                href="/sign-up"
                 className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-[var(--brand)] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
               >
-                {data.ctaLabel}
-              </button>
+                Choisir ce plan
+              </Link>
               <div className="mt-6 space-y-3 text-sm text-[color:rgba(11,11,11,0.7)]">
                 <p className="font-semibold">Est inclus :</p>
-                <ul className="space-y-2">
+                <ul className="space-y-2 list-disc list-inside [&_li::marker]:text-[var(--brand)]">
                   {data.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-3">
-                      <span className="mt-[2px] flex h-6 w-6 items-center justify-center rounded-full bg-[var(--brand)] text-sm font-semibold text-white shadow-[0_8px_18px_rgba(9,82,40,0.3)]">
-                        ✓
-                      </span>
-                      <span>{feature}</span>
-                    </li>
+                    <li key={feature}>{feature}</li>
                   ))}
                 </ul>
               </div>
