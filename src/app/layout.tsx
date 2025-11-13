@@ -26,8 +26,6 @@ export default function RootLayout({
   return (
     <ClerkProvider
       publishableKey={clientEnv.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
-      clerkJSUrl="https://clerkjs.com/clerk.js"
-      clerkJSVersion="latest"
     >
       <html lang="fr">
         <body className={`${inter.variable} antialiased bg-[var(--bg)] text-[var(--text)]`}>
