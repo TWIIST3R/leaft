@@ -22,13 +22,9 @@ export default function OnboardingPage() {
       return;
     }
 
-    // If no orgId from Clerk, show error message
-    if (!orgId) {
-      setCheckingOrg(false);
-      return;
-    }
-
-    // Check if organization exists in Supabase
+    // Check if organization already exists in Supabase
+    // If it exists with an active subscription, redirect to dashboard
+    // Otherwise, show the onboarding form to create the organization
     const checkOrganization = async () => {
       try {
         const response = await fetch("/api/onboarding/check");
@@ -45,7 +41,7 @@ export default function OnboardingPage() {
           return;
         }
 
-        // Organization doesn't exist or has no subscription, show form
+        // Organization doesn't exist or has no subscription, show onboarding form
         setCheckingOrg(false);
       } catch (err) {
         console.error("Error checking organization:", err);
@@ -54,27 +50,13 @@ export default function OnboardingPage() {
     };
 
     checkOrganization();
-  }, [isLoaded, isSignedIn, userId, orgId, router]);
+  }, [isLoaded, isSignedIn, userId, router]);
 
   if (!isLoaded || !isSignedIn || !userId || checkingOrg) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f6f8f6]">
         <div className="text-center">
           <p className="text-[color:rgba(11,11,11,0.6)]">Chargement...</p>
-        </div>
-      </main>
-    );
-  }
-
-  // If no orgId, user needs to create organization in Clerk
-  if (!orgId) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f6f8f6] px-4 py-12">
-        <div className="w-full max-w-2xl rounded-3xl border border-[#e2e7e2] bg-white p-8 shadow-[0_24px_60px_rgba(17,27,24,0.08)] text-center">
-          <h1 className="text-xl font-semibold text-[var(--text)]">Organisation requise</h1>
-          <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
-            Vous devez créer une organisation dans Clerk pour continuer. Veuillez contacter le support si vous rencontrez ce problème.
-          </p>
         </div>
       </main>
     );
@@ -113,7 +95,10 @@ export default function OnboardingPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Une erreur est survenue");
+        const errorMsg = data.details
+          ? `${data.error}: ${data.details}`
+          : data.error || "Une erreur est survenue";
+        throw new Error(errorMsg);
       }
 
       // Redirect to Stripe checkout

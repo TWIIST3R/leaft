@@ -7,7 +7,12 @@ export async function GET(request: NextRequest) {
   try {
     const { userId, orgId } = await auth();
 
-    if (!userId || !orgId) {
+    if (!userId) {
+      return NextResponse.json({ exists: false, hasSubscription: false });
+    }
+
+    // If no orgId in Clerk, organization doesn't exist yet
+    if (!orgId) {
       return NextResponse.json({ exists: false, hasSubscription: false });
     }
 
