@@ -16,9 +16,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // Check subscription access
   const subscriptionCheck = await checkSubscriptionAccess();
 
-  // If no subscription, redirect to pricing (except if coming from checkout)
+  // If no subscription, redirect to onboarding (user needs to complete setup)
   if (!subscriptionCheck.hasAccess && subscriptionCheck.reason === "no_subscription") {
-    redirect("/pricing?subscription_required=true");
+    redirect("/onboarding");
+  }
+
+  // If organization not found, redirect to onboarding
+  if (!subscriptionCheck.hasAccess && subscriptionCheck.reason === "organization_not_found") {
+    redirect("/onboarding");
   }
 
   return (
