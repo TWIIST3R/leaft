@@ -8,21 +8,73 @@ import { Hero } from "@/components/marketing/hero";
 export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checkingOrg, setCheckingOrg] = useState(true);
   const router = useRouter();
   const { isSignedIn, userId, orgId, isLoaded } = useAuth();
 
-  // Redirect if not signed in (after auth is loaded)
+  // Check if organization already exists in Supabase
   useEffect(() => {
-    if (isLoaded && (!isSignedIn || !userId || !orgId)) {
+    if (!isLoaded) return;
+
+    // If not signed in, redirect to sign-up
+    if (!isSignedIn || !userId) {
       router.push("/sign-up");
+      return;
     }
+
+    // If no orgId from Clerk, show error message
+    if (!orgId) {
+      setCheckingOrg(false);
+      return;
+    }
+
+    // Check if organization exists in Supabase
+    const checkOrganization = async () => {
+      try {
+        const response = await fetch("/api/onboarding/check");
+        if (!response.ok) {
+          setCheckingOrg(false);
+          return;
+        }
+
+        const data = await response.json();
+
+        if (data.exists && data.hasSubscription) {
+          // Organization exists and has subscription, redirect to dashboard
+          router.push("/dashboard");
+          return;
+        }
+
+        // Organization doesn't exist or has no subscription, show form
+        setCheckingOrg(false);
+      } catch (err) {
+        console.error("Error checking organization:", err);
+        setCheckingOrg(false);
+      }
+    };
+
+    checkOrganization();
   }, [isLoaded, isSignedIn, userId, orgId, router]);
 
-  if (!isLoaded || !isSignedIn || !userId || !orgId) {
+  if (!isLoaded || !isSignedIn || !userId || checkingOrg) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f6f8f6]">
         <div className="text-center">
           <p className="text-[color:rgba(11,11,11,0.6)]">Chargement...</p>
+        </div>
+      </main>
+    );
+  }
+
+  // If no orgId, user needs to create organization in Clerk
+  if (!orgId) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f6f8f6] px-4 py-12">
+        <div className="w-full max-w-2xl rounded-3xl border border-[#e2e7e2] bg-white p-8 shadow-[0_24px_60px_rgba(17,27,24,0.08)] text-center">
+          <h1 className="text-xl font-semibold text-[var(--text)]">Organisation requise</h1>
+          <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
+            Vous devez créer une organisation dans Clerk pour continuer. Veuillez contacter le support si vous rencontrez ce problème.
+          </p>
         </div>
       </main>
     );
