@@ -1,6 +1,7 @@
 "use client";
 
 import { SignUp } from "@clerk/nextjs";
+import { frFR } from "@clerk/localizations";
 
 export default function SignUpPage() {
   return (
@@ -11,6 +12,7 @@ export default function SignUpPage() {
           path="/sign-up"
           signInUrl="/sign-in"
           fallbackRedirectUrl="/onboarding"
+          localization={frFR}
           appearance={{
             elements: {
               rootBox: "mx-auto",
