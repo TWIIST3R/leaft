@@ -51,18 +51,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create organization in Supabase
-    // The organization is created for the first time during onboarding
-    const { data: newOrg, error: orgError } = await supabase
-      .from("organizations")
-      .insert({
-        clerk_organization_id: clerkOrgId,
-        name: organizationName,
-      })
-      .select("id")
-      .single();
+    // Create organization in Supabase using RPC function
+    // This function bypasses RLS in a controlled way and creates both
+    // the organization and the user_organizations entry
+    const { data: newOrg, error: orgError } = await supabase.rpc("create_organization_onboarding", {
+      p_clerk_organization_id: clerkOrgId,
+      p_organization_name: organizationName,
+      p_clerk_user_id: userId,
+    });
 
-    if (orgError || !newOrg) {
+    if (orgError || !newOrg || newOrg.length === 0) {
       console.error("Error creating organization in Supabase:", orgError);
       return NextResponse.json(
         { error: "Failed to create organization in database", details: orgError?.message },
@@ -70,20 +68,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const organizationId = newOrg.id;
-
-    // Create user_organizations entry with Owner role
-    // The admin who creates the organization becomes the Owner
-    const { error: userOrgError } = await supabase.from("user_organizations").insert({
-      clerk_user_id: userId,
-      organization_id: organizationId,
-      role: "Owner",
-    });
-
-    if (userOrgError) {
-      console.error("Error creating user_organizations:", userOrgError);
-      return NextResponse.json({ error: "Failed to create user organization" }, { status: 500 });
-    }
+    const organizationId = newOrg[0].id;
 
     // Get user email for Stripe customer
     const user = await currentUser();
