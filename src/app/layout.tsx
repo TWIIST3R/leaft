@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { frFR } from "@clerk/localizations";
 import "./globals.css";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -26,6 +27,7 @@ export default function RootLayout({
   return (
     <ClerkProvider
       publishableKey={clientEnv.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      localization={frFR}
     >
       <html lang="fr">
         <body className={`${inter.variable} antialiased bg-[var(--bg)] text-[var(--text)]`}>
