@@ -322,7 +322,7 @@ export async function syncSubscriptionFromStripe(subscription: Stripe.Subscripti
   // Find the talent item in subscription
   for (const item of subscription.items.data) {
     const priceMetadata = item.price.metadata;
-    if (priceMetadata?.type === "talent") {
+    if (priceMetadata?.type === "talent" && item.quantity !== undefined) {
       seatCount = item.quantity;
       break;
     }
