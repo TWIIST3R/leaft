@@ -53,9 +53,9 @@ Créez les produits et prices dans le dashboard Stripe pour avoir plus de contr�
 
 1. **Aller dans Stripe Dashboard** → Products
 
-2. **Créer un produit "Leaft"**
-   - Nom : `Leaft`
-   - Description : `Abonnement Leaft - Transparence salariale et gestion des talents`
+2. **Créer un produit "Leaft - Talent"**
+   - Nom : `Leaft - Talent`
+   - Description : `Abonnement Leaft par talent - Transparence salariale et gestion des talents`
 
 3. **Créer les Prices pour chaque palier**
 
@@ -63,18 +63,24 @@ Créez les produits et prices dans le dashboard Stripe pour avoir plus de contr�
 
    **Exemple pour "1 à 5 talents" :**
    - **Mensuel** :
-     - Montant : `9400` centimes (49€ base + 9€ × 5 = 94€)
+     - Montant : `900` centimes (9€ par talent)
      - Récurrence : Mensuel
-     - Metadata : `seat_count: "5"`, `plan_type: "monthly"`
+     - Metadata : `type: "talent"`, `tier: "1-5"`, `plan_type: "monthly"`
    
    - **Annuel** :
-     - Montant : `94000` centimes (490€ base + 90€ × 5 = 940€)
+     - Montant : `9000` centimes (90€ par talent)
      - Récurrence : Annuel
-     - Metadata : `seat_count: "5"`, `plan_type: "annual"`
+     - Metadata : `type: "talent"`, `tier: "1-5"`, `plan_type: "annual"`
+
+   **Paliers de prix par talent :**
+   - **1-5 talents** : 9€/mois ou 90€/an
+   - **6-19 talents** : 8€/mois ou 80€/an
+   - **20-99 talents** : 7€/mois ou 70€/an
+   - **100+ talents** : 6€/mois ou 60€/an
 
    **Formule de calcul :**
-   - Mensuel : `(base + perSeat × seatCount) × 100` centimes
-   - Annuel : `(base × 10 + perSeat × 10 × seatCount) × 100` centimes
+   - Le montant total = prix par talent × nombre de talents
+   - La quantité (`quantity`) dans Stripe Checkout = nombre de talents
 
 4. **Récupérer les Price IDs** et les stocker dans votre code (optionnel)
 

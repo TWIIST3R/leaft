@@ -3,18 +3,19 @@ import { supabaseServer } from "@/lib/supabase/server";
 import type Stripe from "stripe";
 
 // Pricing tiers based on seat count
+// Only per-seat pricing, no base subscription
 const PRICING_TIERS = {
   monthly: {
-    "1-5": { perSeat: 9, base: 49 },
-    "6-19": { perSeat: 8, base: 79 },
-    "20-99": { perSeat: 7, base: 99 },
-    "100+": { perSeat: 6, base: 119 },
+    "1-5": { perSeat: 9 },
+    "6-19": { perSeat: 8 },
+    "20-99": { perSeat: 7 },
+    "100+": { perSeat: 6 },
   },
   annual: {
-    "1-5": { perSeat: 90, base: 490 },
-    "6-19": { perSeat: 80, base: 790 },
-    "20-99": { perSeat: 70, base: 990 },
-    "100+": { perSeat: 60, base: 1190 },
+    "1-5": { perSeat: 90 },
+    "6-19": { perSeat: 80 },
+    "20-99": { perSeat: 70 },
+    "100+": { perSeat: 60 },
   },
 } as const;
 
@@ -30,11 +31,12 @@ export function getPricingTier(seatCount: number): "1-5" | "6-19" | "20-99" | "1
 
 /**
  * Calculate subscription amount based on seat count and plan type
+ * Only per-seat pricing, no base subscription
  */
 export function calculateSubscriptionAmount(seatCount: number, planType: "monthly" | "annual"): number {
   const tier = getPricingTier(seatCount);
   const pricing = PRICING_TIERS[planType][tier];
-  return pricing.base + pricing.perSeat * seatCount;
+  return pricing.perSeat * seatCount;
 }
 
 /**
@@ -74,27 +76,6 @@ export async function getOrCreateStripeCustomer(organizationId: string, email: s
 }
 
 /**
- * Get or create Stripe Product for Leaft Base (Forfait)
- */
-async function getOrCreateLeaftBaseProduct() {
-  const productName = "Leaft - Forfait";
-  
-  // Try to find existing product
-  const products = await stripe.products.list({ limit: 100 });
-  const existingProduct = products.data.find((p) => p.name === productName);
-
-  if (existingProduct) {
-    return existingProduct;
-  }
-
-  // Create new product
-  return await stripe.products.create({
-    name: productName,
-    description: "Forfait mensuel Leaft - Accès à la plateforme",
-  });
-}
-
-/**
  * Get or create Stripe Product for Leaft Talent (Prix par talent)
  */
 async function getOrCreateLeaftTalentProduct() {
@@ -111,57 +92,8 @@ async function getOrCreateLeaftTalentProduct() {
   // Create new product
   return await stripe.products.create({
     name: productName,
-    description: "Prix par talent Leaft",
+    description: "Abonnement Leaft par talent",
   });
-}
-
-/**
- * Get or create Stripe Price for base subscription (forfait)
- */
-async function getOrCreateBasePrice(
-  productId: string,
-  tier: "1-5" | "6-19" | "20-99" | "100+",
-  planType: "monthly" | "annual",
-): Promise<string> {
-  const pricing = PRICING_TIERS[planType][tier];
-  const amount = pricing.base;
-  const interval = planType === "monthly" ? "month" : "year";
-
-  // Try to find existing price
-  const prices = await stripe.prices.list({
-    product: productId,
-    active: true,
-    limit: 100,
-  });
-
-  const existingPrice = prices.data.find(
-    (p) =>
-      p.unit_amount === Math.round(amount * 100) &&
-      p.currency === "eur" &&
-      p.recurring?.interval === interval &&
-      p.metadata?.tier === tier,
-  );
-
-  if (existingPrice) {
-    return existingPrice.id;
-  }
-
-  // Create new price
-  const price = await stripe.prices.create({
-    product: productId,
-    unit_amount: Math.round(amount * 100), // Convert to cents
-    currency: "eur",
-    recurring: {
-      interval,
-    },
-    metadata: {
-      type: "base",
-      tier: tier,
-      plan_type: planType,
-    },
-  });
-
-  return price.id;
 }
 
 /**
@@ -215,7 +147,7 @@ async function getOrCreateTalentPrice(
 
 /**
  * Create Stripe Checkout Session for subscription
- * Uses two line items: base (forfait) and talent (prix unitaire)
+ * Only per-seat pricing, no base subscription
  */
 export async function createCheckoutSession(
   organizationId: string,
@@ -227,12 +159,10 @@ export async function createCheckoutSession(
 ) {
   const tier = getPricingTier(seatCount);
 
-  // Get or create products
-  const baseProduct = await getOrCreateLeaftBaseProduct();
+  // Get or create talent product
   const talentProduct = await getOrCreateLeaftTalentProduct();
 
-  // Get or create prices
-  const basePriceId = await getOrCreateBasePrice(baseProduct.id, tier, planType);
+  // Get or create talent price
   const talentPriceId = await getOrCreateTalentPrice(talentProduct.id, tier, planType);
 
   const session = await stripe.checkout.sessions.create({
@@ -241,12 +171,8 @@ export async function createCheckoutSession(
     mode: "subscription",
     line_items: [
       {
-        price: basePriceId,
-        quantity: 1, // Forfait unique
-      },
-      {
         price: talentPriceId,
-        quantity: seatCount, // Nombre de talents
+        quantity: seatCount, // Nombre de talents uniquement
       },
     ],
     metadata: {

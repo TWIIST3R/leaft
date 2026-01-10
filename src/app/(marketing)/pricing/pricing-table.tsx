@@ -127,7 +127,6 @@ export function PricingTable({ plans }: { plans: PricingPlan[] }) {
                 <span className="text-4xl font-semibold text-[var(--brand)]">{data.perSeat}</span>
                 <span className="text-sm font-medium text-[color:rgba(11,11,11,0.65)]">{data.suffix}</span>
               </div>
-              <p className="mt-1 text-xs uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">{data.fixed}</p>
               <button
                 type="button"
                 onClick={() => handleSelectPlan(plan)}

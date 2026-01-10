@@ -40,7 +40,7 @@ export function PricingPageClient({ plans }: { plans: PricingPlan[] }) {
         <PricingTable plans={plans} />
 
         <div className="rounded-[var(--radius)] border border-white/20 bg-white/10 p-8 text-sm text-white">
-          Facturation annuelle : forfait mensuel ×10 + (Nombre de talents × Prix/talent mensuel ×10). Pour un plan
+          Facturation annuelle : Nombre de talents × Prix/talent annuel (économisez 2 mois par rapport à la facturation mensuelle). Pour un plan
           supérieur à 200 talents ou des besoins avancés (multi-entités, intégrations SIRH), contactez-nous pour un
           accompagnement dédié.
         </div>
