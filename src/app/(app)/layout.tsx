@@ -16,13 +16,18 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // Check subscription access
   const subscriptionCheck = await checkSubscriptionAccess();
 
-  // If no subscription, redirect to onboarding (user needs to complete setup)
-  if (!subscriptionCheck.hasAccess && subscriptionCheck.reason === "no_subscription") {
-    redirect("/onboarding");
+  // If not authenticated, redirect to sign-in (middleware should handle this, but just in case)
+  if (!subscriptionCheck.hasAccess && subscriptionCheck.reason === "not_authenticated") {
+    redirect("/sign-in");
   }
 
   // If organization not found, redirect to onboarding
   if (!subscriptionCheck.hasAccess && subscriptionCheck.reason === "organization_not_found") {
+    redirect("/onboarding");
+  }
+
+  // If no subscription, redirect to onboarding (user needs to complete setup)
+  if (!subscriptionCheck.hasAccess && subscriptionCheck.reason === "no_subscription") {
     redirect("/onboarding");
   }
 
