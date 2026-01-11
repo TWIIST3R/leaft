@@ -29,8 +29,8 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
         // Call API to verify and sync subscription if needed
         const response = await fetch(`/api/stripe/verify-session?session_id=${sessionId}`);
         if (response.ok) {
-          // Remove session_id from URL and refresh
-          router.replace("/dashboard");
+          // Remove session_id from URL and force full page reload to ensure subscription is recognized
+          window.location.href = "/dashboard";
         } else {
           // If verification fails, wait a bit and retry (webhook might be delayed)
           if (retryCount < maxRetries) {

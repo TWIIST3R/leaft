@@ -73,10 +73,12 @@ export default function OnboardingPage() {
 
     const formData = new FormData(e.currentTarget);
     const organizationName = formData.get("organizationName") as string;
+    const businessName = formData.get("businessName") as string;
+    const taxId = formData.get("taxId") as string;
     const employeeCount = parseInt(formData.get("employeeCount") as string, 10);
     const planType = formData.get("planType") as "monthly" | "annual";
 
-    if (!organizationName || !employeeCount || !planType) {
+    if (!organizationName || !businessName || !taxId || !employeeCount || !planType) {
       setError("Veuillez remplir tous les champs");
       setLoading(false);
       return;
@@ -91,6 +93,8 @@ export default function OnboardingPage() {
         },
         body: JSON.stringify({
           organizationName,
+          businessName,
+          taxId,
           employeeCount,
           planType,
         }),
@@ -140,7 +144,7 @@ export default function OnboardingPage() {
           <div className="space-y-6">
             <div>
               <label htmlFor="organizationName" className="block text-sm font-semibold text-[var(--text)]">
-                Nom de l'entreprise <span className="text-red-500">*</span>
+                Nom de l'organisation (interne) <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -150,6 +154,43 @@ export default function OnboardingPage() {
                 className="mt-2 w-full rounded-xl border border-[#e2e7e2] bg-white px-4 py-3 text-[var(--text)] transition focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
                 placeholder="Ex: Acme Corp"
               />
+              <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.6)]">
+                Nom utilisé dans l'application pour identifier votre organisation
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="businessName" className="block text-sm font-semibold text-[var(--text)]">
+                Nom légal de l'entreprise <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                id="businessName"
+                name="businessName"
+                required
+                className="mt-2 w-full rounded-xl border border-[#e2e7e2] bg-white px-4 py-3 text-[var(--text)] transition focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
+                placeholder="Ex: Acme Corporation SARL"
+              />
+              <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.6)]">
+                Nom officiel de votre entreprise (apparaîtra sur les factures)
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="taxId" className="block text-sm font-semibold text-[var(--text)]">
+                Numéro de TVA / SIRET <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                id="taxId"
+                name="taxId"
+                required
+                className="mt-2 w-full rounded-xl border border-[#e2e7e2] bg-white px-4 py-3 text-[var(--text)] transition focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
+                placeholder="Ex: FR12345678901 ou 12345678901234"
+              />
+              <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.6)]">
+                Numéro d'identification fiscale de votre entreprise
+              </p>
             </div>
 
             <div>

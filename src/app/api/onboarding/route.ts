@@ -13,11 +13,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { organizationName, employeeCount, planType } = body;
+    const { organizationName, businessName, taxId, employeeCount, planType } = body;
 
-    if (!organizationName || !employeeCount || !planType) {
+    if (!organizationName || !businessName || !taxId || !employeeCount || !planType) {
       return NextResponse.json(
-        { error: "Missing required fields: organizationName, employeeCount, planType" },
+        { error: "Missing required fields: organizationName, businessName, taxId, employeeCount, planType" },
         { status: 400 },
       );
     }
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     const email = user?.emailAddresses[0]?.emailAddress || "";
 
     // Get or create Stripe customer
-    const customer = await getOrCreateStripeCustomer(organizationId, email, organizationName);
+    const customer = await getOrCreateStripeCustomer(organizationId, email, businessName);
 
     // Create checkout session
     const session = await createCheckoutSession(
@@ -83,6 +83,8 @@ export async function POST(request: NextRequest) {
       customer.id,
       employeeCount,
       planType,
+      businessName,
+      taxId,
       `${clientEnv.NEXT_PUBLIC_APP_URL}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
       `${clientEnv.NEXT_PUBLIC_APP_URL}/onboarding?canceled=true`,
     );

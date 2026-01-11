@@ -148,12 +148,15 @@ async function getOrCreateTalentPrice(
 /**
  * Create Stripe Checkout Session for subscription
  * Only per-seat pricing, no base subscription
+ * Configured for B2B with tax ID collection
  */
 export async function createCheckoutSession(
   organizationId: string,
   customerId: string,
   seatCount: number,
   planType: "monthly" | "annual",
+  businessName: string,
+  taxId: string,
   successUrl: string,
   cancelUrl: string,
 ) {
@@ -175,11 +178,24 @@ export async function createCheckoutSession(
         quantity: seatCount, // Nombre de talents uniquement
       },
     ],
+    // Collect tax ID for businesses (B2B)
+    tax_id_collection: {
+      enabled: true,
+    },
+    // Update customer with business information
+    customer_update: {
+      name: "auto",
+      address: "auto",
+    },
+    // Collect billing address (required for tax ID collection)
+    billing_address_collection: "required",
     metadata: {
       organization_id: organizationId,
       seat_count: seatCount.toString(),
       tier: tier,
       plan_type: planType,
+      business_name: businessName,
+      tax_id: taxId,
     },
     success_url: successUrl,
     cancel_url: cancelUrl,
@@ -189,6 +205,8 @@ export async function createCheckoutSession(
         seat_count: seatCount.toString(),
         tier: tier,
         plan_type: planType,
+        business_name: businessName,
+        tax_id: taxId,
       },
     },
   });
