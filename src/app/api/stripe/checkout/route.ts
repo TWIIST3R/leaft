@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { createCheckoutSession, getOrCreateStripeCustomer } from "@/lib/stripe/subscriptions";
 import { supabaseServer } from "@/lib/supabase/server";
+import { stripe } from "@/lib/stripe";
 import { clientEnv } from "@/env";
 
 export async function POST(request: NextRequest) {
@@ -42,12 +43,29 @@ export async function POST(request: NextRequest) {
     // Get or create Stripe customer
     const customer = await getOrCreateStripeCustomer(organization.id, email, organization.name);
 
+    // Retrieve customer from Stripe to get business information if available
+    const stripeCustomer = await stripe.customers.retrieve(customer.id);
+    const businessName = stripeCustomer.name || organization.name;
+    
+    // Try to get tax ID from customer's tax_ids
+    let taxId = "";
+    if (stripeCustomer.tax_ids && stripeCustomer.tax_ids.data && stripeCustomer.tax_ids.data.length > 0) {
+      taxId = stripeCustomer.tax_ids.data[0].value;
+    }
+    
+    // If no tax ID in Stripe, use empty string (will be collected in checkout)
+    // Note: Stripe Checkout will still collect tax ID even if we pass an empty string
+    // because tax_id_collection is enabled
+
     // Create checkout session
+    // Note: If taxId is empty, Stripe Checkout will still collect it because tax_id_collection is enabled
     const session = await createCheckoutSession(
       organization.id,
       customer.id,
       seatCount,
       planType,
+      businessName,
+      taxId, // Empty string if not found, will be collected in checkout
       `${clientEnv.NEXT_PUBLIC_APP_URL}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
       `${clientEnv.NEXT_PUBLIC_APP_URL}/pricing?canceled=true`,
     );
