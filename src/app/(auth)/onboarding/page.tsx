@@ -152,20 +152,18 @@ export default function OnboardingPage() {
               <label htmlFor="employeeCount" className="block text-sm font-semibold text-[var(--text)]">
                 Nombre de talents <span className="text-red-500">*</span>
               </label>
-              <select
+              <input
+                type="number"
                 id="employeeCount"
                 name="employeeCount"
                 required
+                min="1"
+                step="1"
                 className="mt-2 w-full rounded-xl border border-[#e2e7e2] bg-white px-4 py-3 text-[var(--text)] transition focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
-              >
-                <option value="">Sélectionnez une option</option>
-                <option value="5">1 à 5 talents</option>
-                <option value="19">6 à 19 talents</option>
-                <option value="99">20 à 99 talents</option>
-                <option value="100">100+ talents</option>
-              </select>
+                placeholder="Ex: 5"
+              />
               <p className="mt-2 text-xs text-[color:rgba(11,11,11,0.6)]">
-                Vous pourrez ajuster ce nombre plus tard dans votre dashboard.
+                C'est le nombre de talents qui sera facturé lors de votre premier paiement. Vous pourrez ajouter des talents à tout moment depuis votre dashboard.
               </p>
             </div>
 
