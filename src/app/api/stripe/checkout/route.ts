@@ -45,6 +45,12 @@ export async function POST(request: NextRequest) {
 
     // Retrieve customer from Stripe to get business information if available
     const stripeCustomer = await stripe.customers.retrieve(customer.id);
+    
+    // Check if customer is deleted
+    if (stripeCustomer.deleted) {
+      return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+    }
+    
     const businessName = stripeCustomer.name || organization.name;
     
     // Try to get tax ID from customer's tax_ids
