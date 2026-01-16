@@ -3,9 +3,8 @@ import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { frFR } from "@clerk/localizations";
 import "./globals.css";
-import { SiteFooter } from "@/components/layout/site-footer";
-import { SiteHeader } from "@/components/layout/site-header";
 import { clientEnv } from "@/env";
+import { ConditionalLayoutClient } from "./conditional-layout-client";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -31,13 +30,13 @@ export default function RootLayout({
     >
       <html lang="fr">
         <body className={`${inter.variable} antialiased bg-[var(--bg)] text-[var(--text)]`}>
-          <div className="flex min-h-screen flex-col">
-            <SiteHeader />
-            <div className="grow">{children}</div>
-            <SiteFooter />
-          </div>
+          <ConditionalLayout>{children}</ConditionalLayout>
         </body>
       </html>
     </ClerkProvider>
   );
+}
+
+function ConditionalLayout({ children }: { children: React.ReactNode }) {
+  return <ConditionalLayoutClient>{children}</ConditionalLayoutClient>;
 }

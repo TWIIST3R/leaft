@@ -38,6 +38,16 @@ export default clerkMiddleware(async (auth, request) => {
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
 
+    // Check if there's a session_id in the URL (coming from Stripe checkout)
+    // In this case, allow access temporarily - the dashboard-client will handle verification
+    const url = new URL(request.url);
+    const sessionId = url.searchParams.get("session_id");
+    
+    if (sessionId) {
+      // Allow access if coming from checkout - dashboard-client will verify and sync
+      return;
+    }
+
     // Check subscription access
     const { hasAccess, reason } = await checkSubscriptionAccess();
     

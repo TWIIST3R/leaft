@@ -38,10 +38,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "No subscription found in session" }, { status: 400 });
     }
 
-    // Retrieve the subscription from Stripe
+    // Retrieve the subscription from Stripe with expanded customer
     const subscription = await stripe.subscriptions.retrieve(
       typeof session.subscription === "string" ? session.subscription : session.subscription.id,
+      {
+        expand: ["customer"],
+      },
     );
+
+    console.log("Retrieved subscription for verification:", {
+      subscriptionId: subscription.id,
+      status: subscription.status,
+      metadata: subscription.metadata,
+      customerMetadata: typeof subscription.customer === "object" && !subscription.customer.deleted
+        ? subscription.customer.metadata
+        : null,
+    });
 
     // Check if subscription is active
     if (subscription.status !== "active" && subscription.status !== "trialing") {
@@ -49,7 +61,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Sync subscription to database (this will upsert, so it's safe to call multiple times)
-    await syncSubscriptionFromStripe(subscription);
+    try {
+      await syncSubscriptionFromStripe(subscription);
+      console.log("Subscription synced successfully in verify-session");
+    } catch (syncError) {
+      console.error("Error syncing subscription in verify-session:", syncError);
+      return NextResponse.json(
+        { error: "Failed to sync subscription", details: syncError instanceof Error ? syncError.message : String(syncError) },
+        { status: 500 },
+      );
+    }
 
     return NextResponse.json({ success: true, synced: true });
   } catch (error) {

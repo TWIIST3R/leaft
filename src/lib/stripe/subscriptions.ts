@@ -77,7 +77,20 @@ export async function getOrCreateStripeCustomer(organizationId: string, email: s
   });
 
   // Update organization with customer ID
-  await supabase.from("organizations").update({ stripe_customer_id: customer.id }).eq("id", organizationId);
+  const { error: updateError } = await supabase
+    .from("organizations")
+    .update({ stripe_customer_id: customer.id })
+    .eq("id", organizationId);
+
+  if (updateError) {
+    console.error("Error updating organization with customer ID:", updateError);
+    throw updateError;
+  }
+
+  console.log("Updated organization with Stripe customer ID:", {
+    organizationId,
+    customerId: customer.id,
+  });
 
   return customer;
 }
