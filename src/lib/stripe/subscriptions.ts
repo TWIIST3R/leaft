@@ -333,28 +333,58 @@ export async function syncSubscriptionFromStripe(subscription: Stripe.Subscripti
   let fullSubscription: Stripe.Subscription;
   try {
     fullSubscription = await stripe.subscriptions.retrieve(subscription.id);
-    console.log("Retrieved full subscription from Stripe:", {
-      id: fullSubscription.id,
+    
+    // Log the full subscription structure to debug
+    const subscriptionJson = JSON.stringify(fullSubscription, null, 2);
+    console.log("Full subscription JSON (first 2000 chars):", subscriptionJson.substring(0, 2000));
+    console.log("Subscription object keys:", Object.keys(fullSubscription));
+    
+    // Try to find period dates in various possible locations
+    const subAny = fullSubscription as any;
+    console.log("Checking for period dates in various formats:", {
+      current_period_start: subAny.current_period_start,
+      currentPeriodStart: subAny.currentPeriodStart,
       hasCurrentPeriodStart: 'current_period_start' in fullSubscription,
-      hasCurrentPeriodEnd: 'current_period_end' in fullSubscription,
-      subscriptionType: typeof fullSubscription,
+      hasCurrentPeriodStartCamel: 'currentPeriodStart' in fullSubscription,
+      period_start: subAny.period_start,
+      billing_period_start: subAny.billing_period_start,
     });
   } catch (error) {
     console.error("Error retrieving full subscription:", error);
     throw new Error("Failed to retrieve subscription from Stripe");
   }
 
-  // Access properties using type assertion since TypeScript types may not include all properties
-  // These properties are always present on Stripe Subscription objects
-  const subscriptionWithDates = fullSubscription as Stripe.Subscription & {
-    current_period_start: number;
-    current_period_end: number;
-    canceled_at: number | null;
-  };
+  // Access properties - period dates are on subscription items, not directly on subscription
+  const subAny = fullSubscription as any;
+  let currentPeriodStart = subAny.current_period_start ?? subAny.currentPeriodStart;
+  let currentPeriodEnd = subAny.current_period_end ?? subAny.currentPeriodEnd;
+  let canceledAt = subAny.canceled_at ?? subAny.canceledAt ?? null;
 
-  const currentPeriodStart = subscriptionWithDates.current_period_start;
-  const currentPeriodEnd = subscriptionWithDates.current_period_end;
-  const canceledAt = subscriptionWithDates.canceled_at ?? null;
+  // Period dates are typically on the subscription items, not on the subscription itself
+  // Check the first subscription item for period dates
+  if ((!currentPeriodStart || !currentPeriodEnd) && fullSubscription.items?.data?.[0]) {
+    const firstItem = fullSubscription.items.data[0];
+    const itemAny = firstItem as any;
+    
+    // Period dates are on subscription items in newer Stripe API versions
+    currentPeriodStart = currentPeriodStart ?? itemAny.current_period_start;
+    currentPeriodEnd = currentPeriodEnd ?? itemAny.current_period_end;
+    
+    console.log("Found period dates in subscription item:", {
+      currentPeriodStart,
+      currentPeriodEnd,
+      itemId: firstItem.id,
+    });
+  }
+
+  // If still not found, use current time as fallback (not ideal but better than failing)
+  if (!currentPeriodStart || !currentPeriodEnd) {
+    console.warn("Period dates not found in subscription or items, using current time as fallback");
+    const now = Math.floor(Date.now() / 1000);
+    const oneMonthLater = now + (30 * 24 * 60 * 60); // 30 days in seconds
+    currentPeriodStart = currentPeriodStart ?? now;
+    currentPeriodEnd = currentPeriodEnd ?? oneMonthLater;
+  }
 
   console.log("Subscription period dates:", {
     subscriptionId: subscription.id,
