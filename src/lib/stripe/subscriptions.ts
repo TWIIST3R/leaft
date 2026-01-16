@@ -328,10 +328,17 @@ export async function syncSubscriptionFromStripe(subscription: Stripe.Subscripti
   const planType = (subscription.metadata.plan_type || "monthly") as "monthly" | "annual";
 
   // Extract period dates (Stripe uses Unix timestamps)
+  // Type assertion needed because TypeScript types may not include all properties
+  const sub = subscription as Stripe.Subscription & {
+    current_period_start: number | Date;
+    current_period_end: number | Date;
+    canceled_at: number | Date | null;
+  };
+
   // Handle both number and Date types, and ensure values are valid
-  const currentPeriodStart = subscription.current_period_start;
-  const currentPeriodEnd = subscription.current_period_end;
-  const canceledAt = subscription.canceled_at;
+  const currentPeriodStart = sub.current_period_start;
+  const currentPeriodEnd = sub.current_period_end;
+  const canceledAt = sub.canceled_at;
 
   // Convert Unix timestamps to ISO strings, handling both number and Date types
   const convertTimestamp = (timestamp: number | Date | null | undefined): string | null => {
