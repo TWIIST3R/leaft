@@ -14,7 +14,7 @@ type DashboardData = {
 export function DashboardClient({ initialData }: { initialData: DashboardData }) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { setActive, organizationList } = useOrganizationList();
+  const { setActive, userMemberships } = useOrganizationList();
   const [isVerifying, setIsVerifying] = useState(false);
   const sessionId = searchParams.get("session_id");
 
@@ -37,7 +37,7 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
           // This ensures orgId is set in Clerk session for subsequent requests
           if (data.orgId && setActive) {
             // Check if this organization is in the user's organization list
-            const orgInList = organizationList?.find(org => org.id === data.orgId);
+            const orgInList = userMemberships?.data?.find(membership => membership.organization.id === data.orgId);
             if (orgInList) {
               try {
                 await setActive({ organization: data.orgId });
