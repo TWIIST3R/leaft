@@ -1,24 +1,48 @@
 import { Suspense } from "react";
 import { auth } from "@clerk/nextjs/server";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { DashboardClient } from "./dashboard-client";
 
 async function getOrganizationData() {
-  const { orgId } = await auth();
+  const { userId, orgId } = await auth();
 
-  if (!orgId) {
+  if (!userId) {
     redirect("/sign-in");
   }
 
-  const supabase = await supabaseServer();
+  // Use admin client to bypass RLS for organization lookup
+  // This ensures we can find the organization even if orgId is undefined
+  const supabase = supabaseAdmin();
 
-  // Get organization
-  const { data: organization } = await supabase
-    .from("organizations")
-    .select("id, name")
-    .eq("clerk_organization_id", orgId)
-    .single();
+  let organization;
+
+  // If orgId is provided in session, use it directly
+  if (orgId) {
+    const { data, error } = await supabase
+      .from("organizations")
+      .select("id, name")
+      .eq("clerk_organization_id", orgId)
+      .single();
+
+    if (!error && data) {
+      organization = data;
+    }
+  }
+
+  // If organization not found by orgId (or orgId not in session),
+  // try to find it via user_organizations table
+  if (!organization) {
+    const { data: userOrg, error: userOrgError } = await supabase
+      .from("user_organizations")
+      .select("organization_id, organizations(id, name)")
+      .eq("clerk_user_id", userId)
+      .maybeSingle();
+
+    if (!userOrgError && userOrg?.organizations) {
+      organization = Array.isArray(userOrg.organizations) ? userOrg.organizations[0] : userOrg.organizations;
+    }
+  }
 
   if (!organization) {
     redirect("/onboarding");
