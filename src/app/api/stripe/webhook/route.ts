@@ -25,8 +25,31 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
+        console.log("Processing checkout.session.completed:", {
+          sessionId: session.id,
+          mode: session.mode,
+          subscription: session.subscription,
+          metadata: session.metadata,
+        });
+        
         if (session.mode === "subscription" && session.subscription) {
-          const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+          const subscriptionId = typeof session.subscription === "string" 
+            ? session.subscription 
+            : session.subscription.id;
+          
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+            expand: ["customer"],
+          });
+          
+          console.log("Retrieved subscription:", {
+            id: subscription.id,
+            status: subscription.status,
+            metadata: subscription.metadata,
+            customerMetadata: typeof subscription.customer === "object" && !subscription.customer.deleted
+              ? subscription.customer.metadata
+              : null,
+          });
+          
           await syncSubscriptionFromStripe(subscription);
         }
         break;
@@ -35,12 +58,21 @@ export async function POST(request: NextRequest) {
       case "customer.subscription.created":
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
+        console.log(`Processing ${event.type}:`, {
+          subscriptionId: subscription.id,
+          status: subscription.status,
+          metadata: subscription.metadata,
+        });
         await syncSubscriptionFromStripe(subscription);
         break;
       }
 
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
+        console.log("Processing customer.subscription.deleted:", {
+          subscriptionId: subscription.id,
+          metadata: subscription.metadata,
+        });
         await syncSubscriptionFromStripe(subscription);
         break;
       }
@@ -51,7 +83,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("Error processing webhook:", error);
+    console.error("Error processing webhook:", {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      eventType: event.type,
+    });
     return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
   }
 }

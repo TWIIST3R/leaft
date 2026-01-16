@@ -69,6 +69,13 @@ export async function getOrCreateStripeCustomer(organizationId: string, email: s
     },
   });
 
+  console.log("Created Stripe customer:", {
+    customerId: customer.id,
+    organizationId,
+    email,
+    name,
+  });
+
   // Update organization with customer ID
   await supabase.from("organizations").update({ stripe_customer_id: customer.id }).eq("id", organizationId);
 
@@ -253,8 +260,36 @@ export async function getOrganizationSubscription(organizationId: string) {
 export async function syncSubscriptionFromStripe(subscription: Stripe.Subscription) {
   const supabase = await supabaseServer();
 
-  const organizationId = subscription.metadata.organization_id;
+  // Try to get organization_id from subscription metadata first
+  let organizationId = subscription.metadata.organization_id;
+  
+  // If not in subscription metadata, try to get it from subscription_data metadata
+  // (which is set during checkout session creation)
+  if (!organizationId && subscription.metadata) {
+    organizationId = subscription.metadata.organization_id;
+  }
+
+  // If still not found, try to get it from the customer's metadata
   if (!organizationId) {
+    try {
+      const customer = typeof subscription.customer === "string" 
+        ? await stripe.customers.retrieve(subscription.customer)
+        : subscription.customer;
+      
+      if (!customer.deleted && customer.metadata?.organization_id) {
+        organizationId = customer.metadata.organization_id;
+      }
+    } catch (error) {
+      console.error("Error retrieving customer for organization_id:", error);
+    }
+  }
+
+  if (!organizationId) {
+    console.error("Organization ID not found in subscription metadata. Subscription:", {
+      id: subscription.id,
+      metadata: subscription.metadata,
+      customer: typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id,
+    });
     throw new Error("Organization ID not found in subscription metadata");
   }
 
@@ -288,28 +323,44 @@ export async function syncSubscriptionFromStripe(subscription: Stripe.Subscripti
   };
 
   // Upsert subscription
-  const { error } = await supabase.from("subscriptions").upsert(
-    {
-      organization_id: organizationId,
-      stripe_subscription_id: subscription.id,
-      stripe_customer_id: typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id,
-      status: subscription.status,
-      plan_type: planType,
-      seat_count: seatCount,
-      current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
-      current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
-      cancel_at_period_end: subscription.cancel_at_period_end ?? false,
-      canceled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000).toISOString() : null,
-    },
+  const subscriptionData = {
+    organization_id: organizationId,
+    stripe_subscription_id: subscription.id,
+    stripe_customer_id: typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id,
+    status: subscription.status,
+    plan_type: planType,
+    seat_count: seatCount,
+    current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
+    current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+    cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+    canceled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000).toISOString() : null,
+  };
+
+  console.log("Syncing subscription to database:", {
+    organizationId,
+    subscriptionId: subscription.id,
+    status: subscription.status,
+    planType,
+    seatCount,
+  });
+
+  const { error, data } = await supabase.from("subscriptions").upsert(
+    subscriptionData,
     {
       onConflict: "stripe_subscription_id",
     },
   );
 
   if (error) {
-    console.error("Error syncing subscription:", error);
+    console.error("Error syncing subscription:", {
+      error,
+      subscriptionData,
+      subscriptionMetadata: subscription.metadata,
+    });
     throw error;
   }
+
+  console.log("Subscription synced successfully:", data);
 }
 
 /**

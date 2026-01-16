@@ -21,27 +21,34 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
     if (!sessionId) return;
 
     let retryCount = 0;
-    const maxRetries = 5;
+    const maxRetries = 10; // Increased retries for webhook delays
 
     const verifySubscription = async () => {
       setIsVerifying(true);
       try {
         // Call API to verify and sync subscription if needed
         const response = await fetch(`/api/stripe/verify-session?session_id=${sessionId}`);
-        if (response.ok) {
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+          // Wait a bit to ensure database is updated
+          await new Promise(resolve => setTimeout(resolve, 500));
           // Remove session_id from URL and force full page reload to ensure subscription is recognized
           window.location.href = "/dashboard";
+          return;
         } else {
           // If verification fails, wait a bit and retry (webhook might be delayed)
           if (retryCount < maxRetries) {
             retryCount++;
+            console.log(`Retrying subscription verification (${retryCount}/${maxRetries})...`);
             setTimeout(() => {
               verifySubscription();
             }, 2000);
           } else {
             // Max retries reached, stop trying and show error
             setIsVerifying(false);
-            console.error("Failed to verify subscription after multiple retries");
+            console.error("Failed to verify subscription after multiple retries:", data);
+            alert("Impossible de vérifier votre abonnement. Veuillez rafraîchir la page ou contacter le support.");
           }
         }
       } catch (error) {
@@ -54,10 +61,7 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
           }, 2000);
         } else {
           setIsVerifying(false);
-        }
-      } finally {
-        if (retryCount >= maxRetries) {
-          setIsVerifying(false);
+          alert("Erreur lors de la vérification de l'abonnement. Veuillez rafraîchir la page.");
         }
       }
     };
