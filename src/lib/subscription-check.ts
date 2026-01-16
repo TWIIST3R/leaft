@@ -11,7 +11,10 @@ import { stripe } from "@/lib/stripe";
 export async function checkSubscriptionAccess() {
   const { userId, orgId } = await auth();
 
+  console.log("checkSubscriptionAccess called:", { userId, orgId });
+
   if (!userId || !orgId) {
+    console.log("checkSubscriptionAccess: not authenticated", { userId, orgId });
     return { hasAccess: false, organizationId: null, reason: "not_authenticated" as const };
   }
 
@@ -22,11 +25,18 @@ export async function checkSubscriptionAccess() {
   // Get organization from database
   const { data: organization, error } = await supabase
     .from("organizations")
-    .select("id, stripe_customer_id")
+    .select("id, stripe_customer_id, clerk_organization_id")
     .eq("clerk_organization_id", orgId)
     .single();
 
+  console.log("checkSubscriptionAccess: organization lookup", {
+    orgId,
+    organization,
+    error,
+  });
+
   if (error || !organization) {
+    console.log("checkSubscriptionAccess: organization not found", { error, orgId });
     return { hasAccess: false, organizationId: null, reason: "organization_not_found" as const };
   }
 
@@ -37,9 +47,11 @@ export async function checkSubscriptionAccess() {
     organizationId: organization.id,
     isActive,
     stripeCustomerId: organization.stripe_customer_id,
+    clerkOrgId: organization.clerk_organization_id,
   });
 
   if (isActive) {
+    console.log("checkSubscriptionAccess: subscription is active, granting access");
     return {
       hasAccess: true,
       organizationId: organization.id,

@@ -240,6 +240,8 @@ export async function createCheckoutSession(
  * Uses admin client to bypass RLS for reliable subscription checks
  */
 export async function hasActiveSubscription(organizationId: string): Promise<boolean> {
+  console.log("hasActiveSubscription called with organizationId:", organizationId);
+  
   // Use admin client to bypass RLS for subscription checks
   // This ensures the check works even if user is not yet in employees table
   const supabase = supabaseAdmin();
@@ -250,6 +252,8 @@ export async function hasActiveSubscription(organizationId: string): Promise<boo
     organizationId,
     data,
     error,
+    errorMessage: error?.message,
+    errorCode: error?.code,
   });
 
   if (error) {
@@ -257,7 +261,9 @@ export async function hasActiveSubscription(organizationId: string): Promise<boo
     return false;
   }
 
-  return data ?? false;
+  const result = data ?? false;
+  console.log("hasActiveSubscription returning:", result);
+  return result;
 }
 
 /**

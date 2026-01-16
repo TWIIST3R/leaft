@@ -33,8 +33,15 @@ export default clerkMiddleware(async (auth, request) => {
 
   // For dashboard routes, check subscription
   if (isDashboardRoute(request)) {
+    console.log("Middleware: Dashboard route detected", {
+      url: request.url,
+      userId,
+      orgId,
+    });
+
     // Allow access if no orgId (user might be in onboarding)
     if (!orgId) {
+      console.log("Middleware: No orgId, redirecting to onboarding");
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
 
@@ -44,11 +51,13 @@ export default clerkMiddleware(async (auth, request) => {
     const sessionId = url.searchParams.get("session_id");
     
     if (sessionId) {
+      console.log("Middleware: session_id detected, allowing access for verification");
       // Allow access if coming from checkout - dashboard-client will verify and sync
       return;
     }
 
     // Check subscription access
+    console.log("Middleware: Checking subscription access...");
     const { hasAccess, reason } = await checkSubscriptionAccess();
     
     console.log("Middleware subscription check for dashboard:", {
@@ -62,13 +71,16 @@ export default clerkMiddleware(async (auth, request) => {
     if (!hasAccess) {
       // Redirect to onboarding if no subscription
       if (reason === "no_subscription" || reason === "organization_not_found") {
-        console.log("Redirecting to onboarding - no subscription or organization not found");
+        console.log("Middleware: Redirecting to onboarding - no subscription or organization not found", { reason });
         return NextResponse.redirect(new URL("/onboarding", request.url));
       }
       // For other reasons (not authenticated), redirect to sign in
       if (reason === "not_authenticated") {
+        console.log("Middleware: Redirecting to sign-in - not authenticated");
         return redirectToSignIn({ returnBackUrl: request.url });
       }
+    } else {
+      console.log("Middleware: Access granted to dashboard");
     }
   }
 });
