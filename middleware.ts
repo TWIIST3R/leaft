@@ -39,10 +39,10 @@ export default clerkMiddleware(async (auth, request) => {
       orgId,
     });
 
-    // Allow access if no orgId (user might be in onboarding)
-    if (!orgId) {
-      console.log("Middleware: No orgId, redirecting to onboarding");
-      return NextResponse.redirect(new URL("/onboarding", request.url));
+    // Require userId for dashboard access
+    if (!userId) {
+      console.log("Middleware: No userId, redirecting to sign-in");
+      return redirectToSignIn({ returnBackUrl: request.url });
     }
 
     // Check if there's a session_id in the URL (coming from Stripe checkout)
@@ -53,10 +53,11 @@ export default clerkMiddleware(async (auth, request) => {
     if (sessionId) {
       console.log("Middleware: session_id detected, allowing access for verification");
       // Allow access if coming from checkout - dashboard-client will verify and sync
+      // Note: orgId might be undefined here, but checkSubscriptionAccess can find org via user_organizations
       return;
     }
 
-    // Check subscription access
+    // Check subscription access (this function can find org even if orgId is undefined)
     console.log("Middleware: Checking subscription access...");
     const { hasAccess, reason } = await checkSubscriptionAccess();
     

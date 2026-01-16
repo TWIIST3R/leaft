@@ -13,8 +13,8 @@ export async function checkSubscriptionAccess() {
 
   console.log("checkSubscriptionAccess called:", { userId, orgId });
 
-  if (!userId || !orgId) {
-    console.log("checkSubscriptionAccess: not authenticated", { userId, orgId });
+  if (!userId) {
+    console.log("checkSubscriptionAccess: not authenticated", { userId });
     return { hasAccess: false, organizationId: null, reason: "not_authenticated" as const };
   }
 
@@ -22,21 +22,52 @@ export async function checkSubscriptionAccess() {
   // This ensures we can find the organization even if user is not yet in employees table
   const supabase = supabaseAdmin();
 
-  // Get organization from database
-  const { data: organization, error } = await supabase
-    .from("organizations")
-    .select("id, stripe_customer_id, clerk_organization_id")
-    .eq("clerk_organization_id", orgId)
-    .single();
+  let organization;
 
-  console.log("checkSubscriptionAccess: organization lookup", {
-    orgId,
-    organization,
-    error,
-  });
+  // If orgId is provided in session, use it directly
+  if (orgId) {
+    const { data, error } = await supabase
+      .from("organizations")
+      .select("id, stripe_customer_id, clerk_organization_id")
+      .eq("clerk_organization_id", orgId)
+      .single();
 
-  if (error || !organization) {
-    console.log("checkSubscriptionAccess: organization not found", { error, orgId });
+    console.log("checkSubscriptionAccess: organization lookup by orgId", {
+      orgId,
+      organization: data,
+      error,
+    });
+
+    if (error || !data) {
+      console.log("checkSubscriptionAccess: organization not found by orgId", { error, orgId });
+    } else {
+      organization = data;
+    }
+  }
+
+  // If organization not found by orgId (or orgId not in session),
+  // try to find it via user_organizations table
+  if (!organization) {
+    console.log("checkSubscriptionAccess: trying to find organization via user_organizations");
+    const { data: userOrg, error: userOrgError } = await supabase
+      .from("user_organizations")
+      .select("organization_id, organizations(id, stripe_customer_id, clerk_organization_id)")
+      .eq("clerk_user_id", userId)
+      .maybeSingle();
+
+    console.log("checkSubscriptionAccess: user_organizations lookup", {
+      userOrg,
+      userOrgError,
+    });
+
+    if (!userOrgError && userOrg?.organizations) {
+      organization = Array.isArray(userOrg.organizations) ? userOrg.organizations[0] : userOrg.organizations;
+      console.log("checkSubscriptionAccess: found organization via user_organizations", { organization });
+    }
+  }
+
+  if (!organization) {
+    console.log("checkSubscriptionAccess: organization not found");
     return { hasAccess: false, organizationId: null, reason: "organization_not_found" as const };
   }
 
