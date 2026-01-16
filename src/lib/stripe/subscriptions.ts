@@ -328,31 +328,27 @@ export async function syncSubscriptionFromStripe(subscription: Stripe.Subscripti
   const planType = (subscription.metadata.plan_type || "monthly") as "monthly" | "annual";
 
   // Extract period dates (Stripe uses Unix timestamps)
-  // Access properties directly - they should always be present on a subscription
-  // Use bracket notation to access properties that TypeScript might not recognize
-  let currentPeriodStart = (subscription as any).current_period_start;
-  let currentPeriodEnd = (subscription as any).current_period_end;
-  let canceledAt = (subscription as any).canceled_at;
-
-  // If period dates are missing, retrieve the full subscription from Stripe
-  // This can happen when the subscription object in the webhook event is incomplete
-  if (!currentPeriodStart || !currentPeriodEnd) {
-    console.log("Period dates missing, retrieving full subscription from Stripe...");
-    try {
-      const fullSubscription = await stripe.subscriptions.retrieve(subscription.id);
-      currentPeriodStart = (fullSubscription as any).current_period_start;
-      currentPeriodEnd = (fullSubscription as any).current_period_end;
-      canceledAt = (fullSubscription as any).canceled_at;
-      console.log("Retrieved full subscription with period dates:", {
-        currentPeriodStart,
-        currentPeriodEnd,
-        canceledAt,
-      });
-    } catch (error) {
-      console.error("Error retrieving full subscription:", error);
-      throw new Error("Failed to retrieve subscription period dates");
-    }
+  // Always retrieve the full subscription from Stripe to ensure we have all properties
+  // The subscription object in webhook events may be incomplete
+  let fullSubscription: Stripe.Subscription;
+  try {
+    fullSubscription = await stripe.subscriptions.retrieve(subscription.id);
+    console.log("Retrieved full subscription from Stripe:", {
+      id: fullSubscription.id,
+      hasCurrentPeriodStart: 'current_period_start' in fullSubscription,
+      hasCurrentPeriodEnd: 'current_period_end' in fullSubscription,
+      subscriptionType: typeof fullSubscription,
+    });
+  } catch (error) {
+    console.error("Error retrieving full subscription:", error);
+    throw new Error("Failed to retrieve subscription from Stripe");
   }
+
+  // Access properties directly from the retrieved subscription
+  // These properties should always be present on a Stripe Subscription object
+  const currentPeriodStart = fullSubscription.current_period_start;
+  const currentPeriodEnd = fullSubscription.current_period_end;
+  const canceledAt = fullSubscription.canceled_at ?? null;
 
   console.log("Subscription period dates:", {
     subscriptionId: subscription.id,
