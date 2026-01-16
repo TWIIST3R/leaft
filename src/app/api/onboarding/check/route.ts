@@ -32,6 +32,11 @@ export async function GET(request: NextRequest) {
     // Check if has active subscription
     const isActive = await hasActiveSubscription(organization.id);
 
+    console.log("Onboarding check result:", {
+      organizationId: organization.id,
+      hasSubscription: isActive,
+    });
+
     return NextResponse.json({
       exists: true,
       hasSubscription: isActive,

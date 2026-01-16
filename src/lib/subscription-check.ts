@@ -31,6 +31,12 @@ export async function checkSubscriptionAccess() {
   // First check in database
   const isActive = await hasActiveSubscription(organization.id);
 
+  console.log("Subscription check result:", {
+    organizationId: organization.id,
+    isActive,
+    stripeCustomerId: organization.stripe_customer_id,
+  });
+
   if (isActive) {
     return {
       hasAccess: true,

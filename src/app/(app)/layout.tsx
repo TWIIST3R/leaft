@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { ReactNode } from "react";
-import { redirect } from "next/navigation";
 import { DashboardTopbar } from "@/components/dashboard/topbar";
-import { checkSubscriptionAccess } from "@/lib/subscription-check";
 
 const navigation = [
   { label: "Rémunération", href: "/dashboard", badge: "En cours" },
@@ -13,23 +11,9 @@ const navigation = [
 ];
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  // Check subscription access
-  const subscriptionCheck = await checkSubscriptionAccess();
-
-  // If not authenticated, redirect to sign-in (middleware should handle this, but just in case)
-  if (!subscriptionCheck.hasAccess && subscriptionCheck.reason === "not_authenticated") {
-    redirect("/sign-in");
-  }
-
-  // If organization not found, redirect to onboarding
-  if (!subscriptionCheck.hasAccess && subscriptionCheck.reason === "organization_not_found") {
-    redirect("/onboarding");
-  }
-
-  // If no subscription, redirect to onboarding (user needs to complete setup)
-  if (!subscriptionCheck.hasAccess && subscriptionCheck.reason === "no_subscription") {
-    redirect("/onboarding");
-  }
+  // Note: The middleware already handles subscription checks for dashboard routes
+  // We don't need to check again here to avoid conflicts and double redirects
+  // If the middleware allowed access, we can trust it
 
   return (
     <div className="flex min-h-screen bg-[#f7f9f7] text-[var(--text)]">
