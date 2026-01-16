@@ -328,17 +328,38 @@ export async function syncSubscriptionFromStripe(subscription: Stripe.Subscripti
   const planType = (subscription.metadata.plan_type || "monthly") as "monthly" | "annual";
 
   // Extract period dates (Stripe uses Unix timestamps)
-  // Type assertion needed because TypeScript types may not include all properties
-  const sub = subscription as Stripe.Subscription & {
-    current_period_start: number | Date;
-    current_period_end: number | Date;
-    canceled_at: number | Date | null;
-  };
+  // Access properties directly - they should always be present on a subscription
+  // Use bracket notation to access properties that TypeScript might not recognize
+  let currentPeriodStart = (subscription as any).current_period_start;
+  let currentPeriodEnd = (subscription as any).current_period_end;
+  let canceledAt = (subscription as any).canceled_at;
 
-  // Handle both number and Date types, and ensure values are valid
-  const currentPeriodStart = sub.current_period_start;
-  const currentPeriodEnd = sub.current_period_end;
-  const canceledAt = sub.canceled_at;
+  // If period dates are missing, retrieve the full subscription from Stripe
+  // This can happen when the subscription object in the webhook event is incomplete
+  if (!currentPeriodStart || !currentPeriodEnd) {
+    console.log("Period dates missing, retrieving full subscription from Stripe...");
+    try {
+      const fullSubscription = await stripe.subscriptions.retrieve(subscription.id);
+      currentPeriodStart = (fullSubscription as any).current_period_start;
+      currentPeriodEnd = (fullSubscription as any).current_period_end;
+      canceledAt = (fullSubscription as any).canceled_at;
+      console.log("Retrieved full subscription with period dates:", {
+        currentPeriodStart,
+        currentPeriodEnd,
+        canceledAt,
+      });
+    } catch (error) {
+      console.error("Error retrieving full subscription:", error);
+      throw new Error("Failed to retrieve subscription period dates");
+    }
+  }
+
+  console.log("Subscription period dates:", {
+    subscriptionId: subscription.id,
+    currentPeriodStart,
+    currentPeriodEnd,
+    canceledAt,
+  });
 
   // Convert Unix timestamps to ISO strings, handling both number and Date types
   const convertTimestamp = (timestamp: number | Date | null | undefined): string | null => {
