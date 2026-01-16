@@ -328,12 +328,46 @@ export async function syncSubscriptionFromStripe(subscription: Stripe.Subscripti
   const planType = (subscription.metadata.plan_type || "monthly") as "monthly" | "annual";
 
   // Extract period dates (Stripe uses Unix timestamps)
-  // Type assertion needed because TypeScript types may not be fully up to date
-  const sub = subscription as Stripe.Subscription & {
-    current_period_start: number;
-    current_period_end: number;
-    canceled_at: number | null;
+  // Handle both number and Date types, and ensure values are valid
+  const currentPeriodStart = subscription.current_period_start;
+  const currentPeriodEnd = subscription.current_period_end;
+  const canceledAt = subscription.canceled_at;
+
+  // Convert Unix timestamps to ISO strings, handling both number and Date types
+  const convertTimestamp = (timestamp: number | Date | null | undefined): string | null => {
+    if (!timestamp) return null;
+    
+    // If it's already a Date object, convert directly
+    if (timestamp instanceof Date) {
+      if (isNaN(timestamp.getTime())) return null;
+      return timestamp.toISOString();
+    }
+    
+    // If it's a number, treat as Unix timestamp (seconds)
+    if (typeof timestamp === "number") {
+      const date = new Date(timestamp * 1000);
+      if (isNaN(date.getTime())) {
+        console.error("Invalid timestamp:", timestamp);
+        return null;
+      }
+      return date.toISOString();
+    }
+    
+    return null;
   };
+
+  const periodStartISO = convertTimestamp(currentPeriodStart);
+  const periodEndISO = convertTimestamp(currentPeriodEnd);
+  const canceledAtISO = convertTimestamp(canceledAt);
+
+  if (!periodStartISO || !periodEndISO) {
+    console.error("Missing required period dates:", {
+      currentPeriodStart,
+      currentPeriodEnd,
+      subscriptionId: subscription.id,
+    });
+    throw new Error("Missing required period dates in subscription");
+  }
 
   // Upsert subscription
   const subscriptionData = {
@@ -343,10 +377,10 @@ export async function syncSubscriptionFromStripe(subscription: Stripe.Subscripti
     status: subscription.status,
     plan_type: planType,
     seat_count: seatCount,
-    current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
-    current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+    current_period_start: periodStartISO,
+    current_period_end: periodEndISO,
     cancel_at_period_end: subscription.cancel_at_period_end ?? false,
-    canceled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000).toISOString() : null,
+    canceled_at: canceledAtISO,
   };
 
   console.log("Syncing subscription to database:", {
