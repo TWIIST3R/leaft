@@ -51,9 +51,18 @@ export default clerkMiddleware(async (auth, request) => {
     // Check subscription access
     const { hasAccess, reason } = await checkSubscriptionAccess();
     
+    console.log("Middleware subscription check for dashboard:", {
+      hasAccess,
+      reason,
+      url: request.url,
+      orgId,
+      userId,
+    });
+    
     if (!hasAccess) {
       // Redirect to onboarding if no subscription
       if (reason === "no_subscription" || reason === "organization_not_found") {
+        console.log("Redirecting to onboarding - no subscription or organization not found");
         return NextResponse.redirect(new URL("/onboarding", request.url));
       }
       // For other reasons (not authenticated), redirect to sign in

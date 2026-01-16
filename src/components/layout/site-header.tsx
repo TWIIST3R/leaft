@@ -1,6 +1,6 @@
 "use client";
 
-import { SignedIn, SignedOut, UserButton, useAuth } from "@clerk/nextjs";
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -13,25 +13,16 @@ const navItems = [
 
 export function SiteHeader() {
   const [hasSubscription, setHasSubscription] = useState<boolean | null>(null);
-  const { isSignedIn, isLoaded } = useAuth();
 
   useEffect(() => {
-    // Only check subscription if user is signed in
-    if (!isLoaded || !isSignedIn) {
-      setHasSubscription(false);
-      return;
-    }
-
     // Check if user has active subscription
     const checkSubscription = async () => {
       try {
         const response = await fetch("/api/onboarding/check");
         if (response.ok) {
           const data = await response.json();
-          console.log("Header subscription check:", data);
           setHasSubscription(data.hasSubscription ?? false);
         } else {
-          console.error("Header subscription check failed:", response.status, response.statusText);
           setHasSubscription(false);
         }
       } catch (error) {
@@ -41,16 +32,7 @@ export function SiteHeader() {
     };
 
     checkSubscription();
-    
-    // Re-check subscription periodically in case it was just created
-    const interval = setInterval(() => {
-      if (isSignedIn) {
-        checkSubscription();
-      }
-    }, 5000); // Check every 5 seconds
-    
-    return () => clearInterval(interval);
-  }, [isSignedIn, isLoaded]);
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-white/90 backdrop-blur">

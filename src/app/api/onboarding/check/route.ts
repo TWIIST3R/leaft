@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { hasActiveSubscription } from "@/lib/stripe/subscriptions";
 
 export async function GET(request: NextRequest) {
@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ exists: false, hasSubscription: false });
     }
 
-    const supabase = await supabaseServer();
+    // Use admin client to bypass RLS for organization lookup
+    const supabase = supabaseAdmin();
 
     // Check if organization exists in database
     const { data: organization, error } = await supabase
@@ -31,11 +32,6 @@ export async function GET(request: NextRequest) {
 
     // Check if has active subscription
     const isActive = await hasActiveSubscription(organization.id);
-
-    console.log("Onboarding check result:", {
-      organizationId: organization.id,
-      hasSubscription: isActive,
-    });
 
     return NextResponse.json({
       exists: true,

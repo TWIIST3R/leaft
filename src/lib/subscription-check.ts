@@ -1,5 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { hasActiveSubscription } from "@/lib/stripe/subscriptions";
 import { stripe } from "@/lib/stripe";
 
@@ -15,7 +15,9 @@ export async function checkSubscriptionAccess() {
     return { hasAccess: false, organizationId: null, reason: "not_authenticated" as const };
   }
 
-  const supabase = await supabaseServer();
+  // Use admin client to bypass RLS for organization lookup
+  // This ensures we can find the organization even if user is not yet in employees table
+  const supabase = supabaseAdmin();
 
   // Get organization from database
   const { data: organization, error } = await supabase
@@ -31,7 +33,7 @@ export async function checkSubscriptionAccess() {
   // First check in database
   const isActive = await hasActiveSubscription(organization.id);
 
-  console.log("Subscription check result:", {
+  console.log("checkSubscriptionAccess result:", {
     organizationId: organization.id,
     isActive,
     stripeCustomerId: organization.stripe_customer_id,

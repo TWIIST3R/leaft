@@ -26,18 +26,13 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
     const verifySubscription = async () => {
       setIsVerifying(true);
       try {
-        console.log(`Verifying subscription with session_id: ${sessionId} (attempt ${retryCount + 1}/${maxRetries})`);
-        
         // Call API to verify and sync subscription if needed
         const response = await fetch(`/api/stripe/verify-session?session_id=${sessionId}`);
         const data = await response.json();
         
-        console.log("Verify session response:", { ok: response.ok, data });
-        
         if (response.ok && data.success) {
-          console.log("Subscription verified successfully, redirecting to dashboard...");
-          // Wait a bit to ensure database is updated and middleware recognizes the subscription
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          // Wait a bit to ensure database is updated
+          await new Promise(resolve => setTimeout(resolve, 500));
           // Remove session_id from URL and force full page reload to ensure subscription is recognized
           window.location.href = "/dashboard";
           return;

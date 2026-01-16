@@ -1,5 +1,6 @@
 import { stripe } from "@/lib/stripe";
 import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import type Stripe from "stripe";
 
 // Pricing tiers based on seat count
@@ -236,11 +237,20 @@ export async function createCheckoutSession(
 
 /**
  * Check if organization has active subscription
+ * Uses admin client to bypass RLS for reliable subscription checks
  */
 export async function hasActiveSubscription(organizationId: string): Promise<boolean> {
-  const supabase = await supabaseServer();
+  // Use admin client to bypass RLS for subscription checks
+  // This ensures the check works even if user is not yet in employees table
+  const supabase = supabaseAdmin();
 
   const { data, error } = await supabase.rpc("has_active_subscription", { org_id: organizationId });
+
+  console.log("hasActiveSubscription RPC call result:", {
+    organizationId,
+    data,
+    error,
+  });
 
   if (error) {
     console.error("Error checking subscription:", error);
