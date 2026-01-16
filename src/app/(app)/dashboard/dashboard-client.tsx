@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useOrganization } from "@clerk/nextjs";
 
 type DashboardData = {
   organization: { id: string; name: string };
@@ -13,6 +14,7 @@ type DashboardData = {
 export function DashboardClient({ initialData }: { initialData: DashboardData }) {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { setActive, organization: currentOrg } = useOrganization();
   const [isVerifying, setIsVerifying] = useState(false);
   const sessionId = searchParams.get("session_id");
 
@@ -31,8 +33,20 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
         const data = await response.json();
         
         if (response.ok && data.success) {
-          // Wait a bit to ensure database is updated
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // Try to set the active organization if we have orgId in response
+          // This ensures orgId is set in Clerk session for subsequent requests
+          if (data.orgId && setActive && (!currentOrg || currentOrg.id !== data.orgId)) {
+            try {
+              await setActive({ organization: data.orgId });
+              console.log("Set active organization:", data.orgId);
+            } catch (error) {
+              console.error("Error setting active organization:", error);
+              // Continue anyway - we can still work with orgId undefined
+            }
+          }
+
+          // Wait a bit to ensure database is updated and organization is set
+          await new Promise(resolve => setTimeout(resolve, 1000));
           // Remove session_id from URL and force full page reload to ensure subscription is recognized
           window.location.href = "/dashboard";
           return;

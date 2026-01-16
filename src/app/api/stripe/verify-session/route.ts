@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { stripe } from "@/lib/stripe";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { syncSubscriptionFromStripe } from "@/lib/stripe/subscriptions";
 
 export async function GET(request: NextRequest) {
   try {
     const { userId, orgId } = await auth();
 
-    if (!userId || !orgId) {
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -20,14 +20,43 @@ export async function GET(request: NextRequest) {
     }
 
     // Get organization from database
-    const supabase = await supabaseServer();
-    const { data: organization, error: orgError } = await supabase
-      .from("organizations")
-      .select("id")
-      .eq("clerk_organization_id", orgId)
-      .single();
+    // Use admin client to bypass RLS and find org even if orgId is undefined
+    const supabase = supabaseAdmin();
+    let organization;
+    let clerkOrgId: string | undefined;
 
-    if (orgError || !organization) {
+    // If orgId is provided, use it directly
+    if (orgId) {
+      const { data, error: orgError } = await supabase
+        .from("organizations")
+        .select("id, clerk_organization_id")
+        .eq("clerk_organization_id", orgId)
+        .single();
+
+      if (!orgError && data) {
+        organization = data;
+        clerkOrgId = data.clerk_organization_id;
+      }
+    }
+
+    // If organization not found by orgId (or orgId is undefined),
+    // try to find it via user_organizations table
+    if (!organization) {
+      const { data: userOrg, error: userOrgError } = await supabase
+        .from("user_organizations")
+        .select("organization_id, organizations(id, clerk_organization_id)")
+        .eq("clerk_user_id", userId)
+        .maybeSingle();
+
+      if (!userOrgError && userOrg?.organizations) {
+        organization = Array.isArray(userOrg.organizations) ? userOrg.organizations[0] : userOrg.organizations;
+        if (organization && 'clerk_organization_id' in organization) {
+          clerkOrgId = organization.clerk_organization_id;
+        }
+      }
+    }
+
+    if (!organization) {
       return NextResponse.json({ error: "Organization not found" }, { status: 404 });
     }
 
@@ -72,7 +101,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ success: true, synced: true });
+    // Return organization ID so client can set it as active
+    return NextResponse.json({ 
+      success: true, 
+      synced: true,
+      orgId: organization.clerk_organization_id || clerkOrgId,
+    });
   } catch (error) {
     console.error("Error verifying session:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);

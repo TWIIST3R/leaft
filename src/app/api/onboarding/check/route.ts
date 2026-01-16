@@ -11,22 +11,39 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ exists: false, hasSubscription: false });
     }
 
-    // If no orgId in Clerk, organization doesn't exist yet
-    if (!orgId) {
-      return NextResponse.json({ exists: false, hasSubscription: false });
-    }
-
     // Use admin client to bypass RLS for organization lookup
     const supabase = supabaseAdmin();
 
-    // Check if organization exists in database
-    const { data: organization, error } = await supabase
-      .from("organizations")
-      .select("id")
-      .eq("clerk_organization_id", orgId)
-      .single();
+    let organization;
 
-    if (error || !organization) {
+    // If orgId is provided, use it directly
+    if (orgId) {
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("id")
+        .eq("clerk_organization_id", orgId)
+        .single();
+
+      if (!error && data) {
+        organization = data;
+      }
+    }
+
+    // If organization not found by orgId (or orgId is undefined),
+    // try to find it via user_organizations table
+    if (!organization) {
+      const { data: userOrg, error: userOrgError } = await supabase
+        .from("user_organizations")
+        .select("organization_id, organizations(id)")
+        .eq("clerk_user_id", userId)
+        .maybeSingle();
+
+      if (!userOrgError && userOrg?.organizations) {
+        organization = Array.isArray(userOrg.organizations) ? userOrg.organizations[0] : userOrg.organizations;
+      }
+    }
+
+    if (!organization) {
       return NextResponse.json({ exists: false, hasSubscription: false });
     }
 
