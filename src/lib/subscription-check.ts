@@ -7,9 +7,26 @@ import { stripe } from "@/lib/stripe";
  * Check if current user's organization has active subscription
  * Returns organization ID if subscription is active, null otherwise
  * Also checks Stripe directly if subscription not found in DB (webhook might be delayed)
+ * 
+ * @param userId - User ID from Clerk (optional, will be fetched if not provided)
+ * @param orgId - Organization ID from Clerk session (optional, will be fetched if not provided)
  */
-export async function checkSubscriptionAccess() {
-  const { userId, orgId } = await auth();
+export async function checkSubscriptionAccess(userId?: string, orgId?: string) {
+  // If userId/orgId not provided, fetch from auth (but avoid calling auth() in middleware context)
+  // Only call auth() if userId is not provided (not called from middleware)
+  if (!userId) {
+    try {
+      const authResult = await auth();
+      userId = authResult.userId ?? undefined;
+      orgId = orgId ?? authResult.orgId ?? undefined;
+    } catch (error) {
+      // If auth() fails (e.g., in middleware context), use provided values or return error
+      console.error("Error calling auth() in checkSubscriptionAccess:", error);
+      if (!userId) {
+        return { hasAccess: false, organizationId: null, reason: "not_authenticated" as const };
+      }
+    }
+  }
 
   console.log("checkSubscriptionAccess called:", { userId, orgId });
 

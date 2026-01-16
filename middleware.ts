@@ -58,8 +58,9 @@ export default clerkMiddleware(async (auth, request) => {
     }
 
     // Check subscription access (this function can find org even if orgId is undefined)
+    // Pass userId and orgId to avoid calling auth() again inside checkSubscriptionAccess
     console.log("Middleware: Checking subscription access...");
-    const { hasAccess, reason } = await checkSubscriptionAccess();
+    const { hasAccess, reason } = await checkSubscriptionAccess(userId, orgId);
     
     console.log("Middleware subscription check for dashboard:", {
       hasAccess,

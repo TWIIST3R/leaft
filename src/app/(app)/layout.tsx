@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ReactNode } from "react";
 import { redirect } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
 import { DashboardTopbar } from "@/components/dashboard/topbar";
 import { checkSubscriptionAccess } from "@/lib/subscription-check";
 
@@ -14,7 +15,9 @@ const navigation = [
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   // Check subscription access
-  const subscriptionCheck = await checkSubscriptionAccess();
+  // Get userId and orgId from auth
+  const { userId, orgId } = await auth();
+  const subscriptionCheck = await checkSubscriptionAccess(userId, orgId);
 
   // If not authenticated, redirect to sign-in (middleware should handle this, but just in case)
   if (!subscriptionCheck.hasAccess && subscriptionCheck.reason === "not_authenticated") {
