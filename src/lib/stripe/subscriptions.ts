@@ -429,20 +429,6 @@ export async function syncSubscriptionFromStripe(subscription: Stripe.Subscripti
     throw new Error("Missing required period dates in subscription");
   }
 
-  // Upsert subscription
-  const subscriptionData = {
-    organization_id: organizationId,
-    stripe_subscription_id: subscription.id,
-    stripe_customer_id: typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id,
-    status: subscription.status,
-    plan_type: planType,
-    seat_count: seatCount,
-    current_period_start: periodStartISO,
-    current_period_end: periodEndISO,
-    cancel_at_period_end: subscription.cancel_at_period_end ?? false,
-    canceled_at: canceledAtISO,
-  };
-
   console.log("Syncing subscription to database:", {
     organizationId,
     subscriptionId: subscription.id,
@@ -451,18 +437,26 @@ export async function syncSubscriptionFromStripe(subscription: Stripe.Subscripti
     seatCount,
   });
 
-  const { error, data } = await supabase.from("subscriptions").upsert(
-    subscriptionData,
-    {
-      onConflict: "stripe_subscription_id",
-    },
-  );
+  // Use RPC function to bypass RLS (webhook doesn't have user context)
+  const { error, data } = await supabase.rpc("sync_subscription_from_stripe", {
+    p_organization_id: organizationId,
+    p_stripe_subscription_id: subscription.id,
+    p_stripe_customer_id: typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id,
+    p_status: subscription.status,
+    p_plan_type: planType,
+    p_seat_count: seatCount,
+    p_current_period_start: periodStartISO,
+    p_current_period_end: periodEndISO,
+    p_cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+    p_canceled_at: canceledAtISO,
+  });
 
   if (error) {
     console.error("Error syncing subscription:", {
       error,
-      subscriptionData,
       subscriptionMetadata: subscription.metadata,
+      organizationId,
+      subscriptionId: subscription.id,
     });
     throw error;
   }
