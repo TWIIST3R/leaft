@@ -15,9 +15,9 @@ const navigation = [
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   // Check subscription access
-  // Get userId and orgId from auth
+  // Get userId and orgId from auth (convert null to undefined)
   const { userId, orgId } = await auth();
-  const subscriptionCheck = await checkSubscriptionAccess(userId, orgId);
+  const subscriptionCheck = await checkSubscriptionAccess(userId ?? undefined, orgId ?? undefined);
 
   // If not authenticated, redirect to sign-in (middleware should handle this, but just in case)
   if (!subscriptionCheck.hasAccess && subscriptionCheck.reason === "not_authenticated") {
