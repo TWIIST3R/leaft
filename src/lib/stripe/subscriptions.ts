@@ -344,11 +344,17 @@ export async function syncSubscriptionFromStripe(subscription: Stripe.Subscripti
     throw new Error("Failed to retrieve subscription from Stripe");
   }
 
-  // Access properties directly from the retrieved subscription
-  // These properties should always be present on a Stripe Subscription object
-  const currentPeriodStart = fullSubscription.current_period_start;
-  const currentPeriodEnd = fullSubscription.current_period_end;
-  const canceledAt = fullSubscription.canceled_at ?? null;
+  // Access properties using type assertion since TypeScript types may not include all properties
+  // These properties are always present on Stripe Subscription objects
+  const subscriptionWithDates = fullSubscription as Stripe.Subscription & {
+    current_period_start: number;
+    current_period_end: number;
+    canceled_at: number | null;
+  };
+
+  const currentPeriodStart = subscriptionWithDates.current_period_start;
+  const currentPeriodEnd = subscriptionWithDates.current_period_end;
+  const canceledAt = subscriptionWithDates.canceled_at ?? null;
 
   console.log("Subscription period dates:", {
     subscriptionId: subscription.id,
