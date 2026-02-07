@@ -5,12 +5,12 @@ import { auth } from "@clerk/nextjs/server";
 import { DashboardTopbar } from "@/components/dashboard/topbar";
 import { checkSubscriptionAccess } from "@/lib/subscription-check";
 
+// Structure dashboard admin : Accueil, Talents, Grilles de salaire (départements + grilles), Paramétrage
 const navigation = [
-  { label: "Rémunération", href: "/dashboard", badge: "En cours" },
-  { label: "Campagnes", href: "/dashboard/campaigns" },
-  { label: "Compétences", href: "/dashboard/skills" },
-  { label: "Entretiens", href: "/dashboard/reviews" },
-  { label: "Objectifs", href: "/dashboard/objectives" },
+  { label: "Accueil", href: "/dashboard" },
+  { label: "Talents", href: "/dashboard/talents" },
+  { label: "Grilles de salaire", href: "/dashboard/grilles" },
+  { label: "Paramétrage", href: "/dashboard/parametres" },
 ];
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
@@ -53,23 +53,18 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
                 className="flex items-center justify-between rounded-xl px-3 py-2 text-sm font-medium text-[color:rgba(11,11,11,0.75)] transition hover:bg-[var(--brand)]/10 hover:text-[var(--brand)]"
               >
                 <span>{item.label}</span>
-                {item.badge ? (
-                  <span className="rounded-full bg-[var(--brand)]/10 px-2 py-0.5 text-xs font-semibold text-[var(--brand)]">
-                    {item.badge}
-                  </span>
-                ) : null}
               </Link>
             ))}
           </nav>
         </div>
         <div className="mt-auto space-y-3 rounded-2xl border border-[var(--brand)]/15 bg-[var(--brand)]/8 p-4 text-xs text-[color:rgba(11,11,11,0.6)]">
-          <p className="font-semibold text-[var(--brand)]">Campagne Q1</p>
-          <p>Suivez la complétion des revues salariales et invitez vos managers à valider leurs propositions.</p>
+          <p className="font-semibold text-[var(--brand)]">Transparence salariale</p>
+          <p>Conformité avec la loi : activez l’option dans Paramétrage pour que les managers et talents puissent consulter les rémunérations.</p>
           <Link
-            href="/dashboard/campaigns"
+            href="/dashboard/parametres"
             className="inline-flex items-center justify-center rounded-full bg-[var(--brand)] px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110"
           >
-            Ouvrir la campagne
+            Paramétrage
           </Link>
         </div>
       </aside>

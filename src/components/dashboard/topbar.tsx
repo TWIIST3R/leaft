@@ -11,12 +11,12 @@ export function DashboardTopbar() {
         <h1 className="text-lg font-semibold text-[var(--text)]">Pilotage des talents & rémunérations</h1>
       </div>
       <div className="flex items-center gap-3">
-        <button className="inline-flex items-center rounded-full border border-[#e2e7e2] px-4 py-2 text-sm font-medium text-[color:rgba(11,11,11,0.7)] transition hover:bg-[#f2f5f2]">
-          Exporter
-        </button>
-        <button className="inline-flex items-center rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(9,82,40,0.2)] transition hover:brightness-110">
-          Nouvelle campagne
-        </button>
+        <Link
+          href="/dashboard/parametres"
+          className="inline-flex cursor-pointer items-center rounded-full border border-[#e2e7e2] px-4 py-2 text-sm font-medium text-[color:rgba(11,11,11,0.7)] transition hover:bg-[#f2f5f2]"
+        >
+          Paramétrage
+        </Link>
         <SignedIn>
           <UserButton appearance={{ elements: { userButtonBox: "ml-2" } }} afterSignOutUrl="/" />
         </SignedIn>

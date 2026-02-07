@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useOrganizationList } from "@clerk/nextjs";
 
 type DashboardData = {
@@ -121,7 +122,10 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
 
       {/* Stats Overview */}
       <section className="grid gap-6 md:grid-cols-3">
-        <div className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+        <Link
+          href="/dashboard/talents"
+          className="block rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)] transition hover:border-[var(--brand)]/30 hover:shadow-[0_24px_60px_rgba(17,27,24,0.08)]"
+        >
           <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Talents</p>
           <p className="mt-3 text-3xl font-semibold text-[var(--text)]">{initialData.employeesCount}</p>
           <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
@@ -129,9 +133,12 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
               ? "Commencez par ajouter vos premiers talents"
               : `${initialData.employeesCount} talent${initialData.employeesCount > 1 ? "s" : ""} dans votre organisation`}
           </p>
-        </div>
+        </Link>
 
-        <div className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+        <Link
+          href="/dashboard/grilles"
+          className="block rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)] transition hover:border-[var(--brand)]/30 hover:shadow-[0_24px_60px_rgba(17,27,24,0.08)]"
+        >
           <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Départements</p>
           <p className="mt-3 text-3xl font-semibold text-[var(--text)]">{initialData.departmentsCount}</p>
           <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
@@ -139,9 +146,12 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
               ? "Créez vos départements pour organiser vos talents"
               : `${initialData.departmentsCount} département${initialData.departmentsCount > 1 ? "s" : ""}`}
           </p>
-        </div>
+        </Link>
 
-        <div className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+        <Link
+          href="/dashboard/grilles"
+          className="block rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)] transition hover:border-[var(--brand)]/30 hover:shadow-[0_24px_60px_rgba(17,27,24,0.08)]"
+        >
           <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Familles de métiers</p>
           <p className="mt-3 text-3xl font-semibold text-[var(--text)]">{initialData.jobFamiliesCount}</p>
           <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
@@ -149,21 +159,27 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
               ? "Définissez vos familles de métiers et grilles salariales"
               : `${initialData.jobFamiliesCount} famille${initialData.jobFamiliesCount > 1 ? "s" : ""} de métiers`}
           </p>
-        </div>
+        </Link>
       </section>
 
       {/* Quick Actions */}
       <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
         <h2 className="text-lg font-semibold text-[var(--text)]">Actions rapides</h2>
         <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <button className="rounded-2xl border border-[#e2e7e2] bg-[#f8faf8] p-4 text-left transition hover:bg-[#f2f5f2]">
+          <Link
+            href="/dashboard/talents/new"
+            className="block rounded-2xl border border-[#e2e7e2] bg-[#f8faf8] p-4 text-left transition hover:bg-[#f2f5f2]"
+          >
             <p className="text-sm font-semibold text-[var(--text)]">Ajouter un talent</p>
-            <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.65)]">Inviter un nouveau collaborateur</p>
-          </button>
-          <button className="rounded-2xl border border-[#e2e7e2] bg-[#f8faf8] p-4 text-left transition hover:bg-[#f2f5f2]">
-            <p className="text-sm font-semibold text-[var(--text)]">Créer une grille</p>
-            <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.65)]">Définir une famille de métiers</p>
-          </button>
+            <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.65)]">Nouveau collaborateur</p>
+          </Link>
+          <Link
+            href="/dashboard/grilles"
+            className="block rounded-2xl border border-[#e2e7e2] bg-[#f8faf8] p-4 text-left transition hover:bg-[#f2f5f2]"
+          >
+            <p className="text-sm font-semibold text-[var(--text)]">Grilles de salaire</p>
+            <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.65)]">Départements et grilles</p>
+          </Link>
           <button className="rounded-2xl border border-[#e2e7e2] bg-[#f8faf8] p-4 text-left transition hover:bg-[#f2f5f2]">
             <p className="text-sm font-semibold text-[var(--text)]">Nouvel entretien</p>
             <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.65)]">Enregistrer un entretien</p>
@@ -186,7 +202,7 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
               </span>
               <div>
                 <p className="font-semibold text-[var(--text)]">Créez vos départements</p>
-                <p className="mt-1">Organisez votre structure en créant vos départements (ex: Product, Sales, Engineering).</p>
+                <p className="mt-1">Dans Grilles de salaire, organisez votre structure (ex: Product, Sales, Engineering).</p>
               </div>
             </li>
             <li className="flex items-start gap-3">
