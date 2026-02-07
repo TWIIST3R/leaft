@@ -497,3 +497,102 @@ export async function createBillingPortalSession(
   return session.url;
 }
 
+export type AddTalentsResult = {
+  subscription: Stripe.Subscription;
+  previousSeatCount: number;
+  newSeatCount: number;
+  prorationAmountCents: number;
+  newMonthlyAmountCents: number;
+};
+
+/**
+ * Update subscription seat count (add or remove talents) with proration.
+ * No checkout: uses existing payment method. Proration is applied from subscription start.
+ */
+export async function updateSubscriptionSeats(
+  organizationId: string,
+  newSeatCount: number,
+): Promise<AddTalentsResult> {
+  if (newSeatCount < 1) {
+    throw new Error("Le nombre de talents doit être au moins 1");
+  }
+
+  const supabase = supabaseAdmin();
+  const { data: subRow, error: subError } = await supabase
+    .from("subscriptions")
+    .select("stripe_subscription_id, seat_count")
+    .eq("organization_id", organizationId)
+    .eq("status", "active")
+    .single();
+
+  if (subError || !subRow?.stripe_subscription_id) {
+    throw new Error("Aucun abonnement actif trouvé pour cette organisation");
+  }
+
+  const previousSeatCount = subRow.seat_count ?? 0;
+  if (newSeatCount === previousSeatCount) {
+    const subscription = await stripe.subscriptions.retrieve(subRow.stripe_subscription_id);
+    return {
+      subscription,
+      previousSeatCount,
+      newSeatCount,
+      prorationAmountCents: 0,
+      newMonthlyAmountCents: 0,
+    };
+  }
+
+  const subscription = await stripe.subscriptions.retrieve(subRow.stripe_subscription_id, {
+    expand: ["items.data.price"],
+  });
+
+  const talentItem = subscription.items.data.find(
+    (item) => (item.price.metadata as Record<string, string> | null)?.type === "talent",
+  );
+  if (!talentItem) {
+    throw new Error("Élément abonnement talent introuvable");
+  }
+
+  const updated = await stripe.subscriptions.update(subscription.id, {
+    items: [
+      {
+        id: talentItem.id,
+        quantity: newSeatCount,
+      },
+    ],
+    proration_behavior: "create_prorations",
+    metadata: {
+      ...subscription.metadata,
+      seat_count: String(newSeatCount),
+    },
+  });
+
+  // Sync to Supabase (webhook will also sync, but doing it here ensures consistency)
+  await syncSubscriptionFromStripe(updated);
+
+  const tier = getPricingTier(newSeatCount);
+  const planType = (subscription.metadata?.plan_type || "monthly") as "monthly" | "annual";
+  const pricing = PRICING_TIERS[planType][tier];
+  const amountPerMonthEur = planType === "annual"
+    ? (pricing.perSeat * newSeatCount) / 12
+    : pricing.perSeat * newSeatCount;
+  const newMonthlyAmountCents = Math.round(amountPerMonthEur * 100);
+
+  let prorationAmountCents = 0;
+  try {
+    const invoice = await stripe.invoices.createPreview({
+      subscription: updated.id,
+    });
+    prorationAmountCents = invoice.amount_due ?? 0;
+  } catch {
+    // Proration amount optional; email will still show new subscription amount
+  }
+
+  return {
+    subscription: updated,
+    previousSeatCount,
+    newSeatCount,
+    prorationAmountCents,
+    newMonthlyAmountCents,
+  };
+}
+

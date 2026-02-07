@@ -4,6 +4,8 @@ import { PricingPageClient } from "./pricing-client";
 
 export type PricingPlan = {
   range: string;
+  /** Discount when choosing annual (e.g. 17 for 17%) */
+  annualDiscountPercent: number;
   monthly: {
     perSeat: string;
     suffix: string;
@@ -27,6 +29,7 @@ export const metadata = {
 const plans: PricingPlan[] = [
   {
     range: "1 à 5 talents",
+    annualDiscountPercent: 17, // 9€/mois × 12 = 108€, 90€/an → économie 17%
     monthly: {
       perSeat: "9€",
       suffix: "/mois / talent",
@@ -54,6 +57,7 @@ const plans: PricingPlan[] = [
   },
   {
     range: "6 à 19 talents",
+    annualDiscountPercent: 17,
     monthly: {
       perSeat: "8€",
       suffix: "/mois / talent",
@@ -81,6 +85,7 @@ const plans: PricingPlan[] = [
   },
   {
     range: "20 à 99 talents",
+    annualDiscountPercent: 17,
     monthly: {
       perSeat: "7€",
       suffix: "/mois / talent",
@@ -108,6 +113,7 @@ const plans: PricingPlan[] = [
   },
   {
     range: "100+ talents",
+    annualDiscountPercent: 17,
     monthly: {
       perSeat: "6€",
       suffix: "/mois / talent",

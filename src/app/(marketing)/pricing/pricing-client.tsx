@@ -39,10 +39,16 @@ export function PricingPageClient({ plans }: { plans: PricingPlan[] }) {
 
         <PricingTable plans={plans} />
 
-        <div className="rounded-[var(--radius)] border border-white/20 bg-white/10 p-8 text-sm text-white">
-          Facturation annuelle : Nombre de talents × Prix/talent annuel (économisez 2 mois par rapport à la facturation mensuelle). Pour un plan
-          supérieur à 200 talents ou des besoins avancés (multi-entités, intégrations SIRH), contactez-nous pour un
-          accompagnement dédié.
+        <div className="rounded-2xl border border-white/25 bg-white/15 p-8 text-sm text-white shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
+          <p className="font-semibold text-white">Pourquoi choisir l'abonnement annuel ?</p>
+          <ul className="mt-3 space-y-1.5 text-white/95">
+            <li>• <strong>Économisez 17%</strong> : équivalent à 2 mois offerts par rapport au mensuel</li>
+            <li>• Même prix au talent, facturé une fois par an</li>
+            <li>• Idéal pour anticiper vos coûts et simplifier la gestion</li>
+          </ul>
+          <p className="mt-4 text-white/80">
+            Facturation annuelle : nombre de talents × prix/talent annuel. Pour un plan supérieur à 200 talents ou des besoins avancés (multi-entités, intégrations SIRH), contactez-nous pour un accompagnement dédié.
+          </p>
         </div>
       </section>
     </main>

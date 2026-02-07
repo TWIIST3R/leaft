@@ -88,7 +88,7 @@ export function PricingTable({ plans }: { plans: PricingPlan[] }) {
 
   return (
     <div className="flex flex-col gap-10">
-      <div className="flex justify-center">
+      <div className="flex flex-col items-center gap-3">
         <div className="inline-flex items-center rounded-full border border-white/30 bg-white/10 p-1 text-sm font-medium">
           <button
             type="button"
@@ -109,6 +109,11 @@ export function PricingTable({ plans }: { plans: PricingPlan[] }) {
             Annuel
           </button>
         </div>
+        {billing === "annual" && (
+          <p className="text-center text-sm font-medium text-white/95">
+            Économisez jusqu'à <strong>17%</strong> (2 mois offerts par rapport au mensuel)
+          </p>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-4" ref={cardsRef}>
@@ -123,15 +128,20 @@ export function PricingTable({ plans }: { plans: PricingPlan[] }) {
               <h2 className="text-sm font-semibold uppercase tracking-wide text-[color:rgba(9,82,40,0.75)]">
                 {plan.range}
               </h2>
-              <div className="mt-6 flex items-baseline gap-2">
+              <div className="mt-6 flex flex-wrap items-baseline gap-2">
                 <span className="text-4xl font-semibold text-[var(--brand)]">{data.perSeat}</span>
                 <span className="text-sm font-medium text-[color:rgba(11,11,11,0.65)]">{data.suffix}</span>
+                {billing === "annual" && (
+                  <span className="ml-auto rounded-full bg-[var(--brand)]/15 px-2.5 py-0.5 text-xs font-semibold text-[var(--brand)]">
+                    −{plan.annualDiscountPercent}%
+                  </span>
+                )}
               </div>
               <button
                 type="button"
                 onClick={() => handleSelectPlan(plan)}
                 disabled={loading === `${plan.range}-${billing}`}
-                className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-[var(--brand)] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="mt-6 inline-flex w-full cursor-pointer items-center justify-center rounded-full bg-[var(--brand)] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading === `${plan.range}-${billing}` ? "Chargement..." : "Choisir ce plan"}
               </button>

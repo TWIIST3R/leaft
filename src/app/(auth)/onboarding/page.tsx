@@ -75,17 +75,16 @@ export default function OnboardingPage() {
     const organizationName = formData.get("organizationName") as string;
     const businessName = formData.get("businessName") as string;
     const taxId = formData.get("taxId") as string;
-    const employeeCount = parseInt(formData.get("employeeCount") as string, 10);
     const planType = formData.get("planType") as "monthly" | "annual";
 
-    if (!organizationName || !businessName || !taxId || !employeeCount || !planType) {
+    if (!organizationName || !businessName || !taxId || !planType) {
       setError("Veuillez remplir tous les champs");
       setLoading(false);
       return;
     }
 
     try {
-      // Create organization and redirect to checkout
+      // Create organization and redirect to checkout (1 talent by default, user can add more later)
       const response = await fetch("/api/onboarding", {
         method: "POST",
         headers: {
@@ -95,7 +94,6 @@ export default function OnboardingPage() {
           organizationName,
           businessName,
           taxId,
-          employeeCount,
           planType,
         }),
       });
@@ -194,25 +192,6 @@ export default function OnboardingPage() {
             </div>
 
             <div>
-              <label htmlFor="employeeCount" className="block text-sm font-semibold text-[var(--text)]">
-                Nombre de talents <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                id="employeeCount"
-                name="employeeCount"
-                required
-                min="1"
-                step="1"
-                className="mt-2 w-full rounded-xl border border-[#e2e7e2] bg-white px-4 py-3 text-[var(--text)] transition focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
-                placeholder="Ex: 5"
-              />
-              <p className="mt-2 text-xs text-[color:rgba(11,11,11,0.6)]">
-                C'est le nombre de talents qui sera facturé lors de votre premier paiement. Vous pourrez ajouter des talents à tout moment depuis votre dashboard.
-              </p>
-            </div>
-
-            <div>
               <label className="block text-sm font-semibold text-[var(--text)] mb-3">
                 Type d'abonnement <span className="text-red-500">*</span>
               </label>
@@ -240,8 +219,13 @@ export default function OnboardingPage() {
                     className="sr-only"
                   />
                   <div className="flex-1">
-                    <div className="font-semibold text-[var(--text)]">Annuel</div>
-                    <div className="mt-1 text-xs text-[color:rgba(11,11,11,0.6)]">2 mois offerts</div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-[var(--text)]">Annuel</span>
+                      <span className="rounded-full bg-[var(--brand)]/15 px-2 py-0.5 text-xs font-semibold text-[var(--brand)]">
+                        Recommandé · 2 mois offerts
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs text-[color:rgba(11,11,11,0.6)]">Économisez ~17% par rapport au mensuel</div>
                   </div>
                 </label>
               </div>
@@ -250,7 +234,7 @@ export default function OnboardingPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-full bg-[var(--brand)] px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full cursor-pointer rounded-full bg-[var(--brand)] px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Traitement..." : "Continuer vers le paiement"}
             </button>

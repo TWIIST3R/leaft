@@ -15,12 +15,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { organizationName, businessName, taxId, employeeCount, planType } = body;
 
-    if (!organizationName || !businessName || !taxId || !employeeCount || !planType) {
+    if (!organizationName || !businessName || !taxId || !planType) {
       return NextResponse.json(
-        { error: "Missing required fields: organizationName, businessName, taxId, employeeCount, planType" },
+        { error: "Missing required fields: organizationName, businessName, taxId, planType" },
         { status: 400 },
       );
     }
+
+    // Default to 1 talent at onboarding; user can add more later from dashboard (no new checkout)
+    const seatCount = typeof employeeCount === "number" && employeeCount >= 1 ? employeeCount : 1;
 
     if (planType !== "monthly" && planType !== "annual") {
       return NextResponse.json({ error: "Invalid planType" }, { status: 400 });
@@ -77,11 +80,11 @@ export async function POST(request: NextRequest) {
     // Get or create Stripe customer
     const customer = await getOrCreateStripeCustomer(organizationId, email, businessName);
 
-    // Create checkout session
+    // Create checkout session (1 talent by default)
     const session = await createCheckoutSession(
       organizationId,
       customer.id,
-      employeeCount,
+      seatCount,
       planType,
       businessName,
       taxId,
