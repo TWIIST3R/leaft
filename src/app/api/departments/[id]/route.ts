@@ -28,7 +28,7 @@ export async function PATCH(
     const { userId, orgId } = await auth();
     if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-    const organizationId = await getOrganizationId(userId, orgId);
+    const organizationId = await getOrganizationId(userId, orgId ?? null);
     if (!organizationId) return NextResponse.json({ error: "Organisation introuvable" }, { status: 404 });
 
     const { id } = await params;
@@ -65,7 +65,7 @@ export async function DELETE(
     const { userId, orgId } = await auth();
     if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-    const organizationId = await getOrganizationId(userId, orgId);
+    const organizationId = await getOrganizationId(userId, orgId ?? null);
     if (!organizationId) return NextResponse.json({ error: "Organisation introuvable" }, { status: 404 });
 
     const { id } = await params;
