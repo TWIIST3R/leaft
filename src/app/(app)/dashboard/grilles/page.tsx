@@ -76,7 +76,13 @@ async function getData() {
     paliers: (paliersByDept[d.id] ?? []).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
   }));
 
-  return { organization, departmentsWithPaliers };
+  const { data: avantages } = await supabase
+    .from("avantages_en_nature")
+    .select("id, name, montant_annuel_brut, department_id, created_at")
+    .eq("organization_id", organization.id)
+    .order("name");
+
+  return { organization, departmentsWithPaliers, departments: departments ?? [], avantages: avantages ?? [] };
 }
 
 export default async function GrillesPage() {
@@ -91,7 +97,7 @@ export default async function GrillesPage() {
         </p>
       </div>
 
-      <GrillesClient initialDepartmentsWithPaliers={data.departmentsWithPaliers} />
+      <GrillesClient initialDepartmentsWithPaliers={data.departmentsWithPaliers} initialAvantages={data.avantages} />
     </div>
   );
 }

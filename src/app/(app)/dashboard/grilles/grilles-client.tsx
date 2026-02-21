@@ -16,6 +16,14 @@ type Palier = {
 };
 type DepartmentWithPaliers = Department & { paliers: Palier[] };
 
+type Avantage = {
+  id: string;
+  name: string;
+  montant_annuel_brut: number;
+  department_id: string | null;
+  created_at: string;
+};
+
 function PalierForm({
   onAdd,
   loading,
@@ -30,20 +38,30 @@ function PalierForm({
   const [minTenure, setMinTenure] = useState("");
   const [notes, setNotes] = useState("");
 
+  const [criteriaError, setCriteriaError] = useState<string | null>(null);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setCriteriaError(null);
     const n = name.trim();
     if (!n) return;
-    const objList = objectives.trim() ? objectives.split("\n").map((s) => s.trim()).filter(Boolean) : undefined;
-    const compList = competencies.trim() ? competencies.split("\n").map((s) => s.trim()).filter(Boolean) : undefined;
+    const objList = objectives.trim() ? objectives.split("\n").map((s) => s.trim()).filter(Boolean) : [];
+    const compList = competencies.trim() ? competencies.split("\n").map((s) => s.trim()).filter(Boolean) : [];
+    const tenure = minTenure ? Number(minTenure) : null;
+    const notesVal = notes.trim() || undefined;
+    const hasCriteria = objList.length > 0 || compList.length > 0 || tenure != null || notesVal;
+    if (!hasCriteria) {
+      setCriteriaError("Au moins un critère est requis (objectifs, compétences, ancienneté ou notes)");
+      return;
+    }
     onAdd({
       name: n,
       montant_annuel: montant ? Number(montant) : undefined,
       criteria: {
-        objectives: objList ?? [],
-        competencies: compList ?? [],
-        min_tenure_months: minTenure ? Number(minTenure) : null,
-        notes: notes.trim() || undefined,
+        objectives: objList,
+        competencies: compList,
+        min_tenure_months: tenure,
+        notes: notesVal,
       },
     });
     setName("");
@@ -83,10 +101,14 @@ function PalierForm({
           Ajouter palier
         </button>
       </div>
-      <details className="rounded-lg border border-[#e2e7e2] bg-[#f8faf8] px-3 py-2 text-sm">
-        <summary className="cursor-pointer font-medium text-[var(--text)]">
-          Critères pour passer au palier suivant (optionnels)
-        </summary>
+      <div className="rounded-lg border border-[#e2e7e2] bg-[#f8faf8] px-3 py-3 text-sm">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-medium text-[var(--text)]">Critères du palier (obligatoires)</span>
+          <span className="text-xs text-[color:rgba(11,11,11,0.5)]">Aide IA à venir</span>
+        </div>
+        {criteriaError && (
+          <p className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{criteriaError}</p>
+        )}
         <div className="mt-3 space-y-3">
           <div>
             <label className="block text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Objectifs mesurables (un par ligne)</label>
@@ -134,21 +156,32 @@ function PalierForm({
             />
           </div>
         </div>
-      </details>
+      </div>
     </form>
   );
 }
 
-export function GrillesClient({ initialDepartmentsWithPaliers }: { initialDepartmentsWithPaliers: DepartmentWithPaliers[] }) {
+export function GrillesClient({
+  initialDepartmentsWithPaliers,
+  initialAvantages,
+}: {
+  initialDepartmentsWithPaliers: DepartmentWithPaliers[];
+  initialAvantages: Avantage[];
+}) {
   const router = useRouter();
   const [deptsWithPaliers, setDeptsWithPaliers] = useState(initialDepartmentsWithPaliers);
+  const [avantages, setAvantages] = useState(initialAvantages);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [paliersError, setPaliersError] = useState<string | null>(null);
+  const [avantagesError, setAvantagesError] = useState<string | null>(null);
   const [expandedDeptId, setExpandedDeptId] = useState<string | null>(initialDepartmentsWithPaliers[0]?.id ?? null);
+  const [avantageName, setAvantageName] = useState("");
+  const [avantageMontant, setAvantageMontant] = useState("");
+  const [avantageDeptId, setAvantageDeptId] = useState("");
 
   const departments = deptsWithPaliers.map(({ paliers, ...d }) => d);
 
@@ -254,6 +287,59 @@ export function GrillesClient({ initialDepartmentsWithPaliers }: { initialDepart
       router.refresh();
     } catch (err) {
       setPaliersError(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleCreateAvantage(e: React.FormEvent) {
+    e.preventDefault();
+    setAvantagesError(null);
+    const trimmed = avantageName.trim();
+    if (!trimmed) return;
+    const montant = Number(avantageMontant);
+    if (isNaN(montant) || montant < 0) {
+      setAvantagesError("Montant invalide");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/avantages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: trimmed,
+          montant_annuel_brut: montant,
+          department_id: avantageDeptId || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur");
+      setAvantages((prev) => [...prev, data]);
+      setAvantageName("");
+      setAvantageMontant("");
+      setAvantageDeptId("");
+      router.refresh();
+    } catch (err) {
+      setAvantagesError(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteAvantage(id: string) {
+    if (!confirm("Supprimer cet avantage ?")) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/avantages/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Erreur");
+      }
+      setAvantages((prev) => prev.filter((a) => a.id !== id));
+      router.refresh();
+    } catch (err) {
+      setAvantagesError(err instanceof Error ? err.message : "Erreur");
     } finally {
       setLoading(false);
     }
@@ -392,7 +478,7 @@ export function GrillesClient({ initialDepartmentsWithPaliers }: { initialDepart
       <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
         <h2 className="text-lg font-semibold text-[var(--text)]">Paliers par département</h2>
         <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
-          Cliquez sur un département pour gérer ses paliers : nom, rémunération annuelle brute, et critères (objectifs, compétences, ancienneté).
+          Cliquez sur un département pour gérer ses paliers. Chaque palier requiert des critères (objectifs, compétences, ancienneté) pour définir les conditions d&apos;accès.
         </p>
         {paliersError && (
           <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{paliersError}</p>
@@ -466,6 +552,89 @@ export function GrillesClient({ initialDepartmentsWithPaliers }: { initialDepart
                     </button>
                   </div>
                 )}
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
+      {/* Avantages en nature */}
+      <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+        <h2 className="text-lg font-semibold text-[var(--text)]">Avantages en nature</h2>
+        <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
+          Voiture de fonction, ticket resto, abonnement gym, etc. Chaque avantage a un montant annuel brut défini et peut être lié à un département.
+        </p>
+        {avantagesError && (
+          <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{avantagesError}</p>
+        )}
+        <form onSubmit={handleCreateAvantage} className="mt-4 flex flex-wrap items-end gap-3">
+          <input
+            type="text"
+            value={avantageName}
+            onChange={(e) => setAvantageName(e.target.value)}
+            placeholder="Ex: Voiture de fonction"
+            className="rounded-xl border border-[#e2e7e2] px-4 py-2.5 text-sm focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
+            disabled={loading}
+            required
+          />
+          <input
+            type="number"
+            value={avantageMontant}
+            onChange={(e) => setAvantageMontant(e.target.value)}
+            placeholder="Montant annuel brut (€)"
+            min={0}
+            step={100}
+            className="w-40 rounded-xl border border-[#e2e7e2] px-4 py-2.5 text-sm focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
+            disabled={loading}
+            required
+          />
+          <select
+            value={avantageDeptId}
+            onChange={(e) => setAvantageDeptId(e.target.value)}
+            className="rounded-xl border border-[#e2e7e2] px-4 py-2.5 text-sm focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
+            disabled={loading}
+          >
+            <option value="">Tous les départements</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            disabled={loading}
+            className="rounded-full bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50"
+          >
+            Ajouter
+          </button>
+        </form>
+        <div className="mt-6 space-y-2">
+          {avantages.length === 0 ? (
+            <p className="text-sm text-[color:rgba(11,11,11,0.65)]">Aucun avantage en nature. Ajoutez-en un ci-dessus.</p>
+          ) : (
+            avantages.map((a) => (
+              <div
+                key={a.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] px-4 py-3"
+              >
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="font-medium text-[var(--text)]">{a.name}</span>
+                  <span className="text-sm text-[color:rgba(11,11,11,0.65)]">
+                    {Number(a.montant_annuel_brut).toLocaleString("fr-FR")} € brut / an
+                  </span>
+                  {a.department_id && (
+                    <span className="rounded-full bg-[var(--brand)]/10 px-2 py-0.5 text-xs font-medium text-[var(--brand)]">
+                      {departments.find((d) => d.id === a.department_id)?.name ?? "—"}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteAvantage(a.id)}
+                  disabled={loading}
+                  className="text-xs font-medium text-red-600 hover:bg-red-50 rounded px-2 py-1 disabled:opacity-50"
+                >
+                  Supprimer
+                </button>
               </div>
             ))
           )}
