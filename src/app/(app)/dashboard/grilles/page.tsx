@@ -43,15 +43,16 @@ async function getData() {
     .order("name");
 
   const familyIds = (families ?? []).map((f) => f.id);
-  const { data: levels } = familyIds.length
+  const levelsResult = familyIds.length
     ? await supabase
         .from("levels")
         .select("id, job_family_id, name, \"order\", min_salary, mid_salary, max_salary, expectations")
         .in("job_family_id", familyIds)
         .order("\"order\"")
-    : { data: [] };
+    : { data: [] as { id: string; job_family_id: string; name: string; order: number; min_salary: number | null; mid_salary: number | null; max_salary: number | null; expectations: string | null }[] };
+  const levelsList = levelsResult.data ?? [];
 
-  const levelsByFamily = (levels?.data ?? []).reduce<Record<string, NonNullable<typeof levels>["data"][0][]>>((acc, l) => {
+  const levelsByFamily = levelsList.reduce<Record<string, typeof levelsList>>((acc, l) => {
     const k = l.job_family_id;
     if (!acc[k]) acc[k] = [];
     acc[k].push(l);
