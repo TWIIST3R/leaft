@@ -4,100 +4,155 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Department = { id: string; name: string; created_at: string };
-type Level = { id: string; job_family_id: string; name: string; order: number; min_salary: number | null; mid_salary: number | null; max_salary: number | null; expectations: string | null };
-type JobFamily = { id: string; name: string; created_at: string; levels: Level[] };
+type Criteria = { objectives?: string[]; competencies?: string[]; min_tenure_months?: number | null; notes?: string } | null;
+type Palier = {
+  id: string;
+  department_id: string;
+  name: string;
+  order: number;
+  montant_annuel: number | null;
+  criteria: Criteria;
+  expectations: string | null;
+};
+type DepartmentWithPaliers = Department & { paliers: Palier[] };
 
-function LevelForm({
+function PalierForm({
   onAdd,
   loading,
 }: {
-  onAdd: (data: { name: string; min_salary?: number; mid_salary?: number; max_salary?: number }) => void;
+  onAdd: (data: { name: string; montant_annuel?: number; criteria?: Criteria }) => void;
   loading: boolean;
 }) {
   const [name, setName] = useState("");
-  const [minSalary, setMinSalary] = useState("");
-  const [midSalary, setMidSalary] = useState("");
-  const [maxSalary, setMaxSalary] = useState("");
+  const [montant, setMontant] = useState("");
+  const [objectives, setObjectives] = useState("");
+  const [competencies, setCompetencies] = useState("");
+  const [minTenure, setMinTenure] = useState("");
+  const [notes, setNotes] = useState("");
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const n = name.trim();
     if (!n) return;
+    const objList = objectives.trim() ? objectives.split("\n").map((s) => s.trim()).filter(Boolean) : undefined;
+    const compList = competencies.trim() ? competencies.split("\n").map((s) => s.trim()).filter(Boolean) : undefined;
     onAdd({
       name: n,
-      min_salary: minSalary ? Number(minSalary) : undefined,
-      mid_salary: midSalary ? Number(midSalary) : undefined,
-      max_salary: maxSalary ? Number(maxSalary) : undefined,
+      montant_annuel: montant ? Number(montant) : undefined,
+      criteria: {
+        objectives: objList ?? [],
+        competencies: compList ?? [],
+        min_tenure_months: minTenure ? Number(minTenure) : null,
+        notes: notes.trim() || undefined,
+      },
     });
     setName("");
-    setMinSalary("");
-    setMidSalary("");
-    setMaxSalary("");
+    setMontant("");
+    setObjectives("");
+    setCompetencies("");
+    setMinTenure("");
+    setNotes("");
   };
+
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Nom du niveau (ex: Junior, Senior)"
-        className="rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)]/20 w-44"
-        disabled={loading}
-      />
-      <input
-        type="number"
-        value={minSalary}
-        onChange={(e) => setMinSalary(e.target.value)}
-        placeholder="Min (€)"
-        min={0}
-        step={100}
-        className="rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm w-24 focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)]/20"
-        disabled={loading}
-      />
-      <input
-        type="number"
-        value={midSalary}
-        onChange={(e) => setMidSalary(e.target.value)}
-        placeholder="Mid (€)"
-        min={0}
-        step={100}
-        className="rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm w-24 focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)]/20"
-        disabled={loading}
-      />
-      <input
-        type="number"
-        value={maxSalary}
-        onChange={(e) => setMaxSalary(e.target.value)}
-        placeholder="Max (€)"
-        min={0}
-        step={100}
-        className="rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm w-24 focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)]/20"
-        disabled={loading}
-      />
-      <button
-        type="submit"
-        disabled={loading}
-        className="rounded-full bg-[var(--brand)] px-4 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50"
-      >
-        Ajouter niveau
-      </button>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nom du palier (ex: Junior, Senior)"
+          className="rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)]/20 w-44"
+          disabled={loading}
+        />
+        <input
+          type="number"
+          value={montant}
+          onChange={(e) => setMontant(e.target.value)}
+          placeholder="Rémunération annuelle brute (€)"
+          min={0}
+          step={100}
+          className="rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm w-48 focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)]/20"
+          disabled={loading}
+        />
+        <button
+          type="submit"
+          disabled={loading}
+          className="rounded-full bg-[var(--brand)] px-4 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50"
+        >
+          Ajouter palier
+        </button>
+      </div>
+      <details className="rounded-lg border border-[#e2e7e2] bg-[#f8faf8] px-3 py-2 text-sm">
+        <summary className="cursor-pointer font-medium text-[var(--text)]">
+          Critères pour passer au palier suivant (optionnels)
+        </summary>
+        <div className="mt-3 space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Objectifs mesurables (un par ligne)</label>
+            <textarea
+              value={objectives}
+              onChange={(e) => setObjectives(e.target.value)}
+              rows={2}
+              placeholder="Ex: Livrer 3 projets majeurs"
+              className="mt-1 w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm"
+              disabled={loading}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Compétences requises (une par ligne)</label>
+            <textarea
+              value={competencies}
+              onChange={(e) => setCompetencies(e.target.value)}
+              rows={2}
+              placeholder="Ex: Leadership"
+              className="mt-1 w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm"
+              disabled={loading}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Ancienneté min. (mois)</label>
+            <input
+              type="number"
+              value={minTenure}
+              onChange={(e) => setMinTenure(e.target.value)}
+              min={0}
+              placeholder="Ex: 12"
+              className="mt-1 w-24 rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm"
+              disabled={loading}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Notes</label>
+            <input
+              type="text"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Autres critères..."
+              className="mt-1 w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm"
+              disabled={loading}
+            />
+          </div>
+        </div>
+      </details>
     </form>
   );
 }
 
-export function GrillesClient({ initialDepartments, initialJobFamilies }: { initialDepartments: Department[]; initialJobFamilies: JobFamily[] }) {
+export function GrillesClient({ initialDepartmentsWithPaliers }: { initialDepartmentsWithPaliers: DepartmentWithPaliers[] }) {
   const router = useRouter();
-  const [departments, setDepartments] = useState(initialDepartments);
+  const [deptsWithPaliers, setDeptsWithPaliers] = useState(initialDepartmentsWithPaliers);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
-  const [jobFamilies, setJobFamilies] = useState(initialJobFamilies);
-  const [newFamilyName, setNewFamilyName] = useState("");
-  const [familyError, setFamilyError] = useState<string | null>(null);
-  const [expandedFamily, setExpandedFamily] = useState<string | null>(initialJobFamilies[0]?.id ?? null);
+  const [paliersError, setPaliersError] = useState<string | null>(null);
+  const [expandedDeptId, setExpandedDeptId] = useState<string | null>(initialDepartmentsWithPaliers[0]?.id ?? null);
 
-  async function handleCreate(e: React.FormEvent) {
+  const departments = deptsWithPaliers.map(({ paliers, ...d }) => d);
+
+  async function handleCreateDept(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     const trimmed = name.trim();
@@ -111,7 +166,7 @@ export function GrillesClient({ initialDepartments, initialJobFamilies }: { init
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erreur");
-      setDepartments((prev) => [...prev, data]);
+      setDeptsWithPaliers((prev) => [...prev, { ...data, paliers: [] }]);
       setName("");
       router.refresh();
     } catch (err) {
@@ -121,7 +176,7 @@ export function GrillesClient({ initialDepartments, initialJobFamilies }: { init
     }
   }
 
-  async function handleUpdate(id: string) {
+  async function handleUpdateDept(id: string) {
     const trimmed = editName.trim();
     if (!trimmed) return;
     setLoading(true);
@@ -133,7 +188,9 @@ export function GrillesClient({ initialDepartments, initialJobFamilies }: { init
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erreur");
-      setDepartments((prev) => prev.map((d) => (d.id === id ? data : d)));
+      setDeptsWithPaliers((prev) =>
+        prev.map((d) => (d.id === id ? { ...d, ...data } : d))
+      );
       setEditingId(null);
       setEditName("");
       router.refresh();
@@ -144,8 +201,8 @@ export function GrillesClient({ initialDepartments, initialJobFamilies }: { init
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Supprimer ce département ? Les talents rattachés devront être réaffectés.")) return;
+  async function handleDeleteDept(id: string) {
+    if (!confirm("Supprimer ce département ? Les paliers et talents rattachés seront concernés.")) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/departments/${id}`, { method: "DELETE" });
@@ -153,7 +210,8 @@ export function GrillesClient({ initialDepartments, initialJobFamilies }: { init
         const data = await res.json();
         throw new Error(data.error || "Erreur");
       }
-      setDepartments((prev) => prev.filter((d) => d.id !== id));
+      setDeptsWithPaliers((prev) => prev.filter((d) => d.id !== id));
+      if (expandedDeptId === id) setExpandedDeptId(null);
       if (editingId === id) setEditingId(null);
       router.refresh();
     } catch (err) {
@@ -169,94 +227,55 @@ export function GrillesClient({ initialDepartments, initialJobFamilies }: { init
     setError(null);
   }
 
-  async function handleCreateFamily(e: React.FormEvent) {
-    e.preventDefault();
-    setFamilyError(null);
-    const trimmed = newFamilyName.trim();
-    if (!trimmed) return;
+  async function handleCreatePalier(departmentId: string, palierData: { name: string; montant_annuel?: number; criteria?: Criteria }) {
     setLoading(true);
+    setPaliersError(null);
     try {
-      const res = await fetch("/api/job-families", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erreur");
-      setJobFamilies((prev) => [...prev, data]);
-      setNewFamilyName("");
-      setExpandedFamily(data.id);
-      router.refresh();
-    } catch (err) {
-      setFamilyError(err instanceof Error ? err.message : "Erreur");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleDeleteFamily(id: string) {
-    if (!confirm("Supprimer cette famille de métiers et tous ses niveaux ?")) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/job-families/${id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Erreur");
-      }
-      setJobFamilies((prev) => prev.filter((f) => f.id !== id));
-      if (expandedFamily === id) setExpandedFamily(null);
-      router.refresh();
-    } catch (err) {
-      setFamilyError(err instanceof Error ? err.message : "Erreur");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleCreateLevel(jobFamilyId: string, levelData: { name: string; min_salary?: number; mid_salary?: number; max_salary?: number }) {
-    setLoading(true);
-    setFamilyError(null);
-    try {
+      const dept = deptsWithPaliers.find((d) => d.id === departmentId);
+      const order = dept?.paliers?.length ?? 0;
       const res = await fetch("/api/levels", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          job_family_id: jobFamilyId,
-          name: levelData.name.trim(),
-          order: jobFamilies.find((f) => f.id === jobFamilyId)?.levels?.length ?? 0,
-          min_salary: levelData.min_salary ?? null,
-          mid_salary: levelData.mid_salary ?? null,
-          max_salary: levelData.max_salary ?? null,
+          department_id: departmentId,
+          name: palierData.name.trim(),
+          order,
+          montant_annuel: palierData.montant_annuel ?? null,
+          criteria: palierData.criteria ?? { objectives: [], competencies: [], min_tenure_months: null, notes: "" },
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erreur");
-      setJobFamilies((prev) =>
-        prev.map((f) => (f.id === jobFamilyId ? { ...f, levels: [...(f.levels ?? []), data] } : f))
+      setDeptsWithPaliers((prev) =>
+        prev.map((d) =>
+          d.id === departmentId ? { ...d, paliers: [...(d.paliers ?? []), data] } : d
+        )
       );
       router.refresh();
     } catch (err) {
-      setFamilyError(err instanceof Error ? err.message : "Erreur");
+      setPaliersError(err instanceof Error ? err.message : "Erreur");
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleDeleteLevel(jobFamilyId: string, levelId: string) {
-    if (!confirm("Supprimer ce niveau ?")) return;
+  async function handleDeletePalier(departmentId: string, palierId: string) {
+    if (!confirm("Supprimer ce palier ?")) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/levels/${levelId}`, { method: "DELETE" });
+      const res = await fetch(`/api/levels/${palierId}`, { method: "DELETE" });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || "Erreur");
       }
-      setJobFamilies((prev) =>
-        prev.map((f) => (f.id === jobFamilyId ? { ...f, levels: (f.levels ?? []).filter((l) => l.id !== levelId) } : f))
+      setDeptsWithPaliers((prev) =>
+        prev.map((d) =>
+          d.id === departmentId ? { ...d, paliers: (d.paliers ?? []).filter((p) => p.id !== palierId) } : d
+        )
       );
       router.refresh();
     } catch (err) {
-      setFamilyError(err instanceof Error ? err.message : "Erreur");
+      setPaliersError(err instanceof Error ? err.message : "Erreur");
     } finally {
       setLoading(false);
     }
@@ -266,13 +285,13 @@ export function GrillesClient({ initialDepartments, initialJobFamilies }: { init
     <div className="space-y-10">
       {/* Départements */}
       <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
-        <h2 className="text-lg font-semibold text-[var(--text)]">Départements</h2>
+        <h2 className="text-lg font-semibold text-[var(--text)]">Départements & paliers</h2>
         <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
-          Ajoutez, modifiez ou supprimez les départements. Ils servent à organiser les grilles et les talents.
+          Ajoutez des départements, puis définissez pour chacun des paliers avec rémunération annuelle brute fixe et critères pour passer au palier suivant.
         </p>
         <div className="mt-6 grid gap-8 lg:grid-cols-2">
           <div>
-            <form onSubmit={handleCreate} className="space-y-4">
+            <form onSubmit={handleCreateDept} className="space-y-4">
               {error && !editingId && (
                 <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
               )}
@@ -285,7 +304,7 @@ export function GrillesClient({ initialDepartments, initialJobFamilies }: { init
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Ex: Engineering"
+                  placeholder="Ex: Engineering, Commercial"
                   className="mt-2 w-full rounded-xl border border-[#e2e7e2] bg-white px-4 py-3 text-[var(--text)] transition focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
                   disabled={loading}
                 />
@@ -295,7 +314,7 @@ export function GrillesClient({ initialDepartments, initialJobFamilies }: { init
                 disabled={loading}
                 className="inline-flex cursor-pointer items-center rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
               >
-                {loading ? "Création..." : "Ajouter"}
+                {loading ? "Création..." : "Ajouter département"}
               </button>
             </form>
           </div>
@@ -320,7 +339,7 @@ export function GrillesClient({ initialDepartments, initialJobFamilies }: { init
                         />
                         <button
                           type="button"
-                          onClick={() => handleUpdate(d.id)}
+                          onClick={() => handleUpdateDept(d.id)}
                           disabled={loading}
                           className="rounded-full bg-[var(--brand)] px-3 py-1.5 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50"
                         >
@@ -328,7 +347,11 @@ export function GrillesClient({ initialDepartments, initialJobFamilies }: { init
                         </button>
                         <button
                           type="button"
-                          onClick={() => { setEditingId(null); setEditName(""); setError(null); }}
+                          onClick={() => {
+                            setEditingId(null);
+                            setEditName("");
+                            setError(null);
+                          }}
                           className="rounded-full border border-[#e2e7e2] px-3 py-1.5 text-xs font-medium hover:bg-[#f2f5f2]"
                         >
                           Annuler
@@ -348,7 +371,7 @@ export function GrillesClient({ initialDepartments, initialJobFamilies }: { init
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDelete(d.id)}
+                            onClick={() => handleDeleteDept(d.id)}
                             disabled={loading}
                             className="rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
                           >
@@ -365,89 +388,81 @@ export function GrillesClient({ initialDepartments, initialJobFamilies }: { init
         </div>
       </section>
 
-      {/* Grilles par famille de métiers */}
+      {/* Paliers par département */}
       <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
-        <h2 className="text-lg font-semibold text-[var(--text)]">Grilles par famille de métiers</h2>
+        <h2 className="text-lg font-semibold text-[var(--text)]">Paliers par département</h2>
         <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
-          Créez des familles de métiers (ex: Ingénierie, Commercial) puis définissez les niveaux avec leurs fourchettes salariales (min / mid / max).
+          Cliquez sur un département pour gérer ses paliers : nom, rémunération annuelle brute, et critères (objectifs, compétences, ancienneté).
         </p>
-        {familyError && (
-          <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{familyError}</p>
+        {paliersError && (
+          <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{paliersError}</p>
         )}
-        <form onSubmit={handleCreateFamily} className="mt-4 flex flex-wrap gap-3">
-          <input
-            type="text"
-            value={newFamilyName}
-            onChange={(e) => setNewFamilyName(e.target.value)}
-            placeholder="Ex: Ingénierie"
-            className="rounded-xl border border-[#e2e7e2] bg-white px-4 py-2.5 text-sm text-[var(--text)] focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
-            disabled={loading}
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex cursor-pointer items-center rounded-full bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50"
-          >
-            Ajouter une famille
-          </button>
-        </form>
         <div className="mt-6 space-y-3">
-          {jobFamilies.length === 0 ? (
-            <p className="text-sm text-[color:rgba(11,11,11,0.65)]">Aucune famille de métiers. Créez-en une ci-dessus.</p>
+          {deptsWithPaliers.length === 0 ? (
+            <p className="text-sm text-[color:rgba(11,11,11,0.65)]">Aucun département. Créez-en un dans la section ci-dessus.</p>
           ) : (
-            jobFamilies.map((family) => (
+            deptsWithPaliers.map((dept) => (
               <div
-                key={family.id}
-                className="rounded-xl border border-[#e2e7e2] bg-[#f8faf8] overflow-hidden"
+                key={dept.id}
+                className="overflow-hidden rounded-xl border border-[#e2e7e2] bg-[#f8faf8]"
               >
                 <button
                   type="button"
-                  onClick={() => setExpandedFamily(expandedFamily === family.id ? null : family.id)}
+                  onClick={() => setExpandedDeptId(expandedDeptId === dept.id ? null : dept.id)}
                   className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-[#f2f5f2]"
                 >
-                  <span className="font-semibold text-[var(--text)]">{family.name}</span>
+                  <span className="font-semibold text-[var(--text)]">{dept.name}</span>
                   <span className="text-xs text-[color:rgba(11,11,11,0.5)]">
-                    {family.levels?.length ?? 0} niveau{(family.levels?.length ?? 0) > 1 ? "x" : ""}
+                    {dept.paliers?.length ?? 0} palier{(dept.paliers?.length ?? 0) > 1 ? "s" : ""}
                   </span>
                 </button>
-                {expandedFamily === family.id && (
+                {expandedDeptId === dept.id && (
                   <div className="border-t border-[#e2e7e2] bg-white p-4">
-                    <LevelForm onAdd={(data) => handleCreateLevel(family.id, data)} loading={loading} />
+                    <PalierForm onAdd={(data) => handleCreatePalier(dept.id, data)} loading={loading} />
                     <div className="mt-4 space-y-2">
-                      {(family.levels ?? []).map((l) => (
+                      {(dept.paliers ?? []).map((p) => (
                         <div
-                          key={l.id}
-                          className="flex items-center justify-between rounded-lg border border-[#e2e7e2] bg-[#f8faf8] px-4 py-2 text-sm"
+                          key={p.id}
+                          className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-[#e2e7e2] bg-[#f8faf8] px-4 py-2 text-sm"
                         >
                           <div className="flex flex-wrap gap-4">
-                            <span className="font-medium text-[var(--text)]">{l.name}</span>
+                            <span className="font-medium text-[var(--text)]">{p.name}</span>
                             <span className="text-[color:rgba(11,11,11,0.65)]">
-                              Min {l.min_salary != null ? `${Number(l.min_salary).toLocaleString("fr-FR")} €` : "—"} / Mid{" "}
-                              {l.mid_salary != null ? `${Number(l.mid_salary).toLocaleString("fr-FR")} €` : "—"} / Max{" "}
-                              {l.max_salary != null ? `${Number(l.max_salary).toLocaleString("fr-FR")} €` : "—"}
+                              {p.montant_annuel != null ? `${Number(p.montant_annuel).toLocaleString("fr-FR")} € brut / an` : "—"}
                             </span>
+                            {p.criteria && (
+                              <span className="text-xs text-[color:rgba(11,11,11,0.55)]">
+                                {[
+                                  (p.criteria.objectives?.length ?? 0) > 0 && `${p.criteria.objectives.length} objectif(s)`,
+                                  (p.criteria.competencies?.length ?? 0) > 0 && `${p.criteria.competencies.length} compétence(s)`,
+                                  p.criteria.min_tenure_months != null && `≥ ${p.criteria.min_tenure_months} mois`,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </span>
+                            )}
                           </div>
                           <button
                             type="button"
-                            onClick={() => handleDeleteLevel(family.id, l.id)}
+                            onClick={() => handleDeletePalier(dept.id, p.id)}
                             disabled={loading}
-                            className="text-xs font-medium text-red-600 hover:bg-red-50 rounded px-2 py-1 disabled:opacity-50"
+                            className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
                           >
                             Supprimer
                           </button>
                         </div>
                       ))}
-                      {(!family.levels || family.levels.length === 0) && (
-                        <p className="text-sm text-[color:rgba(11,11,11,0.5)]">Aucun niveau. Ajoutez-en un avec le formulaire ci-dessus.</p>
+                      {(!dept.paliers || dept.paliers.length === 0) && (
+                        <p className="text-sm text-[color:rgba(11,11,11,0.5)]">Aucun palier. Ajoutez-en un avec le formulaire ci-dessus.</p>
                       )}
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleDeleteFamily(family.id)}
+                      onClick={() => handleDeleteDept(dept.id)}
                       disabled={loading}
                       className="mt-4 text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
                     >
-                      Supprimer cette famille de métiers
+                      Supprimer ce département
                     </button>
                   </div>
                 )}

@@ -29,39 +29,40 @@ export async function POST(request: NextRequest) {
     if (!organizationId) return NextResponse.json({ error: "Organisation introuvable" }, { status: 404 });
 
     const body = await request.json();
-    const jobFamilyId = body.job_family_id;
+    const departmentId = body.department_id;
     const name = typeof body.name === "string" ? body.name.trim() : "";
-    if (!jobFamilyId || !name) {
-      return NextResponse.json({ error: "job_family_id et name sont requis" }, { status: 400 });
+    if (!departmentId || !name) {
+      return NextResponse.json({ error: "department_id et name sont requis" }, { status: 400 });
     }
 
     const supabase = supabaseAdmin();
-    const { data: jf } = await supabase
-      .from("job_families")
+    const { data: dept } = await supabase
+      .from("departments")
       .select("id")
-      .eq("id", jobFamilyId)
+      .eq("id", departmentId)
       .eq("organization_id", organizationId)
       .single();
-    if (!jf) return NextResponse.json({ error: "Famille de métiers introuvable" }, { status: 404 });
+    if (!dept) return NextResponse.json({ error: "Département introuvable" }, { status: 404 });
 
     const order = typeof body.order === "number" ? body.order : 0;
-    const minSalary = body.min_salary != null ? Number(body.min_salary) : null;
-    const midSalary = body.mid_salary != null ? Number(body.mid_salary) : null;
-    const maxSalary = body.max_salary != null ? Number(body.max_salary) : null;
+    const montantAnnuel = body.montant_annuel != null ? Number(body.montant_annuel) : null;
     const expectations = typeof body.expectations === "string" ? body.expectations.trim() || null : null;
+    const criteria =
+      body.criteria != null && typeof body.criteria === "object"
+        ? body.criteria
+        : { objectives: [], competencies: [], min_tenure_months: null, notes: "" };
 
     const { data, error } = await supabase
       .from("levels")
       .insert({
-        job_family_id: jobFamilyId,
+        department_id: departmentId,
         name,
         order,
-        min_salary: minSalary,
-        mid_salary: midSalary,
-        max_salary: maxSalary,
+        montant_annuel: montantAnnuel,
+        criteria,
         expectations: expectations || null,
       })
-      .select("id, job_family_id, name, \"order\", min_salary, mid_salary, max_salary, expectations")
+      .select("id, department_id, name, \"order\", montant_annuel, criteria, expectations")
       .single();
 
     if (error) {

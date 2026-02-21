@@ -60,17 +60,25 @@ async function getOrganizationData() {
     .select("*", { count: "exact", head: true })
     .eq("organization_id", organization.id);
 
-  // Get job families count
-  const { count: jobFamiliesCount } = await supabase
-    .from("job_families")
-    .select("*", { count: "exact", head: true })
+  // Get paliers count (levels linked to org via departments)
+  const { data: deptIds } = await supabase
+    .from("departments")
+    .select("id")
     .eq("organization_id", organization.id);
+  const ids = (deptIds ?? []).map((d) => d.id);
+  const { count: paliersCount } =
+    ids.length > 0
+      ? await supabase
+          .from("levels")
+          .select("*", { count: "exact", head: true })
+          .in("department_id", ids)
+      : { count: 0 };
 
   return {
     organization,
     employeesCount: employeesCount ?? 0,
     departmentsCount: departmentsCount ?? 0,
-    jobFamiliesCount: jobFamiliesCount ?? 0,
+    paliersCount: paliersCount ?? 0,
   };
 }
 

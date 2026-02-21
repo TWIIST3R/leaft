@@ -31,7 +31,7 @@ export async function GET() {
     const supabase = supabaseAdmin();
     const { data: families, error } = await supabase
       .from("job_families")
-      .select("id, name, created_at")
+      .select("id, name, department_id, created_at")
       .eq("organization_id", organizationId)
       .order("name");
 
@@ -42,7 +42,7 @@ export async function GET() {
 
     const { data: levels } = await supabase
       .from("levels")
-      .select("id, job_family_id, name, \"order\", min_salary, mid_salary, max_salary, expectations")
+      .select("id, job_family_id, name, \"order\", montant_annuel, criteria, expectations")
       .in("job_family_id", (families ?? []).map((f) => f.id))
       .order("\"order\"");
 
@@ -75,13 +75,23 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const name = typeof body.name === "string" ? body.name.trim() : "";
+    const departmentId = body.department_id ?? null;
     if (!name) return NextResponse.json({ error: "Le nom est requis" }, { status: 400 });
+    if (!departmentId) return NextResponse.json({ error: "Le département est requis" }, { status: 400 });
 
     const supabase = supabaseAdmin();
+    const { data: dept } = await supabase
+      .from("departments")
+      .select("id")
+      .eq("id", departmentId)
+      .eq("organization_id", organizationId)
+      .single();
+    if (!dept) return NextResponse.json({ error: "Département introuvable" }, { status: 404 });
+
     const { data, error } = await supabase
       .from("job_families")
-      .insert({ organization_id: organizationId, name })
-      .select("id, name, created_at")
+      .insert({ organization_id: organizationId, name, department_id: departmentId })
+      .select("id, name, department_id, created_at")
       .single();
 
     if (error) {

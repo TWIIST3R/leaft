@@ -33,16 +33,32 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const name = typeof body.name === "string" ? body.name.trim() : "";
-    if (!name) return NextResponse.json({ error: "Le nom est requis" }, { status: 400 });
+    const name = typeof body.name === "string" ? body.name.trim() : undefined;
+    const departmentId = body.department_id !== undefined ? (body.department_id || null) : undefined;
+    if (!name && departmentId === undefined) return NextResponse.json({ error: "Aucune modification" }, { status: 400 });
 
     const supabase = supabaseAdmin();
+    const updates: { name?: string; department_id?: string | null } = {};
+    if (name) updates.name = name;
+    if (departmentId !== undefined) {
+      if (departmentId) {
+        const { data: dept } = await supabase
+          .from("departments")
+          .select("id")
+          .eq("id", departmentId)
+          .eq("organization_id", organizationId)
+          .single();
+        if (!dept) return NextResponse.json({ error: "Département introuvable" }, { status: 404 });
+      }
+      updates.department_id = departmentId;
+    }
+
     const { data, error } = await supabase
       .from("job_families")
-      .update({ name })
+      .update(updates)
       .eq("id", id)
       .eq("organization_id", organizationId)
-      .select("id, name, created_at")
+      .select("id, name, department_id, created_at")
       .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });

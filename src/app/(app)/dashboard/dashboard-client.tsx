@@ -9,7 +9,7 @@ type DashboardData = {
   organization: { id: string; name: string };
   employeesCount: number;
   departmentsCount: number;
-  jobFamiliesCount: number;
+  paliersCount: number;
 };
 
 export function DashboardClient({ initialData }: { initialData: DashboardData }) {
@@ -152,12 +152,12 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
           href="/dashboard/grilles"
           className="block rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)] transition hover:border-[var(--brand)]/30 hover:shadow-[0_24px_60px_rgba(17,27,24,0.08)]"
         >
-          <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Familles de métiers</p>
-          <p className="mt-3 text-3xl font-semibold text-[var(--text)]">{initialData.jobFamiliesCount}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Paliers</p>
+          <p className="mt-3 text-3xl font-semibold text-[var(--text)]">{initialData.paliersCount}</p>
           <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
-            {initialData.jobFamiliesCount === 0
-              ? "Définissez vos familles de métiers et grilles salariales"
-              : `${initialData.jobFamiliesCount} famille${initialData.jobFamiliesCount > 1 ? "s" : ""} de métiers`}
+            {initialData.paliersCount === 0
+              ? "Définissez vos paliers par département (rémunération + critères)"
+              : `${initialData.paliersCount} palier${initialData.paliersCount > 1 ? "s" : ""} dans vos grilles`}
           </p>
         </Link>
       </section>

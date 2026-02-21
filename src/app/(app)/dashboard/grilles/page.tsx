@@ -3,6 +3,23 @@ import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { GrillesClient } from "./grilles-client";
 
+type Palier = {
+  id: string;
+  department_id: string;
+  name: string;
+  order: number;
+  montant_annuel: number | null;
+  criteria: { objectives?: string[]; competencies?: string[]; min_tenure_months?: number | null; notes?: string } | null;
+  expectations: string | null;
+};
+
+type DepartmentWithPaliers = {
+  id: string;
+  name: string;
+  created_at: string;
+  paliers: Palier[];
+};
+
 async function getData() {
   const { userId, orgId } = await auth();
   if (!userId) redirect("/sign-in");
@@ -36,35 +53,30 @@ async function getData() {
     .eq("organization_id", organization.id)
     .order("name");
 
-  const { data: families } = await supabase
-    .from("job_families")
-    .select("id, name, created_at")
-    .eq("organization_id", organization.id)
-    .order("name");
+  const deptIds = (departments ?? []).map((d) => d.id);
+  const levelsResult =
+    deptIds.length > 0
+      ? await supabase
+          .from("levels")
+          .select("id, department_id, name, \"order\", montant_annuel, criteria, expectations")
+          .in("department_id", deptIds)
+          .order("\"order\"")
+      : { data: [] as Palier[] };
+  const paliersList = levelsResult.data ?? [];
 
-  const familyIds = (families ?? []).map((f) => f.id);
-  const levelsResult = familyIds.length
-    ? await supabase
-        .from("levels")
-        .select("id, job_family_id, name, \"order\", min_salary, mid_salary, max_salary, expectations")
-        .in("job_family_id", familyIds)
-        .order("\"order\"")
-    : { data: [] as { id: string; job_family_id: string; name: string; order: number; min_salary: number | null; mid_salary: number | null; max_salary: number | null; expectations: string | null }[] };
-  const levelsList = levelsResult.data ?? [];
-
-  const levelsByFamily = levelsList.reduce<Record<string, typeof levelsList>>((acc, l) => {
-    const k = l.job_family_id;
+  const paliersByDept = paliersList.reduce<Record<string, Palier[]>>((acc, p) => {
+    const k = p.department_id;
     if (!acc[k]) acc[k] = [];
-    acc[k].push(l);
+    acc[k].push(p);
     return acc;
   }, {});
 
-  const jobFamilies = (families ?? []).map((f) => ({
-    ...f,
-    levels: (levelsByFamily[f.id] ?? []).sort((a, b) => ((a as { order?: number }).order ?? 0) - ((b as { order?: number }).order ?? 0)),
+  const departmentsWithPaliers: DepartmentWithPaliers[] = (departments ?? []).map((d) => ({
+    ...d,
+    paliers: (paliersByDept[d.id] ?? []).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
   }));
 
-  return { organization, departments: departments ?? [], jobFamilies };
+  return { organization, departmentsWithPaliers };
 }
 
 export default async function GrillesPage() {
@@ -75,11 +87,11 @@ export default async function GrillesPage() {
       <div>
         <h1 className="text-2xl font-semibold text-[var(--text)]">Grilles de salaire</h1>
         <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
-          Gérez vos départements et les grilles salariales par famille de métiers et niveau.
+          Chaque département a ses paliers : rémunération annuelle brute fixe et critères pour passer au palier suivant.
         </p>
       </div>
 
-      <GrillesClient initialDepartments={data.departments} initialJobFamilies={data.jobFamilies} />
+      <GrillesClient initialDepartmentsWithPaliers={data.departmentsWithPaliers} />
     </div>
   );
 }
