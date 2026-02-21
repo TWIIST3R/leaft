@@ -36,7 +36,34 @@ async function getData() {
     .eq("organization_id", organization.id)
     .order("name");
 
-  return { organization, departments: departments ?? [] };
+  const { data: families } = await supabase
+    .from("job_families")
+    .select("id, name, created_at")
+    .eq("organization_id", organization.id)
+    .order("name");
+
+  const familyIds = (families ?? []).map((f) => f.id);
+  const { data: levels } = familyIds.length
+    ? await supabase
+        .from("levels")
+        .select("id, job_family_id, name, \"order\", min_salary, mid_salary, max_salary, expectations")
+        .in("job_family_id", familyIds)
+        .order("\"order\"")
+    : { data: [] };
+
+  const levelsByFamily = (levels?.data ?? []).reduce<Record<string, NonNullable<typeof levels>["data"][0][]>>((acc, l) => {
+    const k = l.job_family_id;
+    if (!acc[k]) acc[k] = [];
+    acc[k].push(l);
+    return acc;
+  }, {});
+
+  const jobFamilies = (families ?? []).map((f) => ({
+    ...f,
+    levels: (levelsByFamily[f.id] ?? []).sort((a, b) => ((a as { order?: number }).order ?? 0) - ((b as { order?: number }).order ?? 0)),
+  }));
+
+  return { organization, departments: departments ?? [], jobFamilies };
 }
 
 export default async function GrillesPage() {
@@ -51,7 +78,7 @@ export default async function GrillesPage() {
         </p>
       </div>
 
-      <GrillesClient initialDepartments={data.departments} />
+      <GrillesClient initialDepartments={data.departments} initialJobFamilies={data.jobFamilies} />
     </div>
   );
 }
