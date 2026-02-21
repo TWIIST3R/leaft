@@ -433,8 +433,8 @@ export function GrillesClient({ initialDepartmentsWithPaliers }: { initialDepart
                             {p.criteria && (
                               <span className="text-xs text-[color:rgba(11,11,11,0.55)]">
                                 {[
-                                  (p.criteria.objectives?.length ?? 0) > 0 && `${p.criteria.objectives.length} objectif(s)`,
-                                  (p.criteria.competencies?.length ?? 0) > 0 && `${p.criteria.competencies.length} compétence(s)`,
+                                  (p.criteria.objectives?.length ?? 0) > 0 && `${p.criteria.objectives?.length ?? 0} objectif(s)`,
+                                  (p.criteria.competencies?.length ?? 0) > 0 && `${p.criteria.competencies?.length ?? 0} compétence(s)`,
                                   p.criteria.min_tenure_months != null && `≥ ${p.criteria.min_tenure_months} mois`,
                                 ]
                                   .filter(Boolean)
