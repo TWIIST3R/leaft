@@ -295,7 +295,6 @@ function GrilleExtraSection({
   const [name, setName] = useState("");
   const [details, setDetails] = useState("");
   const [montant, setMontant] = useState("");
-  const [deptId, setDeptId] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -304,12 +303,11 @@ function GrilleExtraSection({
       name: name.trim(),
       details: details.trim() || undefined,
       montant_annuel: montant ? Number(montant) : undefined,
-      department_id: deptId || null,
+      department_id: null,
     });
     setName("");
     setDetails("");
     setMontant("");
-    setDeptId("");
   };
 
   return (
@@ -323,12 +321,6 @@ function GrilleExtraSection({
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom (ex. 1 à 3 personnes)" className="w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} required />
           <textarea value={details} onChange={(e) => setDetails(e.target.value)} placeholder="Détails" rows={2} className="w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
           <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="Montant annuel (€)" min={0} step={100} className="w-40 rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
-          <select value={deptId} onChange={(e) => setDeptId(e.target.value)} className="rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading}>
-            <option value="">— Département —</option>
-            {departments.map((d) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-          </select>
           <button type="submit" disabled={loading} className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">Ajouter</button>
         </form>
       </details>
@@ -341,7 +333,6 @@ function GrilleExtraSection({
               <GrilleExtraEditForm
                 key={item.id}
                 item={item}
-                departments={departments}
                 onSave={(data) => onUpdate(item.id, data)}
                 onCancel={() => setEditing(null, type)}
                 loading={loading}
@@ -354,11 +345,6 @@ function GrilleExtraSection({
                   {item.montant_annuel != null && (
                     <span className="rounded-lg bg-[var(--brand)]/15 px-2.5 py-1 text-sm font-semibold text-[var(--brand)]">
                       {Number(item.montant_annuel).toLocaleString("fr-FR")} € / an
-                    </span>
-                  )}
-                  {item.department_id && (
-                    <span className="rounded-full bg-[var(--brand)]/10 px-2 py-0.5 text-xs font-medium text-[var(--brand)]">
-                      {departments.find((d) => d.id === item.department_id)?.name ?? "—"}
                     </span>
                   )}
                 </div>
@@ -377,13 +363,11 @@ function GrilleExtraSection({
 
 function GrilleExtraEditForm({
   item,
-  departments,
   onSave,
   onCancel,
   loading,
 }: {
   item: GrilleExtraItem;
-  departments: Department[];
   onSave: (data: { name: string; details?: string | null; montant_annuel?: number | null; department_id?: string | null }) => void;
   onCancel: () => void;
   loading: boolean;
@@ -391,7 +375,6 @@ function GrilleExtraEditForm({
   const [name, setName] = useState(item.name);
   const [details, setDetails] = useState(item.details ?? "");
   const [montant, setMontant] = useState(item.montant_annuel != null ? String(item.montant_annuel) : "");
-  const [deptId, setDeptId] = useState(item.department_id ?? "");
 
   return (
     <form
@@ -402,7 +385,7 @@ function GrilleExtraEditForm({
           name: name.trim(),
           details: details.trim() || null,
           montant_annuel: montant ? Number(montant) : null,
-          department_id: deptId || null,
+          department_id: null,
         });
       }}
       className="space-y-3 rounded-xl border-2 border-[var(--brand)]/40 bg-[#f8faf8] p-4"
@@ -410,12 +393,6 @@ function GrilleExtraEditForm({
       <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom" className="w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} required />
       <textarea value={details} onChange={(e) => setDetails(e.target.value)} placeholder="Détails" rows={2} className="w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
       <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="Montant (€)" min={0} step={100} className="w-40 rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
-      <select value={deptId} onChange={(e) => setDeptId(e.target.value)} className="rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading}>
-        <option value="">— Département —</option>
-        {departments.map((d) => (
-          <option key={d.id} value={d.id}>{d.name}</option>
-        ))}
-      </select>
       <div className="flex gap-2">
         <button type="submit" disabled={loading} className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50">Enregistrer</button>
         <button type="button" onClick={onCancel} disabled={loading} className="cursor-pointer rounded-full border border-[#e2e7e2] px-4 py-2 text-xs font-medium hover:bg-[#f2f5f2]">Annuler</button>
@@ -821,10 +798,18 @@ export function GrillesClient({
   }
 
   const allPaliers = deptsWithPaliers.flatMap((d) => (d.paliers ?? []).map((p) => ({ ...p, deptName: d.name })));
+  const selectedPaliers = allPaliers.filter((p) => selectedPalierIds.has(p.id));
+  const totalPaliersByDept = (() => {
+    const byDept = new Map<string, number>();
+    for (const p of selectedPaliers) {
+      const current = byDept.get(p.department_id) ?? 0;
+      const montant = p.montant_annuel ?? 0;
+      if (montant > current) byDept.set(p.department_id, montant);
+    }
+    return Array.from(byDept.values()).reduce((s, m) => s + m, 0);
+  })();
   const totalSimu =
-    allPaliers
-      .filter((p) => selectedPalierIds.has(p.id))
-      .reduce((s, p) => s + (p.montant_annuel ?? 0), 0) +
+    totalPaliersByDept +
     avantages.filter((a) => selectedAvantageIds.has(a.id)).reduce((s, a) => s + Number(a.montant_annuel_brut), 0);
 
   return (
@@ -868,8 +853,16 @@ export function GrillesClient({
                         onChange={(e) =>
                           setSelectedPalierIds((prev) => {
                             const next = new Set(prev);
-                            if (e.target.checked) next.add(p.id);
-                            else next.delete(p.id);
+                            const amount = p.montant_annuel ?? 0;
+                            if (e.target.checked) {
+                              allPaliers
+                                .filter((q) => q.department_id === p.department_id && (q.montant_annuel ?? 0) <= amount)
+                                .forEach((q) => next.add(q.id));
+                            } else {
+                              allPaliers
+                                .filter((q) => q.department_id === p.department_id && (q.montant_annuel ?? 0) >= amount)
+                                .forEach((q) => next.delete(q.id));
+                            }
                             return next;
                           })
                         }
