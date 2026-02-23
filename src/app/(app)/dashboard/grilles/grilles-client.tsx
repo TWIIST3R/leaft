@@ -161,6 +161,138 @@ function PalierForm({
   );
 }
 
+function PalierEditForm({
+  palier,
+  onSave,
+  onCancel,
+  loading,
+}: {
+  palier: Palier;
+  onSave: (data: { name: string; montant_annuel: number | null; criteria: NonNullable<Criteria> }) => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  const [name, setName] = useState(palier.name);
+  const [montant, setMontant] = useState(palier.montant_annuel != null ? String(palier.montant_annuel) : "");
+  const [objectives, setObjectives] = useState((palier.criteria?.objectives ?? []).join("\n"));
+  const [competencies, setCompetencies] = useState((palier.criteria?.competencies ?? []).join("\n"));
+  const [minTenure, setMinTenure] = useState(palier.criteria?.min_tenure_months != null ? String(palier.criteria.min_tenure_months) : "");
+  const [notes, setNotes] = useState(palier.criteria?.notes ?? "");
+  const [criteriaError, setCriteriaError] = useState<string | null>(null);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCriteriaError(null);
+    const n = name.trim();
+    if (!n) return;
+    const objList = objectives.trim() ? objectives.split("\n").map((s) => s.trim()).filter(Boolean) : [];
+    const compList = competencies.trim() ? competencies.split("\n").map((s) => s.trim()).filter(Boolean) : [];
+    const tenure = minTenure ? Number(minTenure) : null;
+    const notesVal = notes.trim() || undefined;
+    const hasCriteria = objList.length > 0 || compList.length > 0 || tenure != null || notesVal;
+    if (!hasCriteria) {
+      setCriteriaError("Au moins un critère est requis");
+      return;
+    }
+    onSave({
+      name: n,
+      montant_annuel: montant ? Number(montant) : null,
+      criteria: { objectives: objList, competencies: compList, min_tenure_months: tenure, notes: notesVal },
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-[var(--brand)]/30 bg-[#f8faf8] p-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nom du palier"
+          className="rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm w-44"
+          disabled={loading}
+          required
+        />
+        <input
+          type="number"
+          value={montant}
+          onChange={(e) => setMontant(e.target.value)}
+          placeholder="Montant annuel brut (€)"
+          min={0}
+          step={100}
+          className="rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm w-40"
+          disabled={loading}
+        />
+        <button type="submit" disabled={loading} className="rounded-full bg-[var(--brand)] px-4 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50">
+          Enregistrer
+        </button>
+        <button type="button" onClick={onCancel} disabled={loading} className="rounded-full border border-[#e2e7e2] px-4 py-2 text-xs font-medium hover:bg-[#f2f5f2]">
+          Annuler
+        </button>
+      </div>
+      {criteriaError && <p className="text-xs text-red-600">{criteriaError}</p>}
+      <div className="grid gap-2 text-sm sm:grid-cols-2">
+        <div>
+          <label className="block text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Objectifs (un par ligne)</label>
+          <textarea value={objectives} onChange={(e) => setObjectives(e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Compétences (une par ligne)</label>
+          <textarea value={competencies} onChange={(e) => setCompetencies(e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Ancienneté min. (mois)</label>
+          <input type="number" value={minTenure} onChange={(e) => setMinTenure(e.target.value)} min={0} className="mt-1 w-24 rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Notes</label>
+          <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} className="mt-1 w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
+        </div>
+      </div>
+    </form>
+  );
+}
+
+function AvantageEditRow({
+  avantage,
+  departments,
+  onSave,
+  onCancel,
+  loading,
+}: {
+  avantage: Avantage;
+  departments: Department[];
+  onSave: (data: { name: string; montant_annuel_brut: number; department_id: string | null }) => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  const [name, setName] = useState(avantage.name);
+  const [montant, setMontant] = useState(String(avantage.montant_annuel_brut));
+  const [deptId, setDeptId] = useState(avantage.department_id ?? "");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const m = Number(montant);
+    if (!name.trim() || isNaN(m) || m < 0) return;
+    onSave({ name: name.trim(), montant_annuel_brut: m, department_id: deptId || null });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3 rounded-xl border border-[var(--brand)]/30 bg-[#f8faf8] px-4 py-3">
+      <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom" className="rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm w-44" disabled={loading} required />
+      <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)} min={0} step={100} className="w-32 rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} required />
+      <select value={deptId} onChange={(e) => setDeptId(e.target.value)} className="rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading}>
+        <option value="">Tous</option>
+        {departments.map((d) => (
+          <option key={d.id} value={d.id}>{d.name}</option>
+        ))}
+      </select>
+      <button type="submit" disabled={loading} className="rounded-full bg-[var(--brand)] px-3 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50">Enregistrer</button>
+      <button type="button" onClick={onCancel} disabled={loading} className="rounded-full border border-[#e2e7e2] px-3 py-2 text-xs font-medium hover:bg-[#f2f5f2]">Annuler</button>
+    </form>
+  );
+}
+
 export function GrillesClient({
   initialDepartmentsWithPaliers,
   initialAvantages,
@@ -182,6 +314,12 @@ export function GrillesClient({
   const [avantageName, setAvantageName] = useState("");
   const [avantageMontant, setAvantageMontant] = useState("");
   const [avantageDeptId, setAvantageDeptId] = useState("");
+  const [expandedPalierKey, setExpandedPalierKey] = useState<string | null>(null);
+  const [editingPalierId, setEditingPalierId] = useState<string | null>(null);
+  const [editingAvantageId, setEditingAvantageId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"grilles" | "simulateur">("grilles");
+  const [selectedPalierIds, setSelectedPalierIds] = useState<Set<string>>(new Set());
+  const [selectedAvantageIds, setSelectedAvantageIds] = useState<Set<string>>(new Set());
 
   const departments = deptsWithPaliers.map(({ paliers, ...d }) => d);
 
@@ -345,6 +483,62 @@ export function GrillesClient({
     }
   }
 
+  async function handleUpdatePalier(
+    departmentId: string,
+    palierId: string,
+    data: { name: string; montant_annuel: number | null; criteria: NonNullable<Criteria> }
+  ) {
+    setLoading(true);
+    setPaliersError(null);
+    try {
+      const res = await fetch(`/api/levels/${palierId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: data.name,
+          montant_annuel: data.montant_annuel,
+          criteria: data.criteria,
+        }),
+      });
+      const updated = await res.json();
+      if (!res.ok) throw new Error(updated.error || "Erreur");
+      setDeptsWithPaliers((prev) =>
+        prev.map((d) =>
+          d.id === departmentId
+            ? { ...d, paliers: (d.paliers ?? []).map((p) => (p.id === palierId ? { ...p, ...updated } : p)) }
+            : d
+        )
+      );
+      setEditingPalierId(null);
+      router.refresh();
+    } catch (err) {
+      setPaliersError(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUpdateAvantage(id: string, data: { name: string; montant_annuel_brut: number; department_id: string | null }) {
+    setLoading(true);
+    setAvantagesError(null);
+    try {
+      const res = await fetch(`/api/avantages/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const updated = await res.json();
+      if (!res.ok) throw new Error(updated.error || "Erreur");
+      setAvantages((prev) => prev.map((a) => (a.id === id ? updated : a)));
+      setEditingAvantageId(null);
+      router.refresh();
+    } catch (err) {
+      setAvantagesError(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleDeletePalier(departmentId: string, palierId: string) {
     if (!confirm("Supprimer ce palier ?")) return;
     setLoading(true);
@@ -359,6 +553,13 @@ export function GrillesClient({
           d.id === departmentId ? { ...d, paliers: (d.paliers ?? []).filter((p) => p.id !== palierId) } : d
         )
       );
+      setExpandedPalierKey(null);
+      setEditingPalierId(null);
+      setSelectedPalierIds((s) => {
+        const next = new Set(s);
+        next.delete(palierId);
+        return next;
+      });
       router.refresh();
     } catch (err) {
       setPaliersError(err instanceof Error ? err.message : "Erreur");
@@ -367,8 +568,109 @@ export function GrillesClient({
     }
   }
 
+  const allPaliers = deptsWithPaliers.flatMap((d) => (d.paliers ?? []).map((p) => ({ ...p, deptName: d.name })));
+  const totalSimu =
+    allPaliers
+      .filter((p) => selectedPalierIds.has(p.id))
+      .reduce((s, p) => s + (p.montant_annuel ?? 0), 0) +
+    avantages.filter((a) => selectedAvantageIds.has(a.id)).reduce((s, a) => s + Number(a.montant_annuel_brut), 0);
+
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
+      {/* Onglets */}
+      <div className="flex gap-2 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab("grilles")}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${activeTab === "grilles" ? "bg-white text-[var(--text)] shadow" : "text-[color:rgba(11,11,11,0.65)] hover:bg-white/50"}`}
+        >
+          Grilles
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("simulateur")}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${activeTab === "simulateur" ? "bg-white text-[var(--text)] shadow" : "text-[color:rgba(11,11,11,0.65)] hover:bg-white/50"}`}
+        >
+          Simulateur
+        </button>
+      </div>
+
+      {activeTab === "simulateur" ? (
+        <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+          <h2 className="text-lg font-semibold text-[var(--text)]">Simulateur de rémunération annuelle brute</h2>
+          <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
+            Cochez les paliers et avantages pour calculer le montant total annuel brut.
+          </p>
+          <div className="mt-6 grid gap-8 lg:grid-cols-2">
+            <div>
+              <h3 className="text-sm font-semibold text-[var(--text)]">Paliers</h3>
+              <div className="mt-2 space-y-2 max-h-64 overflow-y-auto">
+                {allPaliers.length === 0 ? (
+                  <p className="text-sm text-[color:rgba(11,11,11,0.5)]">Aucun palier.</p>
+                ) : (
+                  allPaliers.map((p) => (
+                    <label key={p.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-[#e2e7e2] px-3 py-2 hover:bg-[#f8faf8]">
+                      <input
+                        type="checkbox"
+                        checked={selectedPalierIds.has(p.id)}
+                        onChange={(e) =>
+                          setSelectedPalierIds((prev) => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(p.id);
+                            else next.delete(p.id);
+                            return next;
+                          })
+                        }
+                        className="rounded border-[#e2e7e2]"
+                      />
+                      <span className="text-sm font-medium">{p.name}</span>
+                      <span className="text-xs text-[color:rgba(11,11,11,0.65)]">({p.deptName})</span>
+                      <span className="ml-auto text-sm text-[var(--brand)]">
+                        {p.montant_annuel != null ? `${Number(p.montant_annuel).toLocaleString("fr-FR")} €` : "—"}
+                      </span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-[var(--text)]">Avantages en nature</h3>
+              <div className="mt-2 space-y-2 max-h-64 overflow-y-auto">
+                {avantages.length === 0 ? (
+                  <p className="text-sm text-[color:rgba(11,11,11,0.5)]">Aucun avantage.</p>
+                ) : (
+                  avantages.map((a) => (
+                    <label key={a.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-[#e2e7e2] px-3 py-2 hover:bg-[#f8faf8]">
+                      <input
+                        type="checkbox"
+                        checked={selectedAvantageIds.has(a.id)}
+                        onChange={(e) =>
+                          setSelectedAvantageIds((prev) => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(a.id);
+                            else next.delete(a.id);
+                            return next;
+                          })
+                        }
+                        className="rounded border-[#e2e7e2]"
+                      />
+                      <span className="text-sm font-medium">{a.name}</span>
+                      <span className="ml-auto text-sm text-[var(--brand)]">
+                        {Number(a.montant_annuel_brut).toLocaleString("fr-FR")} €
+                      </span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="mt-6 rounded-xl border-2 border-[var(--brand)] bg-[var(--brand)]/5 p-4">
+            <p className="text-sm font-medium text-[color:rgba(11,11,11,0.65)]">Total rémunération annuelle brute</p>
+            <p className="mt-1 text-2xl font-semibold text-[var(--text)]">{totalSimu.toLocaleString("fr-FR")} €</p>
+          </div>
+        </section>
+      ) : (
+        <>
       {/* Départements */}
       <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
         <h2 className="text-lg font-semibold text-[var(--text)]">Départements & paliers</h2>
@@ -504,50 +806,101 @@ export function GrillesClient({
                 </button>
                 {expandedDeptId === dept.id && (
                   <div className="border-t border-[#e2e7e2] bg-white p-4">
-                    <PalierForm onAdd={(data) => handleCreatePalier(dept.id, data)} loading={loading} />
-                    <div className="mt-4 space-y-2">
-                      {(dept.paliers ?? []).map((p) => (
-                        <div
-                          key={p.id}
-                          className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-[#e2e7e2] bg-[#f8faf8] px-4 py-2 text-sm"
-                        >
-                          <div className="flex flex-wrap gap-4">
-                            <span className="font-medium text-[var(--text)]">{p.name}</span>
-                            <span className="text-[color:rgba(11,11,11,0.65)]">
-                              {p.montant_annuel != null ? `${Number(p.montant_annuel).toLocaleString("fr-FR")} € brut / an` : "—"}
-                            </span>
-                            {p.criteria && (
-                              <span className="text-xs text-[color:rgba(11,11,11,0.55)]">
-                                {[
-                                  (p.criteria.objectives?.length ?? 0) > 0 && `${p.criteria.objectives?.length ?? 0} objectif(s)`,
-                                  (p.criteria.competencies?.length ?? 0) > 0 && `${p.criteria.competencies?.length ?? 0} compétence(s)`,
-                                  p.criteria.min_tenure_months != null && `≥ ${p.criteria.min_tenure_months} mois`,
-                                ]
-                                  .filter(Boolean)
-                                  .join(" · ")}
-                              </span>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleDeletePalier(dept.id, p.id)}
-                            disabled={loading}
-                            className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
-                          >
-                            Supprimer
-                          </button>
-                        </div>
-                      ))}
-                      {(!dept.paliers || dept.paliers.length === 0) && (
-                        <p className="text-sm text-[color:rgba(11,11,11,0.5)]">Aucun palier. Ajoutez-en un avec le formulaire ci-dessus.</p>
+                    <div className="space-y-2">
+                      {(dept.paliers ?? []).length === 0 ? (
+                        <p className="text-sm text-[color:rgba(11,11,11,0.5)]">Aucun palier.</p>
+                      ) : (
+                        (dept.paliers ?? []).map((p) => {
+                          const key = `${dept.id}_${p.id}`;
+                          const isExpanded = expandedPalierKey === key;
+                          const isEditing = editingPalierId === p.id;
+                          return (
+                            <div key={p.id} className="overflow-hidden rounded-lg border border-[#e2e7e2] bg-[#f8faf8]">
+                              {isEditing ? (
+                                <PalierEditForm
+                                  palier={p}
+                                  onSave={(data) => handleUpdatePalier(dept.id, p.id, data)}
+                                  onCancel={() => setEditingPalierId(null)}
+                                  loading={loading}
+                                />
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedPalierKey(isExpanded ? null : key)}
+                                    className="flex w-full flex-wrap items-center justify-between gap-2 px-4 py-3 text-left hover:bg-[#f2f5f2]"
+                                  >
+                                    <div className="flex flex-wrap items-center gap-3">
+                                      <span className="font-medium text-[var(--text)]">{p.name}</span>
+                                      <span className="text-sm text-[color:rgba(11,11,11,0.65)]">
+                                        {p.montant_annuel != null ? `${Number(p.montant_annuel).toLocaleString("fr-FR")} € brut / an` : "—"}
+                                      </span>
+                                      {p.criteria && (
+                                        <span className="text-xs text-[color:rgba(11,11,11,0.55)]">
+                                          {[
+                                            (p.criteria.objectives?.length ?? 0) > 0 && `${p.criteria.objectives?.length ?? 0} objectif(s)`,
+                                            (p.criteria.competencies?.length ?? 0) > 0 && `${p.criteria.competencies?.length ?? 0} compétence(s)`,
+                                            p.criteria.min_tenure_months != null && `≥ ${p.criteria.min_tenure_months} mois`,
+                                          ].filter(Boolean).join(" · ")}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="text-xs text-[color:rgba(11,11,11,0.5)]">{isExpanded ? "▼" : "▶"}</span>
+                                  </button>
+                                  {isExpanded && (
+                                    <div className="border-t border-[#e2e7e2] bg-white px-4 py-3 text-sm">
+                                      <div className="grid gap-2 sm:grid-cols-2">
+                                        {(p.criteria?.objectives?.length ?? 0) > 0 && (
+                                          <div>
+                                            <span className="font-medium text-[color:rgba(11,11,11,0.65)]">Objectifs :</span>
+                                            <ul className="mt-1 list-inside list-disc text-[var(--text)]">
+                                              {p.criteria?.objectives?.map((o, i) => (
+                                                <li key={i}>{o}</li>
+                                              ))}
+                                            </ul>
+                                          </div>
+                                        )}
+                                        {(p.criteria?.competencies?.length ?? 0) > 0 && (
+                                          <div>
+                                            <span className="font-medium text-[color:rgba(11,11,11,0.65)]">Compétences :</span>
+                                            <ul className="mt-1 list-inside list-disc text-[var(--text)]">
+                                              {p.criteria?.competencies?.map((c, i) => (
+                                                <li key={i}>{c}</li>
+                                              ))}
+                                            </ul>
+                                          </div>
+                                        )}
+                                        {p.criteria?.min_tenure_months != null && (
+                                          <p><span className="font-medium text-[color:rgba(11,11,11,0.65)]">Ancienneté min. :</span> {p.criteria.min_tenure_months} mois</p>
+                                        )}
+                                        {p.criteria?.notes && (
+                                          <p><span className="font-medium text-[color:rgba(11,11,11,0.65)]">Notes :</span> {p.criteria.notes}</p>
+                                        )}
+                                      </div>
+                                      <div className="mt-3 flex gap-2">
+                                        <button type="button" onClick={() => setEditingPalierId(p.id)} disabled={loading} className="rounded-lg px-2 py-1 text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand)]/10">
+                                          Modifier
+                                        </button>
+                                        <button type="button" onClick={() => handleDeletePalier(dept.id, p.id)} disabled={loading} className="rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50">
+                                          Supprimer
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          );
+                        })
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteDept(dept.id)}
-                      disabled={loading}
-                      className="mt-4 text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
-                    >
+                    <details className="mt-4 rounded-lg border border-[#e2e7e2] bg-[#f8faf8]">
+                      <summary className="cursor-pointer px-4 py-3 font-medium text-[var(--text)] hover:bg-[#f2f5f2]">+ Ajouter un palier</summary>
+                      <div className="border-t border-[#e2e7e2] p-4">
+                        <PalierForm onAdd={(data) => handleCreatePalier(dept.id, data)} loading={loading} />
+                      </div>
+                    </details>
+                    <button type="button" onClick={() => handleDeleteDept(dept.id)} disabled={loading} className="mt-4 text-xs font-medium text-red-600 hover:underline disabled:opacity-50">
                       Supprimer ce département
                     </button>
                   </div>
@@ -611,35 +964,70 @@ export function GrillesClient({
           {avantages.length === 0 ? (
             <p className="text-sm text-[color:rgba(11,11,11,0.65)]">Aucun avantage en nature. Ajoutez-en un ci-dessus.</p>
           ) : (
-            avantages.map((a) => (
-              <div
-                key={a.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] px-4 py-3"
-              >
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="font-medium text-[var(--text)]">{a.name}</span>
-                  <span className="text-sm text-[color:rgba(11,11,11,0.65)]">
-                    {Number(a.montant_annuel_brut).toLocaleString("fr-FR")} € brut / an
-                  </span>
-                  {a.department_id && (
-                    <span className="rounded-full bg-[var(--brand)]/10 px-2 py-0.5 text-xs font-medium text-[var(--brand)]">
-                      {departments.find((d) => d.id === a.department_id)?.name ?? "—"}
-                    </span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteAvantage(a.id)}
-                  disabled={loading}
-                  className="text-xs font-medium text-red-600 hover:bg-red-50 rounded px-2 py-1 disabled:opacity-50"
+            avantages.map((a) =>
+              editingAvantageId === a.id ? (
+                <AvantageEditRow
+                  key={a.id}
+                  avantage={a}
+                  departments={departments}
+                  onSave={(data) => handleUpdateAvantage(a.id, data)}
+                  onCancel={() => setEditingAvantageId(null)}
+                  loading={loading}
+                />
+              ) : (
+                <div
+                  key={a.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] px-4 py-3"
                 >
-                  Supprimer
-                </button>
-              </div>
-            ))
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="font-medium text-[var(--text)]">{a.name}</span>
+                    <span className="text-sm text-[color:rgba(11,11,11,0.65)]">
+                      {Number(a.montant_annuel_brut).toLocaleString("fr-FR")} € brut / an
+                    </span>
+                    {a.department_id && (
+                      <span className="rounded-full bg-[var(--brand)]/10 px-2 py-0.5 text-xs font-medium text-[var(--brand)]">
+                        {departments.find((d) => d.id === a.department_id)?.name ?? "—"}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-1">
+                    <button type="button" onClick={() => setEditingAvantageId(a.id)} disabled={loading} className="rounded px-2 py-1 text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand)]/10">
+                      Modifier
+                    </button>
+                    <button type="button" onClick={() => handleDeleteAvantage(a.id)} disabled={loading} className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50">
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              )
+            )
           )}
         </div>
       </section>
+
+      {/* Management */}
+      <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+        <h2 className="text-lg font-semibold text-[var(--text)]">Management</h2>
+        <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
+          Paliers de rémunération liés au management (ex. : Palier 1 — manage 1 à 3 personnes). Définissez les paliers et leurs détails par département.
+        </p>
+        <p className="mt-4 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] px-4 py-3 text-sm text-[color:rgba(11,11,11,0.65)]">
+          Cette section sera disponible prochainement : vous pourrez créer des paliers management (nombre de personnes managées, etc.) avec rémunération et critères.
+        </p>
+      </section>
+
+      {/* Ancienneté */}
+      <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+        <h2 className="text-lg font-semibold text-[var(--text)]">Ancienneté</h2>
+        <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
+          Paliers liés à l&apos;ancienneté (ex. : 0-2 ans, 2-5 ans) avec rémunération et critères par département.
+        </p>
+        <p className="mt-4 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] px-4 py-3 text-sm text-[color:rgba(11,11,11,0.65)]">
+          Cette section sera disponible prochainement : vous pourrez définir des paliers d&apos;ancienneté avec montant et détails.
+        </p>
+      </section>
+        </>
+      )}
     </div>
   );
 }
