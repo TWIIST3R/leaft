@@ -20,7 +20,17 @@ type Avantage = {
   id: string;
   name: string;
   montant_annuel_brut: number;
+  department_ids: string[];
+  created_at: string;
+};
+
+type GrilleExtraItem = {
+  id: string;
   department_id: string | null;
+  name: string;
+  details: string | null;
+  montant_annuel: number | null;
+  order: number;
   created_at: string;
 };
 
@@ -96,7 +106,7 @@ function PalierForm({
         <button
           type="submit"
           disabled={loading}
-          className="rounded-full bg-[var(--brand)] px-4 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50"
+          className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50"
         >
           Ajouter palier
         </button>
@@ -223,10 +233,10 @@ function PalierEditForm({
           className="rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm w-40"
           disabled={loading}
         />
-        <button type="submit" disabled={loading} className="rounded-full bg-[var(--brand)] px-4 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50">
+        <button type="submit" disabled={loading} className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50">
           Enregistrer
         </button>
-        <button type="button" onClick={onCancel} disabled={loading} className="rounded-full border border-[#e2e7e2] px-4 py-2 text-xs font-medium hover:bg-[#f2f5f2]">
+        <button type="button" onClick={onCancel} disabled={loading} className="cursor-pointer rounded-full border border-[#e2e7e2] px-4 py-2 text-xs font-medium hover:bg-[#f2f5f2]">
           Annuler
         </button>
       </div>
@@ -253,6 +263,167 @@ function PalierEditForm({
   );
 }
 
+function GrilleExtraSection({
+  type,
+  title,
+  description,
+  items,
+  departments,
+  loading,
+  error,
+  onAdd,
+  onUpdate,
+  onDelete,
+  editingId,
+  editingType,
+  setEditing,
+}: {
+  type: "management" | "anciennete";
+  title: string;
+  description: string;
+  items: GrilleExtraItem[];
+  departments: Department[];
+  loading: boolean;
+  error: string | null;
+  onAdd: (data: { name: string; details?: string; montant_annuel?: number; department_id?: string | null }) => void;
+  onUpdate: (id: string, data: { name: string; details?: string | null; montant_annuel?: number | null; department_id?: string | null }) => void;
+  onDelete: (id: string) => void;
+  editingId: string | null;
+  editingType: "management" | "anciennete";
+  setEditing: (id: string | null, t: "management" | "anciennete") => void;
+}) {
+  const [name, setName] = useState("");
+  const [details, setDetails] = useState("");
+  const [montant, setMontant] = useState("");
+  const [deptId, setDeptId] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    onAdd({
+      name: name.trim(),
+      details: details.trim() || undefined,
+      montant_annuel: montant ? Number(montant) : undefined,
+      department_id: deptId || null,
+    });
+    setName("");
+    setDetails("");
+    setMontant("");
+    setDeptId("");
+  };
+
+  return (
+    <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+      <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">{title}</h2>
+      <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">{description}</p>
+      {error && <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      <details className="mt-4 rounded-lg border border-[#e2e7e2] bg-[#f8faf8]">
+        <summary className="cursor-pointer px-4 py-3 font-medium text-[var(--text)] hover:bg-[#f2f5f2]">+ Ajouter un palier</summary>
+        <form onSubmit={handleSubmit} className="space-y-3 border-t border-[#e2e7e2] p-4">
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom (ex. 1 à 3 personnes)" className="w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} required />
+          <textarea value={details} onChange={(e) => setDetails(e.target.value)} placeholder="Détails" rows={2} className="w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
+          <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="Montant annuel (€)" min={0} step={100} className="w-40 rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
+          <select value={deptId} onChange={(e) => setDeptId(e.target.value)} className="rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading}>
+            <option value="">— Département —</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+          <button type="submit" disabled={loading} className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">Ajouter</button>
+        </form>
+      </details>
+      <div className="mt-4 space-y-2">
+        {items.length === 0 ? (
+          <p className="text-sm text-[color:rgba(11,11,11,0.5)]">Aucun palier.</p>
+        ) : (
+          items.map((item) =>
+            editingId === item.id && editingType === type ? (
+              <GrilleExtraEditForm
+                key={item.id}
+                item={item}
+                departments={departments}
+                onSave={(data) => onUpdate(item.id, data)}
+                onCancel={() => setEditing(null, type)}
+                loading={loading}
+              />
+            ) : (
+              <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] px-4 py-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="font-medium text-[var(--text)]">{item.name}</span>
+                  {item.details && <span className="text-sm text-[color:rgba(11,11,11,0.65)]">{item.details}</span>}
+                  {item.montant_annuel != null && (
+                    <span className="rounded-lg bg-[var(--brand)]/15 px-2.5 py-1 text-sm font-semibold text-[var(--brand)]">
+                      {Number(item.montant_annuel).toLocaleString("fr-FR")} € / an
+                    </span>
+                  )}
+                  {item.department_id && (
+                    <span className="rounded-full bg-[var(--brand)]/10 px-2 py-0.5 text-xs font-medium text-[var(--brand)]">
+                      {departments.find((d) => d.id === item.department_id)?.name ?? "—"}
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-1">
+                  <button type="button" onClick={() => setEditing(item.id, type)} disabled={loading} className="cursor-pointer rounded px-2 py-1 text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand)]/10">Modifier</button>
+                  <button type="button" onClick={() => onDelete(item.id)} disabled={loading} className="cursor-pointer rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50">Supprimer</button>
+                </div>
+              </div>
+            )
+          )
+        )}
+      </div>
+    </section>
+  );
+}
+
+function GrilleExtraEditForm({
+  item,
+  departments,
+  onSave,
+  onCancel,
+  loading,
+}: {
+  item: GrilleExtraItem;
+  departments: Department[];
+  onSave: (data: { name: string; details?: string | null; montant_annuel?: number | null; department_id?: string | null }) => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  const [name, setName] = useState(item.name);
+  const [details, setDetails] = useState(item.details ?? "");
+  const [montant, setMontant] = useState(item.montant_annuel != null ? String(item.montant_annuel) : "");
+  const [deptId, setDeptId] = useState(item.department_id ?? "");
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        onSave({
+          name: name.trim(),
+          details: details.trim() || null,
+          montant_annuel: montant ? Number(montant) : null,
+          department_id: deptId || null,
+        });
+      }}
+      className="space-y-3 rounded-xl border-2 border-[var(--brand)]/40 bg-[#f8faf8] p-4"
+    >
+      <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom" className="w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} required />
+      <textarea value={details} onChange={(e) => setDetails(e.target.value)} placeholder="Détails" rows={2} className="w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
+      <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="Montant (€)" min={0} step={100} className="w-40 rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
+      <select value={deptId} onChange={(e) => setDeptId(e.target.value)} className="rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading}>
+        <option value="">— Département —</option>
+        {departments.map((d) => (
+          <option key={d.id} value={d.id}>{d.name}</option>
+        ))}
+      </select>
+      <div className="flex gap-2">
+        <button type="submit" disabled={loading} className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50">Enregistrer</button>
+        <button type="button" onClick={onCancel} disabled={loading} className="cursor-pointer rounded-full border border-[#e2e7e2] px-4 py-2 text-xs font-medium hover:bg-[#f2f5f2]">Annuler</button>
+      </div>
+    </form>
+  );
+}
+
 function AvantageEditRow({
   avantage,
   departments,
@@ -262,33 +433,49 @@ function AvantageEditRow({
 }: {
   avantage: Avantage;
   departments: Department[];
-  onSave: (data: { name: string; montant_annuel_brut: number; department_id: string | null }) => void;
+  onSave: (data: { name: string; montant_annuel_brut: number; department_ids: string[] }) => void;
   onCancel: () => void;
   loading: boolean;
 }) {
   const [name, setName] = useState(avantage.name);
   const [montant, setMontant] = useState(String(avantage.montant_annuel_brut));
-  const [deptId, setDeptId] = useState(avantage.department_id ?? "");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(avantage.department_ids ?? []));
+
+  const toggleDept = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const m = Number(montant);
     if (!name.trim() || isNaN(m) || m < 0) return;
-    onSave({ name: name.trim(), montant_annuel_brut: m, department_id: deptId || null });
+    onSave({ name: name.trim(), montant_annuel_brut: m, department_ids: Array.from(selectedIds) });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3 rounded-xl border border-[var(--brand)]/30 bg-[#f8faf8] px-4 py-3">
-      <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom" className="rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm w-44" disabled={loading} required />
-      <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)} min={0} step={100} className="w-32 rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} required />
-      <select value={deptId} onChange={(e) => setDeptId(e.target.value)} className="rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading}>
-        <option value="">Tous</option>
-        {departments.map((d) => (
-          <option key={d.id} value={d.id}>{d.name}</option>
-        ))}
-      </select>
-      <button type="submit" disabled={loading} className="rounded-full bg-[var(--brand)] px-3 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50">Enregistrer</button>
-      <button type="button" onClick={onCancel} disabled={loading} className="rounded-full border border-[#e2e7e2] px-3 py-2 text-xs font-medium hover:bg-[#f2f5f2]">Annuler</button>
+    <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border-2 border-[var(--brand)]/40 bg-[#f8faf8] px-4 py-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom" className="rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm w-44" disabled={loading} required />
+        <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)} min={0} step={100} className="w-32 rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} required />
+        <button type="submit" disabled={loading} className="cursor-pointer rounded-full bg-[var(--brand)] px-3 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50">Enregistrer</button>
+        <button type="button" onClick={onCancel} disabled={loading} className="cursor-pointer rounded-full border border-[#e2e7e2] px-3 py-2 text-xs font-medium hover:bg-[#f2f5f2]">Annuler</button>
+      </div>
+      <div>
+        <p className="mb-2 text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Départements concernés (cocher)</p>
+        <div className="flex flex-wrap gap-3">
+          {departments.map((d) => (
+            <label key={d.id} className="flex cursor-pointer items-center gap-2 rounded-full border border-[#e2e7e2] bg-white px-3 py-1.5 text-sm hover:bg-[#f8faf8]">
+              <input type="checkbox" checked={selectedIds.has(d.id)} onChange={() => toggleDept(d.id)} className="h-4 w-4 rounded border-[#e2e7e2] text-[var(--brand)]" />
+              <span>{d.name}</span>
+            </label>
+          ))}
+        </div>
+      </div>
     </form>
   );
 }
@@ -296,13 +483,19 @@ function AvantageEditRow({
 export function GrillesClient({
   initialDepartmentsWithPaliers,
   initialAvantages,
+  initialManagement,
+  initialAnciennete,
 }: {
   initialDepartmentsWithPaliers: DepartmentWithPaliers[];
   initialAvantages: Avantage[];
+  initialManagement: GrilleExtraItem[];
+  initialAnciennete: GrilleExtraItem[];
 }) {
   const router = useRouter();
   const [deptsWithPaliers, setDeptsWithPaliers] = useState(initialDepartmentsWithPaliers);
   const [avantages, setAvantages] = useState(initialAvantages);
+  const [managementItems, setManagementItems] = useState(initialManagement);
+  const [ancienneteItems, setAncienneteItems] = useState(initialAnciennete);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -313,7 +506,10 @@ export function GrillesClient({
   const [expandedDeptId, setExpandedDeptId] = useState<string | null>(initialDepartmentsWithPaliers[0]?.id ?? null);
   const [avantageName, setAvantageName] = useState("");
   const [avantageMontant, setAvantageMontant] = useState("");
-  const [avantageDeptId, setAvantageDeptId] = useState("");
+  const [avantageDepartmentIds, setAvantageDepartmentIds] = useState<string[]>([]);
+  const [editingGrilleExtraId, setEditingGrilleExtraId] = useState<string | null>(null);
+  const [editingGrilleExtraType, setEditingGrilleExtraType] = useState<"management" | "anciennete">("management");
+  const [grilleExtraError, setGrilleExtraError] = useState<string | null>(null);
   const [expandedPalierKey, setExpandedPalierKey] = useState<string | null>(null);
   const [editingPalierId, setEditingPalierId] = useState<string | null>(null);
   const [editingAvantageId, setEditingAvantageId] = useState<string | null>(null);
@@ -322,6 +518,62 @@ export function GrillesClient({
   const [selectedAvantageIds, setSelectedAvantageIds] = useState<Set<string>>(new Set());
 
   const departments = deptsWithPaliers.map(({ paliers, ...d }) => d);
+
+  async function handleCreateGrilleExtra(type: "management" | "anciennete", data: { name: string; details?: string; montant_annuel?: number; department_id?: string | null }) {
+    setLoading(true);
+    setGrilleExtraError(null);
+    try {
+      const res = await fetch("/api/grille-extra", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, ...data }),
+      });
+      const item = await res.json();
+      if (!res.ok) throw new Error(item.error || "Erreur");
+      if (type === "management") setManagementItems((prev) => [...prev, item]);
+      else setAncienneteItems((prev) => [...prev, item]);
+      router.refresh();
+    } catch (err) {
+      setGrilleExtraError(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUpdateGrilleExtra(id: string, data: { name: string; details?: string | null; montant_annuel?: number | null; department_id?: string | null }) {
+    setLoading(true);
+    setGrilleExtraError(null);
+    try {
+      const res = await fetch(`/api/grille-extra/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const updated = await res.json();
+      if (!res.ok) throw new Error(updated.error || "Erreur");
+      setManagementItems((prev) => prev.map((i) => (i.id === id ? updated : i)));
+      setAncienneteItems((prev) => prev.map((i) => (i.id === id ? updated : i)));
+      setEditingGrilleExtraId(null);
+      router.refresh();
+    } catch (err) {
+      setGrilleExtraError(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteGrilleExtra(id: string) {
+    if (!confirm("Supprimer cet élément ?")) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/grille-extra/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).error || "Erreur");
+      setManagementItems((prev) => prev.filter((i) => i.id !== id));
+      setAncienneteItems((prev) => prev.filter((i) => i.id !== id));
+      setEditingGrilleExtraId(null);
+      router.refresh();
+    } catch (err) {
+      setGrilleExtraError(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleCreateDept(e: React.FormEvent) {
     e.preventDefault();
@@ -448,7 +700,7 @@ export function GrillesClient({
         body: JSON.stringify({
           name: trimmed,
           montant_annuel_brut: montant,
-          department_id: avantageDeptId || null,
+          department_ids: avantageDepartmentIds,
         }),
       });
       const data = await res.json();
@@ -456,7 +708,7 @@ export function GrillesClient({
       setAvantages((prev) => [...prev, data]);
       setAvantageName("");
       setAvantageMontant("");
-      setAvantageDeptId("");
+      setAvantageDepartmentIds([]);
       router.refresh();
     } catch (err) {
       setAvantagesError(err instanceof Error ? err.message : "Erreur");
@@ -518,7 +770,7 @@ export function GrillesClient({
     }
   }
 
-  async function handleUpdateAvantage(id: string, data: { name: string; montant_annuel_brut: number; department_id: string | null }) {
+  async function handleUpdateAvantage(id: string, data: { name: string; montant_annuel_brut: number; department_ids: string[] }) {
     setLoading(true);
     setAvantagesError(null);
     try {
@@ -582,14 +834,14 @@ export function GrillesClient({
         <button
           type="button"
           onClick={() => setActiveTab("grilles")}
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${activeTab === "grilles" ? "bg-white text-[var(--text)] shadow" : "text-[color:rgba(11,11,11,0.65)] hover:bg-white/50"}`}
+          className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-medium transition ${activeTab === "grilles" ? "bg-white text-[var(--text)] shadow" : "text-[color:rgba(11,11,11,0.65)] hover:bg-white/50"}`}
         >
           Grilles
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("simulateur")}
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${activeTab === "simulateur" ? "bg-white text-[var(--text)] shadow" : "text-[color:rgba(11,11,11,0.65)] hover:bg-white/50"}`}
+          className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-medium transition ${activeTab === "simulateur" ? "bg-white text-[var(--text)] shadow" : "text-[color:rgba(11,11,11,0.65)] hover:bg-white/50"}`}
         >
           Simulateur
         </button>
@@ -597,7 +849,7 @@ export function GrillesClient({
 
       {activeTab === "simulateur" ? (
         <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
-          <h2 className="text-lg font-semibold text-[var(--text)]">Simulateur de rémunération annuelle brute</h2>
+          <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Simulateur de rémunération annuelle brute</h2>
           <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
             Cochez les paliers et avantages pour calculer le montant total annuel brut.
           </p>
@@ -664,16 +916,16 @@ export function GrillesClient({
               </div>
             </div>
           </div>
-          <div className="mt-6 rounded-xl border-2 border-[var(--brand)] bg-[var(--brand)]/5 p-4">
-            <p className="text-sm font-medium text-[color:rgba(11,11,11,0.65)]">Total rémunération annuelle brute</p>
-            <p className="mt-1 text-2xl font-semibold text-[var(--text)]">{totalSimu.toLocaleString("fr-FR")} €</p>
+          <div className="mt-6 rounded-xl border-2 border-[var(--brand)] bg-[var(--brand)]/10 p-5">
+            <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">Total rémunération annuelle brute</p>
+            <p className="mt-2 text-3xl font-bold text-[var(--text)]">{totalSimu.toLocaleString("fr-FR")} €</p>
           </div>
         </section>
       ) : (
         <>
       {/* Départements */}
       <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
-        <h2 className="text-lg font-semibold text-[var(--text)]">Départements & paliers</h2>
+        <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Départements & paliers</h2>
         <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
           Ajoutez des départements, puis définissez pour chacun des paliers avec rémunération annuelle brute fixe et critères pour passer au palier suivant.
         </p>
@@ -729,7 +981,7 @@ export function GrillesClient({
                           type="button"
                           onClick={() => handleUpdateDept(d.id)}
                           disabled={loading}
-                          className="rounded-full bg-[var(--brand)] px-3 py-1.5 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50"
+                          className="cursor-pointer rounded-full bg-[var(--brand)] px-3 py-1.5 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50"
                         >
                           Enregistrer
                         </button>
@@ -740,7 +992,7 @@ export function GrillesClient({
                             setEditName("");
                             setError(null);
                           }}
-                          className="rounded-full border border-[#e2e7e2] px-3 py-1.5 text-xs font-medium hover:bg-[#f2f5f2]"
+                          className="cursor-pointer rounded-full border border-[#e2e7e2] px-3 py-1.5 text-xs font-medium hover:bg-[#f2f5f2]"
                         >
                           Annuler
                         </button>
@@ -753,7 +1005,7 @@ export function GrillesClient({
                             type="button"
                             onClick={() => startEdit(d)}
                             disabled={loading}
-                            className="rounded-lg px-2 py-1 text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand)]/10 disabled:opacity-50"
+                            className="cursor-pointer rounded-lg px-2 py-1 text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand)]/10 disabled:opacity-50"
                           >
                             Modifier
                           </button>
@@ -761,7 +1013,7 @@ export function GrillesClient({
                             type="button"
                             onClick={() => handleDeleteDept(d.id)}
                             disabled={loading}
-                            className="rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                            className="cursor-pointer rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
                           >
                             Supprimer
                           </button>
@@ -778,7 +1030,7 @@ export function GrillesClient({
 
       {/* Paliers par département */}
       <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
-        <h2 className="text-lg font-semibold text-[var(--text)]">Paliers par département</h2>
+        <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Paliers par département</h2>
         <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
           Cliquez sur un département pour gérer ses paliers. Chaque palier requiert des critères (objectifs, compétences, ancienneté) pour définir les conditions d&apos;accès.
         </p>
@@ -797,7 +1049,7 @@ export function GrillesClient({
                 <button
                   type="button"
                   onClick={() => setExpandedDeptId(expandedDeptId === dept.id ? null : dept.id)}
-                  className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-[#f2f5f2]"
+                  className="flex w-full cursor-pointer items-center justify-between px-4 py-3 text-left hover:bg-[#f2f5f2]"
                 >
                   <span className="font-semibold text-[var(--text)]">{dept.name}</span>
                   <span className="text-xs text-[color:rgba(11,11,11,0.5)]">
@@ -828,11 +1080,11 @@ export function GrillesClient({
                                   <button
                                     type="button"
                                     onClick={() => setExpandedPalierKey(isExpanded ? null : key)}
-                                    className="flex w-full flex-wrap items-center justify-between gap-2 px-4 py-3 text-left hover:bg-[#f2f5f2]"
+                                    className="flex w-full cursor-pointer flex-wrap items-center justify-between gap-2 px-4 py-3 text-left hover:bg-[#f2f5f2]"
                                   >
                                     <div className="flex flex-wrap items-center gap-3">
-                                      <span className="font-medium text-[var(--text)]">{p.name}</span>
-                                      <span className="text-sm text-[color:rgba(11,11,11,0.65)]">
+                                      <span className="font-semibold text-[var(--text)]">{p.name}</span>
+                                      <span className="rounded-lg bg-[var(--brand)]/15 px-2.5 py-1 text-sm font-semibold text-[var(--brand)]">
                                         {p.montant_annuel != null ? `${Number(p.montant_annuel).toLocaleString("fr-FR")} € brut / an` : "—"}
                                       </span>
                                       {p.criteria && (
@@ -848,7 +1100,8 @@ export function GrillesClient({
                                     <span className="text-xs text-[color:rgba(11,11,11,0.5)]">{isExpanded ? "▼" : "▶"}</span>
                                   </button>
                                   {isExpanded && (
-                                    <div className="border-t border-[#e2e7e2] bg-white px-4 py-3 text-sm">
+                                    <div className="border-t border-[#e2e7e2] bg-[#fafbfa] px-4 py-3 text-sm">
+                                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Détails des critères</p>
                                       <div className="grid gap-2 sm:grid-cols-2">
                                         {(p.criteria?.objectives?.length ?? 0) > 0 && (
                                           <div>
@@ -878,10 +1131,10 @@ export function GrillesClient({
                                         )}
                                       </div>
                                       <div className="mt-3 flex gap-2">
-                                        <button type="button" onClick={() => setEditingPalierId(p.id)} disabled={loading} className="rounded-lg px-2 py-1 text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand)]/10">
+                                        <button type="button" onClick={() => setEditingPalierId(p.id)} disabled={loading} className="cursor-pointer rounded-lg px-2 py-1 text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand)]/10">
                                           Modifier
                                         </button>
-                                        <button type="button" onClick={() => handleDeletePalier(dept.id, p.id)} disabled={loading} className="rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50">
+                                        <button type="button" onClick={() => handleDeletePalier(dept.id, p.id)} disabled={loading} className="cursor-pointer rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50">
                                           Supprimer
                                         </button>
                                       </div>
@@ -900,7 +1153,7 @@ export function GrillesClient({
                         <PalierForm onAdd={(data) => handleCreatePalier(dept.id, data)} loading={loading} />
                       </div>
                     </details>
-                    <button type="button" onClick={() => handleDeleteDept(dept.id)} disabled={loading} className="mt-4 text-xs font-medium text-red-600 hover:underline disabled:opacity-50">
+                    <button type="button" onClick={() => handleDeleteDept(dept.id)} disabled={loading} className="cursor-pointer mt-4 text-xs font-medium text-red-600 hover:underline disabled:opacity-50">
                       Supprimer ce département
                     </button>
                   </div>
@@ -913,52 +1166,55 @@ export function GrillesClient({
 
       {/* Avantages en nature */}
       <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
-        <h2 className="text-lg font-semibold text-[var(--text)]">Avantages en nature</h2>
+        <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Avantages en nature</h2>
         <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
-          Voiture de fonction, ticket resto, abonnement gym, etc. Chaque avantage a un montant annuel brut défini et peut être lié à un département.
+          Voiture de fonction, ticket resto, abonnement gym, etc. Chaque avantage a un montant annuel brut et peut être rattaché à un ou plusieurs départements (cases à cocher).
         </p>
         {avantagesError && (
           <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{avantagesError}</p>
         )}
-        <form onSubmit={handleCreateAvantage} className="mt-4 flex flex-wrap items-end gap-3">
-          <input
-            type="text"
-            value={avantageName}
-            onChange={(e) => setAvantageName(e.target.value)}
-            placeholder="Ex: Voiture de fonction"
-            className="rounded-xl border border-[#e2e7e2] px-4 py-2.5 text-sm focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
-            disabled={loading}
-            required
-          />
-          <input
-            type="number"
-            value={avantageMontant}
-            onChange={(e) => setAvantageMontant(e.target.value)}
-            placeholder="Montant annuel brut (€)"
-            min={0}
-            step={100}
-            className="w-40 rounded-xl border border-[#e2e7e2] px-4 py-2.5 text-sm focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
-            disabled={loading}
-            required
-          />
-          <select
-            value={avantageDeptId}
-            onChange={(e) => setAvantageDeptId(e.target.value)}
-            className="rounded-xl border border-[#e2e7e2] px-4 py-2.5 text-sm focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
-            disabled={loading}
-          >
-            <option value="">Tous les départements</option>
-            {departments.map((d) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-full bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50"
-          >
-            Ajouter
-          </button>
+        <form onSubmit={handleCreateAvantage} className="mt-4 space-y-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <input
+              type="text"
+              value={avantageName}
+              onChange={(e) => setAvantageName(e.target.value)}
+              placeholder="Ex: Voiture de fonction"
+              className="rounded-xl border border-[#e2e7e2] px-4 py-2.5 text-sm focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
+              disabled={loading}
+              required
+            />
+            <input
+              type="number"
+              value={avantageMontant}
+              onChange={(e) => setAvantageMontant(e.target.value)}
+              placeholder="Montant annuel brut (€)"
+              min={0}
+              step={100}
+              className="w-40 rounded-xl border border-[#e2e7e2] px-4 py-2.5 text-sm focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
+              disabled={loading}
+              required
+            />
+            <button type="submit" disabled={loading} className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">
+              Ajouter
+            </button>
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Départements concernés (cocher, vide = tous)</p>
+            <div className="flex flex-wrap gap-2">
+              {departments.map((d) => (
+                <label key={d.id} className="flex cursor-pointer items-center gap-2 rounded-full border border-[#e2e7e2] bg-white px-3 py-1.5 text-sm hover:bg-[#f8faf8]">
+                  <input
+                    type="checkbox"
+                    checked={avantageDepartmentIds.includes(d.id)}
+                    onChange={(e) => setAvantageDepartmentIds((prev) => (e.target.checked ? [...prev, d.id] : prev.filter((id) => id !== d.id)))}
+                    className="h-4 w-4 rounded border-[#e2e7e2] text-[var(--brand)]"
+                  />
+                  <span>{d.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
         </form>
         <div className="mt-6 space-y-2">
           {avantages.length === 0 ? (
@@ -981,20 +1237,24 @@ export function GrillesClient({
                 >
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="font-medium text-[var(--text)]">{a.name}</span>
-                    <span className="text-sm text-[color:rgba(11,11,11,0.65)]">
+                    <span className="rounded-lg bg-[var(--brand)]/15 px-2.5 py-1 text-sm font-semibold text-[var(--brand)]">
                       {Number(a.montant_annuel_brut).toLocaleString("fr-FR")} € brut / an
                     </span>
-                    {a.department_id && (
-                      <span className="rounded-full bg-[var(--brand)]/10 px-2 py-0.5 text-xs font-medium text-[var(--brand)]">
-                        {departments.find((d) => d.id === a.department_id)?.name ?? "—"}
-                      </span>
+                    {(a.department_ids ?? []).length > 0 ? (
+                      (a.department_ids ?? []).map((deptId) => (
+                        <span key={deptId} className="rounded-full bg-[var(--brand)]/10 px-2 py-0.5 text-xs font-medium text-[var(--brand)]">
+                          {departments.find((d) => d.id === deptId)?.name ?? deptId}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-[color:rgba(11,11,11,0.5)]">Tous les départements</span>
                     )}
                   </div>
                   <div className="flex gap-1">
-                    <button type="button" onClick={() => setEditingAvantageId(a.id)} disabled={loading} className="rounded px-2 py-1 text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand)]/10">
+                    <button type="button" onClick={() => setEditingAvantageId(a.id)} disabled={loading} className="cursor-pointer rounded px-2 py-1 text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand)]/10">
                       Modifier
                     </button>
-                    <button type="button" onClick={() => handleDeleteAvantage(a.id)} disabled={loading} className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50">
+                    <button type="button" onClick={() => handleDeleteAvantage(a.id)} disabled={loading} className="cursor-pointer rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50">
                       Supprimer
                     </button>
                   </div>
@@ -1006,26 +1266,38 @@ export function GrillesClient({
       </section>
 
       {/* Management */}
-      <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
-        <h2 className="text-lg font-semibold text-[var(--text)]">Management</h2>
-        <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
-          Paliers de rémunération liés au management (ex. : Palier 1 — manage 1 à 3 personnes). Définissez les paliers et leurs détails par département.
-        </p>
-        <p className="mt-4 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] px-4 py-3 text-sm text-[color:rgba(11,11,11,0.65)]">
-          Cette section sera disponible prochainement : vous pourrez créer des paliers management (nombre de personnes managées, etc.) avec rémunération et critères.
-        </p>
-      </section>
+      <GrilleExtraSection
+        type="management"
+        title="Management"
+        description="Paliers liés au management (ex. : manage 1 à 3 personnes). Nom, détails et rémunération par département."
+        items={managementItems}
+        departments={departments}
+        loading={loading}
+        error={grilleExtraError}
+        onAdd={(data) => handleCreateGrilleExtra("management", data)}
+        onUpdate={handleUpdateGrilleExtra}
+        onDelete={handleDeleteGrilleExtra}
+        editingId={editingGrilleExtraId}
+        editingType={editingGrilleExtraType}
+        setEditing={(id, type) => { setEditingGrilleExtraId(id); setEditingGrilleExtraType(type ?? "management"); }}
+      />
 
       {/* Ancienneté */}
-      <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
-        <h2 className="text-lg font-semibold text-[var(--text)]">Ancienneté</h2>
-        <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
-          Paliers liés à l&apos;ancienneté (ex. : 0-2 ans, 2-5 ans) avec rémunération et critères par département.
-        </p>
-        <p className="mt-4 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] px-4 py-3 text-sm text-[color:rgba(11,11,11,0.65)]">
-          Cette section sera disponible prochainement : vous pourrez définir des paliers d&apos;ancienneté avec montant et détails.
-        </p>
-      </section>
+      <GrilleExtraSection
+        type="anciennete"
+        title="Ancienneté"
+        description="Paliers liés à l'ancienneté (ex. : 0-2 ans, 2-5 ans) avec détails et rémunération par département."
+        items={ancienneteItems}
+        departments={departments}
+        loading={loading}
+        error={grilleExtraError}
+        onAdd={(data) => handleCreateGrilleExtra("anciennete", data)}
+        onUpdate={handleUpdateGrilleExtra}
+        onDelete={handleDeleteGrilleExtra}
+        editingId={editingGrilleExtraId}
+        editingType={editingGrilleExtraType}
+        setEditing={(id, type) => { setEditingGrilleExtraId(id); setEditingGrilleExtraType(type ?? "anciennete"); }}
+      />
         </>
       )}
     </div>

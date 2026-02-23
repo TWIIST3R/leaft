@@ -76,13 +76,46 @@ async function getData() {
     paliers: (paliersByDept[d.id] ?? []).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
   }));
 
-  const { data: avantages } = await supabase
+  const { data: avantagesList } = await supabase
     .from("avantages_en_nature")
-    .select("id, name, montant_annuel_brut, department_id, created_at")
+    .select("id, name, montant_annuel_brut, created_at")
     .eq("organization_id", organization.id)
     .order("name");
 
-  return { organization, departmentsWithPaliers, departments: departments ?? [], avantages: avantages ?? [] };
+  const avantageIds = (avantagesList ?? []).map((a) => a.id);
+  const { data: advDeptLinks } =
+    avantageIds.length > 0
+      ? await supabase.from("avantage_departments").select("avantage_id, department_id").in("avantage_id", avantageIds)
+      : { data: [] as { avantage_id: string; department_id: string }[] };
+  const deptIdsByAdv = (advDeptLinks ?? []).reduce<Record<string, string[]>>((acc, row) => {
+    if (!acc[row.avantage_id]) acc[row.avantage_id] = [];
+    acc[row.avantage_id].push(row.department_id);
+    return acc;
+  }, {});
+  const avantages = (avantagesList ?? []).map((a) => ({ ...a, department_ids: deptIdsByAdv[a.id] ?? [] }));
+
+  const { data: managementItems } = await supabase
+    .from("grille_extra")
+    .select("id, department_id, name, details, montant_annuel, \"order\", created_at")
+    .eq("organization_id", organization.id)
+    .eq("type", "management")
+    .order("order", { ascending: true });
+
+  const { data: ancienneteItems } = await supabase
+    .from("grille_extra")
+    .select("id, department_id, name, details, montant_annuel, \"order\", created_at")
+    .eq("organization_id", organization.id)
+    .eq("type", "anciennete")
+    .order("order", { ascending: true });
+
+  return {
+    organization,
+    departmentsWithPaliers,
+    departments: departments ?? [],
+    avantages,
+    managementItems: managementItems ?? [],
+    ancienneteItems: ancienneteItems ?? [],
+  };
 }
 
 export default async function GrillesPage() {
@@ -97,7 +130,12 @@ export default async function GrillesPage() {
         </p>
       </div>
 
-      <GrillesClient initialDepartmentsWithPaliers={data.departmentsWithPaliers} initialAvantages={data.avantages} />
+      <GrillesClient
+        initialDepartmentsWithPaliers={data.departmentsWithPaliers}
+        initialAvantages={data.avantages}
+        initialManagement={data.managementItems}
+        initialAnciennete={data.ancienneteItems}
+      />
     </div>
   );
 }
