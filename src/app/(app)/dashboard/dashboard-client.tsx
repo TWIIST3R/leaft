@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useOrganizationList } from "@clerk/nextjs";
 import gsap from "gsap";
+import { PieChart, PIE_COLORS } from "@/components/charts/pie-chart";
 
 type DashboardData = {
   organization: { id: string; name: string };
@@ -12,10 +13,16 @@ type DashboardData = {
   departmentsCount: number;
   paliersCount: number;
   avgSalary: number;
+  totalSalaryMass: number;
   genderF: number;
   genderH: number;
+  genderOther: number;
   newestHire: { name: string; date: string | null } | null;
+  deptDistribution: { label: string; value: number }[];
+  upcomingInterviews: { id: string; date: string; type: string; employeeName: string }[];
 };
+
+const CARD = "rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]";
 
 export function DashboardClient({ initialData }: { initialData: DashboardData }) {
   const searchParams = useSearchParams();
@@ -96,6 +103,17 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
     );
   }
 
+  const genderPieItems = [
+    { label: "Hommes", value: initialData.genderH, color: "#3b82f6" },
+    { label: "Femmes", value: initialData.genderF, color: "#ec4899" },
+    ...(initialData.genderOther > 0 ? [{ label: "Autre", value: initialData.genderOther, color: "#a3a3a3" }] : []),
+  ].filter((i) => i.value > 0);
+
+  const deptPieItems = initialData.deptDistribution.map((d, i) => ({
+    ...d,
+    color: PIE_COLORS[i % PIE_COLORS.length],
+  }));
+
   return (
     <div ref={mainRef} className="space-y-8">
       <section data-animate className="rounded-3xl border border-[#e2e7e2] bg-white p-8 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
@@ -111,82 +129,117 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
         </div>
       </section>
 
-      <section data-animate className="grid gap-6 md:grid-cols-3">
+      <section data-animate className="grid gap-6 md:grid-cols-4">
         <Link
           href="/dashboard/talents"
-          className="block rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)] transition hover:border-[var(--brand)]/30 hover:shadow-[0_24px_60px_rgba(17,27,24,0.08)]"
+          className={`block ${CARD} transition hover:border-[var(--brand)]/30 hover:shadow-[0_24px_60px_rgba(17,27,24,0.08)]`}
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Talents</p>
           <p className="mt-3 text-3xl font-semibold text-[var(--text)]">{initialData.employeesCount}</p>
           <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
             {initialData.employeesCount === 0
-              ? "Commencez par ajouter vos premiers talents"
-              : `${initialData.employeesCount} talent${initialData.employeesCount > 1 ? "s" : ""} dans votre organisation`}
+              ? "Ajoutez vos premiers talents"
+              : `${initialData.employeesCount} talent${initialData.employeesCount > 1 ? "s" : ""}`}
           </p>
         </Link>
 
         <Link
           href="/dashboard/grilles"
-          className="block rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)] transition hover:border-[var(--brand)]/30 hover:shadow-[0_24px_60px_rgba(17,27,24,0.08)]"
+          className={`block ${CARD} transition hover:border-[var(--brand)]/30 hover:shadow-[0_24px_60px_rgba(17,27,24,0.08)]`}
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Départements</p>
           <p className="mt-3 text-3xl font-semibold text-[var(--text)]">{initialData.departmentsCount}</p>
           <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
             {initialData.departmentsCount === 0
-              ? "Créez vos départements pour organiser vos talents"
+              ? "Créez vos départements"
               : `${initialData.departmentsCount} département${initialData.departmentsCount > 1 ? "s" : ""}`}
           </p>
         </Link>
 
         <Link
           href="/dashboard/grilles"
-          className="block rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)] transition hover:border-[var(--brand)]/30 hover:shadow-[0_24px_60px_rgba(17,27,24,0.08)]"
+          className={`block ${CARD} transition hover:border-[var(--brand)]/30 hover:shadow-[0_24px_60px_rgba(17,27,24,0.08)]`}
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Paliers</p>
           <p className="mt-3 text-3xl font-semibold text-[var(--text)]">{initialData.paliersCount}</p>
           <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
             {initialData.paliersCount === 0
-              ? "Définissez vos paliers par département (rémunération + critères)"
-              : `${initialData.paliersCount} palier${initialData.paliersCount > 1 ? "s" : ""} dans vos grilles`}
+              ? "Définissez vos paliers"
+              : `${initialData.paliersCount} palier${initialData.paliersCount > 1 ? "s" : ""}`}
           </p>
         </Link>
+
+        <div className={CARD}>
+          <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Masse salariale</p>
+          <p className="mt-3 text-3xl font-semibold text-[var(--text)]">
+            {initialData.totalSalaryMass > 0
+              ? `${Math.round(initialData.totalSalaryMass / 1000).toLocaleString("fr-FR")}k €`
+              : "—"}
+          </p>
+          <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">Total annuel brut</p>
+        </div>
       </section>
 
       {initialData.employeesCount > 0 && (
-        <section data-animate className="grid gap-6 md:grid-cols-3">
-          <div className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+        <section data-animate className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className={CARD}>
             <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Salaire moyen brut</p>
             <p className="mt-3 text-2xl font-semibold text-[var(--text)]">
               {initialData.avgSalary > 0 ? `${initialData.avgSalary.toLocaleString("fr-FR")} €` : "—"}
             </p>
             <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">Moyenne annuelle brute</p>
           </div>
-          <div className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Répartition H/F</p>
-            <p className="mt-3 text-2xl font-semibold text-[var(--text)]">
-              {initialData.genderH}H / {initialData.genderF}F
-            </p>
-            <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
-              {initialData.employeesCount - initialData.genderH - initialData.genderF > 0
-                ? `${initialData.employeesCount - initialData.genderH - initialData.genderF} autre(s)`
-                : "Sur l'ensemble de l'organisation"}
-            </p>
-          </div>
-          {initialData.newestHire && (
-            <div className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Dernière arrivée</p>
-              <p className="mt-3 text-lg font-semibold text-[var(--text)]">{initialData.newestHire.name}</p>
-              <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
-                {initialData.newestHire.date
-                  ? new Date(initialData.newestHire.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
-                  : "—"}
+          {genderPieItems.length > 0 && (
+            <div className={CARD}>
+              <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">
+                Répartition H / F
               </p>
+              <PieChart items={genderPieItems} size={140} strokeWidth={28} />
+            </div>
+          )}
+          {deptPieItems.length > 0 && (
+            <div className={CARD}>
+              <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">
+                Effectif par département
+              </p>
+              <PieChart items={deptPieItems} size={140} strokeWidth={28} />
             </div>
           )}
         </section>
       )}
 
-      <section data-animate className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+      {initialData.upcomingInterviews.length > 0 && (
+        <section data-animate className={CARD}>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-[var(--text)]">Prochains entretiens</h2>
+            <Link href="/dashboard/entretiens" className="text-sm font-medium text-[var(--brand)] hover:underline">
+              Voir tout
+            </Link>
+          </div>
+          <div className="divide-y divide-[#e2e7e2]">
+            {initialData.upcomingInterviews.map((iv) => (
+              <div key={iv.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--brand)]/10">
+                    <svg className="h-5 w-5 text-[var(--brand)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[var(--text)]">{iv.employeeName}</p>
+                    <p className="text-xs text-[color:rgba(11,11,11,0.5)]">{iv.type}</p>
+                  </div>
+                </div>
+                <span className="text-sm font-medium text-[color:rgba(11,11,11,0.6)]">
+                  {new Date(iv.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section data-animate className={CARD}>
         <h2 className="text-lg font-semibold text-[var(--text)]">Actions rapides</h2>
         <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Link
@@ -225,30 +278,24 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
           <h2 className="text-lg font-semibold text-[var(--text)]">Pour commencer</h2>
           <ol className="mt-4 space-y-3 text-sm text-[color:rgba(11,11,11,0.7)]">
             <li className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-xs font-semibold text-white">
-                1
-              </span>
+              <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-xs font-semibold text-white">1</span>
               <div>
                 <p className="font-semibold text-[var(--text)]">Créez vos départements</p>
-                <p className="mt-1">Dans Grilles de salaire, organisez votre structure (ex: Product, Sales, Engineering).</p>
+                <p className="mt-1">Dans Grilles de salaire, organisez votre structure.</p>
               </div>
             </li>
             <li className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-xs font-semibold text-white">
-                2
-              </span>
+              <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-xs font-semibold text-white">2</span>
               <div>
                 <p className="font-semibold text-[var(--text)]">Définissez vos grilles salariales</p>
-                <p className="mt-1">Créez des familles de métiers avec leurs niveaux et fourchettes salariales.</p>
+                <p className="mt-1">Créez des familles de métiers avec leurs niveaux et fourchettes.</p>
               </div>
             </li>
             <li className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-xs font-semibold text-white">
-                3
-              </span>
+              <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-xs font-semibold text-white">3</span>
               <div>
                 <p className="font-semibold text-[var(--text)]">Ajoutez vos talents</p>
-                <p className="mt-1">Invitez vos collaborateurs et assignez-les à leurs postes et niveaux.</p>
+                <p className="mt-1">Invitez vos collaborateurs et assignez-les à leurs postes.</p>
               </div>
             </li>
           </ol>

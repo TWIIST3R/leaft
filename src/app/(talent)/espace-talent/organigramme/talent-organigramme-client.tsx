@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import Link from "next/link";
 import gsap from "gsap";
 import { Avatar } from "@/components/ui/avatar";
 
@@ -20,7 +19,6 @@ type TreeNode = Employee & { children: TreeNode[] };
 function buildTree(employees: Employee[]): TreeNode[] {
   const map = new Map<string, TreeNode>();
   employees.forEach((e) => map.set(e.id, { ...e, children: [] }));
-
   const roots: TreeNode[] = [];
   map.forEach((node) => {
     if (node.manager_id && map.has(node.manager_id)) {
@@ -29,7 +27,6 @@ function buildTree(employees: Employee[]): TreeNode[] {
       roots.push(node);
     }
   });
-
   return roots;
 }
 
@@ -39,17 +36,20 @@ function OrgNode({
   depth,
   expandedSet,
   toggleExpand,
+  currentEmployeeId,
 }: {
   node: TreeNode;
   deptMap: Map<string, string>;
   depth: number;
   expandedSet: Set<string>;
   toggleExpand: (id: string) => void;
+  currentEmployeeId: string | null;
 }) {
   const nodeRef = useRef<HTMLDivElement>(null);
   const hasChildren = node.children.length > 0;
   const isExpanded = expandedSet.has(node.id);
   const deptName = node.current_department_id ? deptMap.get(node.current_department_id) : null;
+  const isMe = node.id === currentEmployeeId;
 
   useEffect(() => {
     if (nodeRef.current) {
@@ -70,27 +70,23 @@ function OrgNode({
         )}
         {!hasChildren && depth > 0 && <span className="mt-3 h-5 w-5 shrink-0" />}
 
-        <div className="group rounded-2xl border border-[#e2e7e2] bg-white px-4 py-3 shadow-sm transition hover:border-[var(--brand)]/30 hover:shadow-md">
-          <Link href={`/dashboard/talents/${node.id}`} className="flex items-center gap-3">
+        <div className={`rounded-2xl border px-4 py-3 shadow-sm transition ${
+          isMe ? "border-[var(--brand)] bg-[var(--brand)]/5 ring-2 ring-[var(--brand)]/20" : "border-[#e2e7e2] bg-white hover:border-[var(--brand)]/30 hover:shadow-md"
+        }`}>
+          <div className="flex items-center gap-3">
             <Avatar firstName={node.first_name} lastName={node.last_name} avatarUrl={node.avatar_url} size="sm" />
             <div>
-              <p className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--brand)]">
+              <p className={`text-sm font-semibold ${isMe ? "text-[var(--brand)]" : "text-[var(--text)]"}`}>
                 {node.first_name} {node.last_name}
+                {isMe && <span className="ml-1.5 text-[10px] font-medium text-[var(--brand)]">(vous)</span>}
               </p>
-              <p className="mt-0.5 text-xs text-[color:rgba(11,11,11,0.6)]">
-                {node.current_job_title || "—"}
-              </p>
+              <p className="mt-0.5 text-xs text-[color:rgba(11,11,11,0.6)]">{node.current_job_title || "—"}</p>
             </div>
-          </Link>
+          </div>
           {deptName && (
             <span className="mt-1.5 inline-block rounded-lg bg-[var(--brand)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--brand)]">
               {deptName}
             </span>
-          )}
-          {hasChildren && (
-            <p className="mt-1 text-[10px] text-[color:rgba(11,11,11,0.4)]">
-              {node.children.length} subordonné{node.children.length > 1 ? "s" : ""}
-            </p>
           )}
         </div>
       </div>
@@ -107,6 +103,7 @@ function OrgNode({
                 depth={depth + 1}
                 expandedSet={expandedSet}
                 toggleExpand={toggleExpand}
+                currentEmployeeId={currentEmployeeId}
               />
             ))}
         </div>
@@ -115,18 +112,23 @@ function OrgNode({
   );
 }
 
-export function OrganigrammeClient({
+export function TalentOrganigrammeClient({
   employees,
   departments,
+  currentEmployeeId,
 }: {
   employees: Employee[];
   departments: Dept[];
+  currentEmployeeId: string | null;
 }) {
   const deptMap = useMemo(() => new Map(departments.map((d) => [d.id, d.name])), [departments]);
   const tree = useMemo(() => buildTree(employees), [employees]);
   const [expandedSet, setExpandedSet] = useState<Set<string>>(() => {
     const set = new Set<string>();
-    tree.forEach((root) => set.add(root.id));
+    const walk = (nodes: TreeNode[]) => {
+      nodes.forEach((n) => { set.add(n.id); walk(n.children); });
+    };
+    walk(tree);
     return set;
   });
   const mainRef = useRef<HTMLDivElement>(null);
@@ -148,24 +150,17 @@ export function OrganigrammeClient({
 
   const expandAll = useCallback(() => {
     const all = new Set<string>();
-    const walk = (nodes: TreeNode[]) => {
-      nodes.forEach((n) => { all.add(n.id); walk(n.children); });
-    };
+    const walk = (nodes: TreeNode[]) => { nodes.forEach((n) => { all.add(n.id); walk(n.children); }); };
     walk(tree);
     setExpandedSet(all);
   }, [tree]);
 
-  const collapseAll = useCallback(() => {
-    setExpandedSet(new Set());
-  }, []);
+  const collapseAll = useCallback(() => setExpandedSet(new Set()), []);
 
   if (employees.length === 0) {
     return (
       <div className="rounded-3xl border border-[#e2e7e2] bg-white p-12 text-center shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
         <p className="text-[color:rgba(11,11,11,0.65)]">Aucun talent dans l&apos;organisation.</p>
-        <Link href="/dashboard/talents/new" className="mt-4 inline-flex items-center rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110">
-          Ajouter un talent
-        </Link>
       </div>
     );
   }
@@ -179,9 +174,6 @@ export function OrganigrammeClient({
         <button onClick={collapseAll} className="cursor-pointer rounded-full border border-[#e2e7e2] bg-white px-3 py-1.5 text-xs font-medium text-[var(--text)] transition hover:bg-[#f8faf8]">
           Tout replier
         </button>
-        <span className="text-xs text-[color:rgba(11,11,11,0.5)]">
-          {employees.length} collaborateur{employees.length > 1 ? "s" : ""}
-        </span>
       </div>
 
       <div className="rounded-3xl border border-[#e2e7e2] bg-[#f8faf8] p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
@@ -196,6 +188,7 @@ export function OrganigrammeClient({
                   depth={0}
                   expandedSet={expandedSet}
                   toggleExpand={toggleExpand}
+                  currentEmployeeId={currentEmployeeId}
                 />
               </div>
             ))}

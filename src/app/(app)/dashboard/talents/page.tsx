@@ -23,7 +23,7 @@ async function getData() {
   const [{ data: employees }, { data: departments }] = await Promise.all([
     supabase
       .from("employees")
-      .select("id, first_name, last_name, email, current_job_title, annual_salary_brut, hire_date, current_department_id, current_level_id")
+      .select("id, first_name, last_name, email, current_job_title, annual_salary_brut, hire_date, current_department_id, current_level_id, avatar_url")
       .eq("organization_id", organizationId)
       .order("last_name"),
     supabase.from("departments").select("id, name").eq("organization_id", organizationId).order("name"),

@@ -4,6 +4,7 @@ import { ReactNode } from "react";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { DashboardTopbar } from "@/components/dashboard/topbar";
+import { TalentNav } from "./talent-nav";
 
 async function getEmployeeInfo(userId: string, orgId: string | null) {
   const supabase = supabaseAdmin();
@@ -72,14 +73,7 @@ export default async function TalentSpaceLayout({ children }: { children: ReactN
 
         <div className="mt-6 space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.4)]">Mon espace</p>
-          <nav className="mt-3 space-y-1">
-            <Link
-              href="/espace-talent"
-              className="flex items-center rounded-xl bg-[var(--brand)]/10 px-3 py-2 text-sm font-medium text-[var(--brand)]"
-            >
-              Mon profil
-            </Link>
-          </nav>
+          <TalentNav />
         </div>
 
         {info.employee && (

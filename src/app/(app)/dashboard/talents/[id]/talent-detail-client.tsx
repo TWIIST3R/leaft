@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Avatar } from "@/components/ui/avatar";
 
 type Dept = { id: string; name: string };
 type Level = { id: string; name: string; department_id: string; montant_annuel: number | null };
@@ -34,6 +35,7 @@ type Employee = {
   manager_id: string | null;
   location: string | null;
   annual_salary_brut: number;
+  avatar_url: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -195,13 +197,18 @@ export function TalentDetailClient({
           <Link href="/dashboard/talents" className="text-sm font-medium text-[var(--brand)] hover:underline">
             ← Retour aux talents
           </Link>
-          <h1 className="mt-2 text-2xl font-semibold text-[var(--text)]">
-            {employee.first_name} {employee.last_name}
-          </h1>
-          <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
-            {employee.current_job_title}
-            {deptName && <> · <span className="text-[var(--brand)]">{deptName}</span></>}
-          </p>
+          <div className="mt-2 flex items-center gap-4">
+            <Avatar firstName={employee.first_name} lastName={employee.last_name} avatarUrl={employee.avatar_url} size="xl" />
+            <div>
+              <h1 className="text-2xl font-semibold text-[var(--text)]">
+                {employee.first_name} {employee.last_name}
+              </h1>
+              <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
+                {employee.current_job_title}
+                {deptName && <> · <span className="text-[var(--brand)]">{deptName}</span></>}
+              </p>
+            </div>
+          </div>
         </div>
         {!editing && (
           <div className="flex gap-2">

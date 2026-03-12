@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import gsap from "gsap";
+import { Avatar } from "@/components/ui/avatar";
 
 type Dept = { id: string; name: string };
 type Level = { id: string; name: string; department_id: string };
@@ -16,6 +17,7 @@ type Employee = {
   hire_date: string | null;
   current_department_id: string | null;
   current_level_id: string | null;
+  avatar_url: string | null;
 };
 
 export function TalentsClient({
@@ -128,8 +130,9 @@ export function TalentsClient({
                 {filtered.map((emp) => (
                   <tr key={emp.id} className="border-b border-[#e2e7e2] transition hover:bg-[#f8faf8]">
                     <td className="px-6 py-4">
-                      <Link href={`/dashboard/talents/${emp.id}`} className="font-medium text-[var(--brand)] hover:underline">
-                        {emp.first_name} {emp.last_name}
+                      <Link href={`/dashboard/talents/${emp.id}`} className="flex items-center gap-3 font-medium text-[var(--brand)] hover:underline">
+                        <Avatar firstName={emp.first_name} lastName={emp.last_name} avatarUrl={emp.avatar_url} size="sm" />
+                        <span>{emp.first_name} {emp.last_name}</span>
                       </Link>
                     </td>
                     <td className="px-6 py-4 text-[color:rgba(11,11,11,0.75)]">{emp.current_job_title || "—"}</td>

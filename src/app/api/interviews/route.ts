@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { sendEmail, generateICS } from "@/lib/resend";
 
 async function getOrganizationId(userId: string, orgId: string | null) {
   const supabase = supabaseAdmin();
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
   if (!organizationId) return NextResponse.json({ error: "Organisation introuvable" }, { status: 404 });
 
   const body = await request.json();
-  const { employee_id, interview_date, type, notes, justification, salary_adjustment } = body;
+  const { employee_id, interview_date, type, email_subject, notes, justification, salary_adjustment } = body;
 
   if (!employee_id || !interview_date || !type) {
     return NextResponse.json({ error: "employee_id, interview_date et type sont requis" }, { status: 400 });
@@ -84,6 +85,59 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  try {
+    const { data: emp } = await supabase
+      .from("employees")
+      .select("email, first_name, last_name")
+      .eq("id", employee_id)
+      .single();
+
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("name")
+      .eq("id", organizationId)
+      .single();
+
+    if (emp?.email) {
+      const dtStart = new Date(`${interview_date}T09:00:00`);
+      const dtEnd = new Date(`${interview_date}T10:00:00`);
+      const subject = email_subject || type;
+      const orgName = org?.name || "Leaft";
+
+      const icsContent = generateICS({
+        summary: subject,
+        description: `${type} - ${orgName}${notes ? `\n\n${notes}` : ""}`,
+        dtStart,
+        dtEnd,
+        organizerEmail: "info@leaft.io",
+        attendeeEmail: emp.email,
+      });
+
+      await sendEmail({
+        to: emp.email,
+        subject: `${subject} – ${orgName}`,
+        html: `
+          <div style="font-family:system-ui,sans-serif;max-width:520px;">
+            <h2 style="color:#095228;">${subject}</h2>
+            <p>Bonjour ${emp.first_name},</p>
+            <p>Un entretien a été programmé :</p>
+            <ul>
+              <li><strong>Type :</strong> ${type}</li>
+              <li><strong>Date :</strong> ${new Date(interview_date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</li>
+              <li><strong>Organisation :</strong> ${orgName}</li>
+            </ul>
+            ${notes ? `<p><strong>Notes :</strong> ${notes}</p>` : ""}
+            <p>Veuillez trouver ci-joint l'invitation calendrier.</p>
+            <p style="color:#666;font-size:12px;">— L'équipe Leaft</p>
+          </div>
+        `,
+        attachments: [{ filename: "invite.ics", content: icsContent }],
+      });
+    }
+  } catch (emailErr) {
+    console.error("Calendar email error (non-blocking):", emailErr);
+  }
 
   return NextResponse.json(data, { status: 201 });
 }

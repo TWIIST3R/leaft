@@ -2,6 +2,8 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import gsap from "gsap";
+import { Avatar } from "@/components/ui/avatar";
+import { LineChart } from "@/components/charts/line-chart";
 
 type Interview = {
   id: string;
@@ -13,6 +15,16 @@ type Interview = {
 };
 
 type DeptLevel = { id: string; name: string; montant_annuel: number; mid_salary: number | null };
+
+type PositionEntry = {
+  id: string;
+  startDate: string;
+  endDate: string | null;
+  jobTitle: string | null;
+  salary: number | null;
+  levelId: string | null;
+  departmentId: string | null;
+};
 
 type TalentData = {
   orgName: string;
@@ -32,6 +44,7 @@ type TalentData = {
     salary_adjustment: number | null;
     location: string | null;
     annual_salary_brut: number | null;
+    avatar_url: string | null;
     manager_id: string | null;
   };
   department: string | null;
@@ -45,6 +58,7 @@ type TalentData = {
   compaRatio: number | null;
   deptLevels: DeptLevel[];
   benchmark: { p25: number; p50: number; p75: number; source: string; updated_at: string } | null;
+  positionHistory: PositionEntry[];
 };
 
 const CARD = "rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]";
@@ -53,25 +67,30 @@ const LABEL = "text-xs font-semibold uppercase tracking-wide text-[color:rgba(11
 export function EspaceTalentClient({ data }: { data: TalentData }) {
   const { employee, orgName } = data;
   const mainRef = useRef<HTMLDivElement>(null);
-  const [simLevelId, setSimLevelId] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState(employee.avatar_url);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAvatar(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/employees/${employee.id}/avatar`, { method: "POST", body: fd });
+      const json = await res.json();
+      if (res.ok && json.avatar_url) setAvatarUrl(json.avatar_url);
+    } catch { /* ignore */ } finally {
+      setUploadingAvatar(false);
+    }
+  }
 
   useEffect(() => {
     if (!mainRef.current) return;
     const sections = mainRef.current.querySelectorAll("[data-section]");
     gsap.fromTo(sections, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.08, ease: "power2.out" });
   }, []);
-
-  const simLevel = useMemo(() => data.deptLevels.find((l) => l.id === simLevelId), [data.deptLevels, simLevelId]);
-  const simSalary = useMemo(() => {
-    if (!simLevel) return null;
-    let total = simLevel.montant_annuel;
-    if (employee.salary_adjustment) total += Number(employee.salary_adjustment);
-    return total;
-  }, [simLevel, employee.salary_adjustment]);
-  const simCompa = useMemo(() => {
-    if (!simLevel?.mid_salary || !simSalary) return null;
-    return Math.round((simSalary / simLevel.mid_salary) * 100);
-  }, [simLevel, simSalary]);
 
   const salary = employee.annual_salary_brut != null ? Number(employee.annual_salary_brut) : null;
 
@@ -81,15 +100,72 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
     ponctuel: "bg-amber-100 text-amber-800",
   };
 
+  const typeBadge = (type: string) => {
+    if (type.includes("annuel")) return "bg-[var(--brand)]/10 text-[var(--brand)]";
+    if (type.includes("semestriel")) return "bg-blue-100 text-blue-800";
+    if (type.includes("mensuel")) return "bg-violet-100 text-violet-800";
+    if (type.includes("performance")) return "bg-rose-100 text-rose-800";
+    if (type.includes("ponctuel")) return "bg-amber-100 text-amber-800";
+    return typeColors[type] || "bg-gray-100 text-gray-800";
+  };
+
+  const progressionData = useMemo(() => {
+    return data.positionHistory
+      .filter((p) => p.salary != null)
+      .map((p) => ({
+        label: new Date(p.startDate).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
+        value: p.salary!,
+      }));
+  }, [data.positionHistory]);
+
+  const augmentations = useMemo(() => {
+    const hist = data.positionHistory.filter((p) => p.salary != null);
+    if (hist.length < 2) return [];
+    return hist.slice(1).map((entry, i) => {
+      const prev = hist[i];
+      const diff = entry.salary! - (prev.salary ?? 0);
+      return {
+        id: entry.id,
+        date: entry.startDate,
+        title: entry.jobTitle ?? "Changement de poste",
+        newSalary: entry.salary!,
+        diff,
+        pct: prev.salary && prev.salary > 0 ? Math.round((diff / prev.salary) * 100) : 0,
+      };
+    }).reverse();
+  }, [data.positionHistory]);
+
+  const hireDate = new Date(employee.hire_date);
+  const now = new Date();
+  const tenureMonths = Math.max(0, (now.getFullYear() - hireDate.getFullYear()) * 12 + now.getMonth() - hireDate.getMonth());
+  const tenureYears = Math.floor(tenureMonths / 12);
+  const tenureRemaining = tenureMonths % 12;
+
   return (
     <div ref={mainRef} className="space-y-8">
       <section data-section className={`${CARD} !p-8`}>
-        <h1 className="text-2xl font-semibold text-[var(--text)]">
-          Bonjour, {employee.first_name} 👋
-        </h1>
-        <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
-          Bienvenue dans votre espace personnel au sein de {orgName}.
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-[var(--text)]">
+              Bonjour, {employee.first_name} 👋
+            </h1>
+            <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
+              Bienvenue dans votre espace personnel au sein de {orgName}.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploadingAvatar}
+            className="group relative cursor-pointer"
+          >
+            <Avatar firstName={employee.first_name} lastName={employee.last_name} avatarUrl={avatarUrl} size="xl" />
+            <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-xs font-medium text-white opacity-0 transition group-hover:opacity-100">
+              {uploadingAvatar ? "..." : "Photo"}
+            </span>
+          </button>
+          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleAvatarUpload} />
+        </div>
       </section>
 
       <section data-section className={CARD}>
@@ -117,7 +193,21 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
             <div><dt className={LABEL}>Ancienneté</dt><dd className="mt-1 text-sm"><span className="rounded-lg bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">{data.ancienneteLevel}</span></dd></div>
           )}
           <div><dt className={LABEL}>Manager</dt><dd className="mt-1 text-sm text-[var(--text)]">{data.manager || "—"}</dd></div>
-          <div><dt className={LABEL}>Date d&apos;entrée</dt><dd className="mt-1 text-sm text-[var(--text)]">{employee.hire_date ? new Date(employee.hire_date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "—"}</dd></div>
+          <div>
+            <dt className={LABEL}>Date d&apos;entrée</dt>
+            <dd className="mt-1 text-sm text-[var(--text)]">
+              {employee.hire_date ? new Date(employee.hire_date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "—"}
+            </dd>
+          </div>
+          <div>
+            <dt className={LABEL}>Ancienneté dans l&apos;entreprise</dt>
+            <dd className="mt-1 text-sm text-[var(--text)]">
+              {tenureYears > 0 ? `${tenureYears} an${tenureYears > 1 ? "s" : ""}` : ""}
+              {tenureYears > 0 && tenureRemaining > 0 ? " et " : ""}
+              {tenureRemaining > 0 ? `${tenureRemaining} mois` : ""}
+              {tenureYears === 0 && tenureRemaining === 0 ? "< 1 mois" : ""}
+            </dd>
+          </div>
           <div><dt className={LABEL}>Localisation</dt><dd className="mt-1 text-sm text-[var(--text)]">{employee.location || "—"}</dd></div>
         </dl>
       </section>
@@ -166,53 +256,128 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
         </section>
       )}
 
-      {data.salaryVisible && data.deptLevels.length > 1 && (
+      {progressionData.length >= 2 && (
         <section data-section className={CARD}>
-          <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Simulateur</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Ma progression</h2>
+            <span className="rounded-full bg-[var(--brand)]/10 px-2.5 py-0.5 text-xs font-semibold text-[var(--brand)]">
+              {progressionData.length} étapes
+            </span>
+          </div>
           <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
-            Simulez votre rémunération en sélectionnant un autre niveau de votre département.
+            Évolution de votre rémunération dans le temps.
           </p>
           <div className="mt-4">
-            <select
-              value={simLevelId}
-              onChange={(e) => setSimLevelId(e.target.value)}
-              className="w-full max-w-sm cursor-pointer rounded-xl border border-[#e2e7e2] bg-white px-4 py-2.5 text-sm text-[var(--text)] transition focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
-            >
-              <option value="">Sélectionner un niveau...</option>
-              {data.deptLevels.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name} ({l.montant_annuel.toLocaleString("fr-FR")} €)
-                </option>
-              ))}
-            </select>
+            <LineChart
+              data={progressionData}
+              height={200}
+              color="var(--brand)"
+              formatValue={(v) => `${v.toLocaleString("fr-FR")} €`}
+            />
           </div>
-          {simLevel && simSalary != null && (
-            <div className="mt-4 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 px-5 py-4">
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div>
-                  <p className={LABEL}>Niveau simulé</p>
-                  <p className="mt-1 text-sm font-semibold text-[var(--text)]">{simLevel.name}</p>
-                </div>
-                <div>
-                  <p className={LABEL}>Rémunération projetée</p>
-                  <p className="mt-1 text-xl font-semibold text-[var(--text)]">{simSalary.toLocaleString("fr-FR")} €</p>
-                  {salary != null && (
-                    <p className="mt-0.5 text-xs text-[color:rgba(11,11,11,0.5)]">
-                      {simSalary > salary ? "+" : ""}{(simSalary - salary).toLocaleString("fr-FR")} € vs actuel
-                    </p>
-                  )}
-                </div>
-                {simCompa != null && (
-                  <div>
-                    <p className={LABEL}>Compa-ratio projeté</p>
-                    <p className="mt-1 text-xl font-semibold text-[var(--text)]">{simCompa}%</p>
-                  </div>
-                )}
+          {salary != null && progressionData.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center gap-4">
+              <div className="rounded-xl bg-[var(--brand)]/5 px-4 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.4)]">Départ</p>
+                <p className="text-sm font-semibold text-[var(--text)]">{progressionData[0].value.toLocaleString("fr-FR")} €</p>
               </div>
+              <svg className="h-4 w-6 text-[var(--brand)]" fill="none" viewBox="0 0 24 16" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2 8h20m-6-5 5 5-5 5" />
+              </svg>
+              <div className="rounded-xl bg-[var(--brand)]/10 px-4 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.4)]">Actuel</p>
+                <p className="text-sm font-semibold text-[var(--brand)]">{salary.toLocaleString("fr-FR")} €</p>
+              </div>
+              {progressionData[0].value > 0 && (
+                <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
+                  +{Math.round(((salary - progressionData[0].value) / progressionData[0].value) * 100)}% total
+                </span>
+              )}
             </div>
           )}
         </section>
       )}
+
+      {augmentations.length > 0 && (
+        <section data-section className={CARD}>
+          <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Historique d&apos;augmentations</h2>
+          <div className="mt-5 relative">
+            <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-[#e2e7e2]" />
+            <div className="space-y-5">
+              {augmentations.map((aug) => (
+                <div key={aug.id} className="relative pl-10">
+                  <div className={`absolute left-2.5 top-1.5 h-3 w-3 rounded-full border-2 ${
+                    aug.diff > 0 ? "border-[var(--brand)] bg-[var(--brand)]/20" : aug.diff < 0 ? "border-red-400 bg-red-100" : "border-gray-300 bg-gray-100"
+                  }`} />
+                  <div className="rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-[var(--text)]">{aug.title}</p>
+                      <span className="text-xs text-[color:rgba(11,11,11,0.5)]">
+                        {new Date(aug.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      <span className="text-sm font-semibold text-[var(--text)]">{aug.newSalary.toLocaleString("fr-FR")} €</span>
+                      {aug.diff !== 0 && (
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          aug.diff > 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                        }`}>
+                          {aug.diff > 0 ? "+" : ""}{aug.diff.toLocaleString("fr-FR")} € ({aug.pct > 0 ? "+" : ""}{aug.pct}%)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      <section data-section className={CARD}>
+        <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Mes entretiens</h2>
+        {data.interviews.length === 0 ? (
+          <div className="mt-4 rounded-xl border border-dashed border-[#e2e7e2] bg-[#f8faf8] p-6 text-center text-sm text-[color:rgba(11,11,11,0.6)]">
+            Aucun entretien enregistré pour le moment.
+          </div>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {data.interviews.map((iv) => (
+              <div key={iv.id} className="rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${typeBadge(iv.type)}`}>
+                      {iv.type.charAt(0).toUpperCase() + iv.type.slice(1)}
+                    </span>
+                    <span className="text-sm text-[color:rgba(11,11,11,0.65)]">
+                      {new Date(iv.interview_date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                    </span>
+                  </div>
+                  {iv.salary_adjustment != null && Number(iv.salary_adjustment) !== 0 && (
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      Number(iv.salary_adjustment) > 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                    }`}>
+                      {Number(iv.salary_adjustment) > 0 ? "+" : ""}{Number(iv.salary_adjustment).toLocaleString("fr-FR")} €
+                    </span>
+                  )}
+                </div>
+                {iv.notes && (
+                  <div className="mt-3 rounded-lg bg-white/80 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.4)]">Notes</p>
+                    <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.7)]">{iv.notes}</p>
+                  </div>
+                )}
+                {iv.justification && (
+                  <div className="mt-2 rounded-lg bg-white/80 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.4)]">Justification</p>
+                    <p className="mt-1 text-sm italic text-[color:rgba(11,11,11,0.6)]">{iv.justification}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {data.salaryVisible && data.benchmark && (
         <section data-section className={CARD}>
@@ -239,39 +404,6 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
           </p>
         </section>
       )}
-
-      <section data-section className={CARD}>
-        <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Mes entretiens</h2>
-        {data.interviews.length === 0 ? (
-          <div className="mt-4 rounded-xl border border-dashed border-[#e2e7e2] bg-[#f8faf8] p-6 text-center text-sm text-[color:rgba(11,11,11,0.6)]">
-            Aucun entretien enregistré pour le moment.
-          </div>
-        ) : (
-          <div className="mt-4 space-y-3">
-            {data.interviews.map((iv) => (
-              <div key={iv.id} className="rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${typeColors[iv.type] || "bg-gray-100 text-gray-800"}`}>
-                      {iv.type.charAt(0).toUpperCase() + iv.type.slice(1)}
-                    </span>
-                    <span className="text-sm text-[color:rgba(11,11,11,0.65)]">
-                      {new Date(iv.interview_date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
-                    </span>
-                  </div>
-                  {iv.salary_adjustment != null && Number(iv.salary_adjustment) !== 0 && (
-                    <span className="text-sm font-medium text-[var(--text)]">
-                      {Number(iv.salary_adjustment) > 0 ? "+" : ""}{Number(iv.salary_adjustment).toLocaleString("fr-FR")} €
-                    </span>
-                  )}
-                </div>
-                {iv.notes && <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.7)]">{iv.notes}</p>}
-                {iv.justification && <p className="mt-1 text-xs italic text-[color:rgba(11,11,11,0.5)]">{iv.justification}</p>}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
     </div>
   );
 }

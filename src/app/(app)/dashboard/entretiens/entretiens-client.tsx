@@ -17,9 +17,11 @@ type Interview = {
 };
 
 const TYPES = [
-  { value: "annuel", label: "Annuel" },
-  { value: "semestriel", label: "Semestriel" },
-  { value: "ponctuel", label: "Ponctuel" },
+  { value: "Entretien annuel", label: "Entretien annuel" },
+  { value: "Entretien semestriel", label: "Entretien semestriel" },
+  { value: "Entretien de suivi mensuel", label: "Entretien de suivi mensuel" },
+  { value: "Entretien de performance", label: "Entretien de performance" },
+  { value: "Entretien ponctuel", label: "Entretien ponctuel" },
 ];
 
 const CARD = "rounded-3xl border border-[#e2e7e2] bg-white shadow-[0_24px_60px_rgba(17,27,24,0.06)]";
@@ -45,7 +47,8 @@ export function EntretiensClient({
   const [form, setForm] = useState({
     employee_id: "",
     interview_date: new Date().toISOString().split("T")[0],
-    type: "annuel",
+    type: "Entretien annuel",
+    email_subject: "Entretien annuel",
     notes: "",
     justification: "",
     salary_adjustment: "",
@@ -74,7 +77,7 @@ export function EntretiensClient({
   });
 
   const resetForm = useCallback(() => {
-    setForm({ employee_id: "", interview_date: new Date().toISOString().split("T")[0], type: "annuel", notes: "", justification: "", salary_adjustment: "" });
+    setForm({ employee_id: "", interview_date: new Date().toISOString().split("T")[0], type: "Entretien annuel", email_subject: "Entretien annuel", notes: "", justification: "", salary_adjustment: "" });
     setEditingId(null);
     setShowForm(false);
   }, []);
@@ -117,6 +120,7 @@ export function EntretiensClient({
       employee_id: interview.employee_id,
       interview_date: interview.interview_date,
       type: interview.type,
+      email_subject: interview.type,
       notes: interview.notes || "",
       justification: interview.justification || "",
       salary_adjustment: interview.salary_adjustment?.toString() || "",
@@ -134,12 +138,12 @@ export function EntretiensClient({
   };
 
   const typeBadge = (type: string) => {
-    const colors: Record<string, string> = {
-      annuel: "bg-[var(--brand)]/10 text-[var(--brand)]",
-      semestriel: "bg-blue-100 text-blue-800",
-      ponctuel: "bg-amber-100 text-amber-800",
-    };
-    return colors[type] || "bg-gray-100 text-gray-800";
+    if (type.includes("annuel")) return "bg-[var(--brand)]/10 text-[var(--brand)]";
+    if (type.includes("semestriel")) return "bg-blue-100 text-blue-800";
+    if (type.includes("mensuel")) return "bg-violet-100 text-violet-800";
+    if (type.includes("performance")) return "bg-rose-100 text-rose-800";
+    if (type.includes("ponctuel")) return "bg-amber-100 text-amber-800";
+    return "bg-gray-100 text-gray-800";
   };
 
   return (
@@ -205,11 +209,22 @@ export function EntretiensClient({
               <select
                 id="iv-type"
                 value={form.type}
-                onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
+                onChange={(e) => setForm((f) => ({ ...f, type: e.target.value, email_subject: e.target.value }))}
                 className={`${INPUT} cursor-pointer`}
               >
                 {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
+            </div>
+            <div className="sm:col-span-2 lg:col-span-3">
+              <label htmlFor="iv-subject" className={LABEL}>Objet de l&apos;email d&apos;invitation</label>
+              <input
+                id="iv-subject"
+                type="text"
+                value={form.email_subject}
+                onChange={(e) => setForm((f) => ({ ...f, email_subject: e.target.value }))}
+                className={INPUT}
+                placeholder="Ex: Entretien annuel 2026"
+              />
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
               <label htmlFor="iv-notes" className={LABEL}>Notes</label>

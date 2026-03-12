@@ -24,19 +24,24 @@ async function getData() {
   }
   if (!organizationId) redirect("/onboarding");
 
-  const [{ data: employees }, { data: departments }, { data: levels }] = await Promise.all([
+  const [{ data: employees }, { data: departments }, { data: levels }, { data: positionHistory }] = await Promise.all([
     supabase
       .from("employees")
       .select("id, first_name, last_name, gender, birth_date, hire_date, current_department_id, current_level_id, annual_salary_brut, location")
       .eq("organization_id", organizationId),
     supabase.from("departments").select("id, name").eq("organization_id", organizationId).order("name"),
     supabase.from("levels").select("id, name, department_id, montant_annuel, mid_salary, min_salary, max_salary"),
+    supabase
+      .from("employee_position_history")
+      .select("employee_id, department_id, start_date, annual_salary_brut")
+      .order("start_date", { ascending: true }),
   ]);
 
   return {
     employees: employees ?? [],
     departments: departments ?? [],
     levels: levels ?? [],
+    positionHistory: positionHistory ?? [],
   };
 }
 
@@ -55,6 +60,7 @@ export default async function StatistiquesPage() {
         employees={data.employees}
         departments={data.departments}
         levels={data.levels}
+        positionHistory={data.positionHistory}
       />
     </div>
   );

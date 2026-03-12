@@ -25,7 +25,7 @@ async function getData(id: string) {
       id, first_name, last_name, email, gender, birth_date, hire_date,
       current_job_title, current_level_id, current_department_id, manager_id,
       current_management_id, current_anciennete_id, salary_adjustment,
-      location, annual_salary_brut, created_at, updated_at
+      location, annual_salary_brut, avatar_url, created_at, updated_at
     `)
     .eq("id", id)
     .eq("organization_id", organizationId)

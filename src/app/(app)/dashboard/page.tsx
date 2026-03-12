@@ -11,13 +11,10 @@ async function getOrganizationData() {
     redirect("/sign-in");
   }
 
-  // Use admin client to bypass RLS for organization lookup
-  // This ensures we can find the organization even if orgId is undefined
   const supabase = supabaseAdmin();
 
   let organization;
 
-  // If orgId is provided in session, use it directly
   if (orgId) {
     const { data, error } = await supabase
       .from("organizations")
@@ -30,8 +27,6 @@ async function getOrganizationData() {
     }
   }
 
-  // If organization not found by orgId (or orgId not in session),
-  // try to find it via user_organizations table
   if (!organization) {
     const { data: userOrg, error: userOrgError } = await supabase
       .from("user_organizations")
@@ -48,19 +43,11 @@ async function getOrganizationData() {
     redirect("/onboarding");
   }
 
-  // Get employees count
-  const { count: employeesCount } = await supabase
-    .from("employees")
-    .select("*", { count: "exact", head: true })
-    .eq("organization_id", organization.id);
-
-  // Get departments count
   const { count: departmentsCount } = await supabase
     .from("departments")
     .select("*", { count: "exact", head: true })
     .eq("organization_id", organization.id);
 
-  // Get paliers count (levels linked to org via departments)
   const { data: deptIds } = await supabase
     .from("departments")
     .select("id")
@@ -74,28 +61,68 @@ async function getOrganizationData() {
           .in("department_id", ids)
       : { count: 0 };
 
-  const { data: allEmployees } = await supabase
-    .from("employees")
-    .select("annual_salary_brut, gender, hire_date, first_name, last_name")
-    .eq("organization_id", organization.id)
-    .order("hire_date", { ascending: false });
+  const [{ data: allEmployees }, { data: deptRows }, { data: upcomingRaw }] = await Promise.all([
+    supabase
+      .from("employees")
+      .select("id, annual_salary_brut, gender, hire_date, first_name, last_name, current_department_id")
+      .eq("organization_id", organization.id)
+      .order("hire_date", { ascending: false }),
+    supabase.from("departments").select("id, name").eq("organization_id", organization.id),
+    supabase
+      .from("interviews")
+      .select("id, interview_date, type, employee_id")
+      .eq("organization_id", organization.id)
+      .gte("interview_date", new Date().toISOString().slice(0, 10))
+      .order("interview_date", { ascending: true })
+      .limit(5),
+  ]);
 
   const emps = allEmployees ?? [];
+  const depts = deptRows ?? [];
+  const deptMap = new Map(depts.map((d) => [d.id, d.name]));
+  const empMap = new Map(emps.map((e) => [e.id, e]));
+
   const salaries = emps.map((e) => Number(e.annual_salary_brut)).filter((s) => s > 0);
   const avgSalary = salaries.length > 0 ? Math.round(salaries.reduce((a, b) => a + b, 0) / salaries.length) : 0;
+  const totalSalaryMass = salaries.reduce((a, b) => a + b, 0);
   const genderF = emps.filter((e) => e.gender === "F").length;
   const genderH = emps.filter((e) => e.gender === "H").length;
+  const genderOther = emps.length - genderF - genderH;
   const newestHire = emps.length > 0 ? emps[0] : null;
+
+  const deptDistribution = Object.entries(
+    emps.reduce<Record<string, number>>((acc, e) => {
+      const name = e.current_department_id ? deptMap.get(e.current_department_id) || "Autre" : "Non assigné";
+      acc[name] = (acc[name] || 0) + 1;
+      return acc;
+    }, {})
+  )
+    .sort((a, b) => b[1] - a[1])
+    .map(([label, value]) => ({ label, value }));
+
+  const upcomingInterviews = (upcomingRaw ?? []).map((iv) => {
+    const emp = empMap.get(iv.employee_id);
+    return {
+      id: iv.id,
+      date: iv.interview_date,
+      type: iv.type,
+      employeeName: emp ? `${emp.first_name} ${emp.last_name}` : "—",
+    };
+  });
 
   return {
     organization,
-    employeesCount: employeesCount ?? 0,
+    employeesCount: emps.length,
     departmentsCount: departmentsCount ?? 0,
     paliersCount: paliersCount ?? 0,
     avgSalary,
+    totalSalaryMass,
     genderF,
     genderH,
+    genderOther,
     newestHire: newestHire ? { name: `${newestHire.first_name} ${newestHire.last_name}`, date: newestHire.hire_date } : null,
+    deptDistribution,
+    upcomingInterviews,
   };
 }
 

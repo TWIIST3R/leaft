@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import gsap from "gsap";
+import { PieChart, PIE_COLORS } from "@/components/charts/pie-chart";
+import { LineChart } from "@/components/charts/line-chart";
 
 type Employee = {
   id: string;
@@ -25,35 +27,16 @@ type Level = {
   min_salary: number | null;
   max_salary: number | null;
 };
+type PositionHistory = {
+  employee_id: string;
+  department_id: string | null;
+  start_date: string;
+  annual_salary_brut: number | null;
+};
 
 const CARD = "rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]";
 const LABEL = "text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]";
 const BIG = "mt-3 text-3xl font-semibold text-[var(--text)]";
-
-function HBar({ items, color }: { items: { label: string; value: number; pct: number }[]; color: string }) {
-  const barsRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!barsRef.current) return;
-    const bars = barsRef.current.querySelectorAll("[data-bar]");
-    gsap.fromTo(bars, { scaleX: 0 }, { scaleX: 1, duration: 0.7, stagger: 0.08, ease: "power2.out" });
-  }, []);
-
-  return (
-    <div ref={barsRef} className="mt-4 space-y-3">
-      {items.map((item) => (
-        <div key={item.label}>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-[var(--text)]">{item.label}</span>
-            <span className="font-medium text-[var(--text)]">{item.value} <span className="text-xs text-[color:rgba(11,11,11,0.5)]">({item.pct}%)</span></span>
-          </div>
-          <div className="mt-1.5 h-3 overflow-hidden rounded-full bg-[#f0f2f0]">
-            <div data-bar className="h-full rounded-full origin-left" style={{ width: `${item.pct}%`, backgroundColor: color }} />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function BarChart({ items, formatValue }: { items: { label: string; value: number }[]; formatValue?: (v: number) => string }) {
   const barsRef = useRef<HTMLDivElement>(null);
@@ -90,12 +73,15 @@ export function StatistiquesClient({
   employees,
   departments,
   levels,
+  positionHistory,
 }: {
   employees: Employee[];
   departments: Dept[];
   levels: Level[];
+  positionHistory: PositionHistory[];
 }) {
   const mainRef = useRef<HTMLDivElement>(null);
+  const [salaryDeptFilter, setSalaryDeptFilter] = useState("all");
 
   useEffect(() => {
     if (!mainRef.current) return;
@@ -107,13 +93,33 @@ export function StatistiquesClient({
   const deptMap = useMemo(() => new Map(departments.map((d) => [d.id, d.name])), [departments]);
   const levelMap = useMemo(() => new Map(levels.map((l) => [l.id, l])), [levels]);
 
-  const genderData = useMemo(() => {
+  const salaries = employees.map((e) => Number(e.annual_salary_brut)).filter((s) => s > 0);
+  const totalSalaryMass = salaries.reduce((a, b) => a + b, 0);
+  const avgSalary = salaries.length > 0 ? Math.round(totalSalaryMass / salaries.length) : 0;
+  const medianSalary = salaries.length > 0 ? (() => { const s = [...salaries].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2); })() : 0;
+
+  const genderPieItems = useMemo(() => {
     const counts: Record<string, number> = {};
     employees.forEach((e) => { const g = e.gender || "Non renseigné"; counts[g] = (counts[g] || 0) + 1; });
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
-      .map(([label, value]) => ({ label, value, pct: total > 0 ? Math.round((value / total) * 100) : 0 }));
-  }, [employees, total]);
+      .map(([label, value], i) => ({
+        label: label === "H" ? "Hommes" : label === "F" ? "Femmes" : label,
+        value,
+        color: label === "H" ? "#3b82f6" : label === "F" ? "#ec4899" : PIE_COLORS[i % PIE_COLORS.length],
+      }));
+  }, [employees]);
+
+  const deptPieItems = useMemo(() => {
+    const counts: Record<string, number> = {};
+    employees.forEach((e) => {
+      const name = e.current_department_id ? deptMap.get(e.current_department_id) || "Inconnu" : "Non assigné";
+      counts[name] = (counts[name] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, value], i) => ({ label, value, color: PIE_COLORS[i % PIE_COLORS.length] }));
+  }, [employees, deptMap]);
 
   const ageData = useMemo(() => {
     const brackets: Record<string, number> = { "< 25": 0, "25-34": 0, "35-44": 0, "45-54": 0, "55+": 0 };
@@ -130,17 +136,6 @@ export function StatistiquesClient({
     return Object.entries(brackets).map(([label, value]) => ({ label, value }));
   }, [employees]);
 
-  const deptHeadcount = useMemo(() => {
-    const counts: Record<string, number> = {};
-    employees.forEach((e) => {
-      const name = e.current_department_id ? deptMap.get(e.current_department_id) || "Inconnu" : "Non assigné";
-      counts[name] = (counts[name] || 0) + 1;
-    });
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .map(([label, value]) => ({ label, value }));
-  }, [employees, deptMap]);
-
   const salaryByDept = useMemo(() => {
     const acc: Record<string, number[]> = {};
     employees.forEach((e) => {
@@ -150,10 +145,7 @@ export function StatistiquesClient({
       acc[name].push(Number(e.annual_salary_brut));
     });
     return Object.entries(acc)
-      .map(([label, salaries]) => ({
-        label,
-        value: Math.round(salaries.reduce((a, b) => a + b, 0) / salaries.length),
-      }))
+      .map(([label, s]) => ({ label, value: Math.round(s.reduce((a, b) => a + b, 0) / s.length) }))
       .sort((a, b) => b.value - a.value);
   }, [employees, deptMap]);
 
@@ -165,10 +157,7 @@ export function StatistiquesClient({
       byGender[e.gender].push(Number(e.annual_salary_brut));
     });
     const avg = (arr: number[]) => (arr.length > 0 ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0);
-    return Object.entries(byGender).map(([gender, salaries]) => ({
-      label: gender,
-      value: avg(salaries),
-    }));
+    return Object.entries(byGender).map(([gender, s]) => ({ label: gender, value: avg(s) }));
   }, [employees]);
 
   const compaRatios = useMemo(() => {
@@ -185,9 +174,29 @@ export function StatistiquesClient({
     return ratios.sort((a, b) => a.ratio - b.ratio);
   }, [employees, levelMap]);
 
-  const salaries = employees.map((e) => Number(e.annual_salary_brut)).filter((s) => s > 0);
-  const avgSalary = salaries.length > 0 ? Math.round(salaries.reduce((a, b) => a + b, 0) / salaries.length) : 0;
-  const medianSalary = salaries.length > 0 ? (() => { const s = [...salaries].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2); })() : 0;
+  const salaryEvolution = useMemo(() => {
+    if (positionHistory.length === 0) return [];
+    const filtered = salaryDeptFilter === "all"
+      ? positionHistory
+      : positionHistory.filter((p) => p.department_id === salaryDeptFilter);
+
+    const byMonth = new Map<string, number[]>();
+    filtered.forEach((p) => {
+      if (!p.annual_salary_brut || !p.start_date) return;
+      const month = p.start_date.slice(0, 7);
+      if (!byMonth.has(month)) byMonth.set(month, []);
+      byMonth.get(month)!.push(Number(p.annual_salary_brut));
+    });
+
+    let running = 0;
+    return [...byMonth.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([month, salaries]) => {
+        running = salaries.reduce((a, b) => a + b, 0);
+        const [y, m] = month.split("-");
+        return { label: `${m}/${y.slice(2)}`, value: running };
+      });
+  }, [positionHistory, salaryDeptFilter]);
 
   if (total === 0) {
     return (
@@ -201,7 +210,7 @@ export function StatistiquesClient({
 
   return (
     <div ref={mainRef} className="space-y-6">
-      <div className="grid gap-6 md:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-5">
         <div data-card className={CARD}>
           <p className={LABEL}>Effectif total</p>
           <p className={BIG}>{total}</p>
@@ -209,6 +218,10 @@ export function StatistiquesClient({
         <div data-card className={CARD}>
           <p className={LABEL}>Départements</p>
           <p className={BIG}>{departments.length}</p>
+        </div>
+        <div data-card className={CARD}>
+          <p className={LABEL}>Masse salariale</p>
+          <p className={BIG}>{totalSalaryMass > 0 ? `${Math.round(totalSalaryMass / 1000).toLocaleString("fr-FR")}k €` : "—"}</p>
         </div>
         <div data-card className={CARD}>
           <p className={LABEL}>Salaire moyen</p>
@@ -223,24 +236,54 @@ export function StatistiquesClient({
       <div className="grid gap-6 lg:grid-cols-2">
         <div data-card className={CARD}>
           <h3 className="text-sm font-semibold text-[var(--text)]">Répartition par genre</h3>
-          <HBar items={genderData} color="var(--brand)" />
+          <div className="mt-4">
+            <PieChart items={genderPieItems} size={160} strokeWidth={30} />
+          </div>
         </div>
         <div data-card className={CARD}>
-          <h3 className="text-sm font-semibold text-[var(--text)]">Pyramide des âges</h3>
-          <BarChart items={ageData} />
+          <h3 className="text-sm font-semibold text-[var(--text)]">Effectif par département</h3>
+          <div className="mt-4">
+            <PieChart items={deptPieItems} size={160} strokeWidth={30} />
+          </div>
         </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div data-card className={CARD}>
-          <h3 className="text-sm font-semibold text-[var(--text)]">Effectif par département</h3>
-          <BarChart items={deptHeadcount} />
+          <h3 className="text-sm font-semibold text-[var(--text)]">Pyramide des âges</h3>
+          <BarChart items={ageData} />
         </div>
         <div data-card className={CARD}>
           <h3 className="text-sm font-semibold text-[var(--text)]">Salaire moyen par département</h3>
           <BarChart items={salaryByDept} formatValue={(v) => `${(v / 1000).toFixed(0)}k €`} />
         </div>
       </div>
+
+      {salaryEvolution.length >= 2 && (
+        <div data-card className={CARD}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-[var(--text)]">Évolution de la masse salariale</h3>
+            <select
+              value={salaryDeptFilter}
+              onChange={(e) => setSalaryDeptFilter(e.target.value)}
+              className="rounded-xl border border-[#e2e7e2] bg-white px-3 py-1.5 text-xs text-[var(--text)] transition focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
+            >
+              <option value="all">Tous les départements</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="mt-4">
+            <LineChart
+              data={salaryEvolution}
+              height={220}
+              color="var(--brand)"
+              formatValue={(v) => `${Math.round(v / 1000).toLocaleString("fr-FR")}k €`}
+            />
+          </div>
+        </div>
+      )}
 
       {genderPayGap.length > 1 && (
         <div data-card className={CARD}>

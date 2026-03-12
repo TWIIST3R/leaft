@@ -29,7 +29,7 @@ async function getData(userId: string, orgId: string | null) {
       id, first_name, last_name, email, gender, birth_date, hire_date,
       current_job_title, current_level_id, current_department_id,
       current_management_id, current_anciennete_id, salary_adjustment,
-      location, annual_salary_brut, manager_id
+      location, annual_salary_brut, avatar_url, manager_id
     `)
     .eq("organization_id", organizationId)
     .eq("clerk_user_id", userId)
@@ -75,6 +75,12 @@ async function getData(userId: string, orgId: string | null) {
         .order("order")
     : { data: [] };
 
+  const { data: positionHistory } = await supabase
+    .from("employee_position_history")
+    .select("id, start_date, end_date, job_title, annual_salary_brut, level_id, department_id")
+    .eq("employee_id", employee.id)
+    .order("start_date", { ascending: true });
+
   const { data: benchmarks } = await supabase
     .from("salary_benchmarks")
     .select("p25, p50, p75, source, updated_at, level_id")
@@ -106,6 +112,15 @@ async function getData(userId: string, orgId: string | null) {
     compaRatio,
     deptLevels: (deptLevels ?? []).map((l) => ({ id: l.id, name: l.name, montant_annuel: l.montant_annuel ? Number(l.montant_annuel) : 0, mid_salary: l.mid_salary ? Number(l.mid_salary) : null })),
     benchmark: benchmarks ? { p25: Number(benchmarks.p25), p50: Number(benchmarks.p50), p75: Number(benchmarks.p75), source: benchmarks.source, updated_at: benchmarks.updated_at } : null,
+    positionHistory: (positionHistory ?? []).map((p) => ({
+      id: p.id,
+      startDate: p.start_date,
+      endDate: p.end_date,
+      jobTitle: p.job_title,
+      salary: p.annual_salary_brut ? Number(p.annual_salary_brut) : null,
+      levelId: p.level_id,
+      departmentId: p.department_id,
+    })),
   };
 }
 
