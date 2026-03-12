@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import gsap from "gsap";
 
 type Department = { id: string; name: string; created_at: string };
 type Criteria = { objectives?: string[]; competencies?: string[]; min_tenure_months?: number | null; notes?: string } | null;
@@ -310,20 +311,36 @@ function GrilleExtraSection({
     setMontant("");
   };
 
+  const [addOpen, setAddOpen] = useState(false);
+  const namePlaceholder = type === "anciennete" ? "Ex. 0-2 ans, 2-5 ans, 5-10 ans" : "Nom (ex. 1 à 3 personnes)";
+
   return (
-    <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+    <section data-animate-section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
       <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">{title}</h2>
       <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">{description}</p>
       {error && <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      <details className="mt-4 rounded-lg border border-[#e2e7e2] bg-[#f8faf8]">
-        <summary className="cursor-pointer px-4 py-3 font-medium text-[var(--text)] hover:bg-[#f2f5f2]">+ Ajouter un palier</summary>
-        <form onSubmit={handleSubmit} className="space-y-3 border-t border-[#e2e7e2] p-4">
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom (ex. 1 à 3 personnes)" className="w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} required />
-          <textarea value={details} onChange={(e) => setDetails(e.target.value)} placeholder="Détails" rows={2} className="w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
-          <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="Montant annuel (€)" min={0} step={100} className="w-40 rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
-          <button type="submit" disabled={loading} className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">Ajouter</button>
-        </form>
-      </details>
+      <div className="mt-4 overflow-hidden rounded-xl border border-[#e2e7e2] bg-[#f8faf8]">
+        <button
+          type="button"
+          onClick={() => setAddOpen((o) => !o)}
+          className="flex w-full cursor-pointer items-center justify-between px-4 py-3.5 text-left font-medium text-[var(--text)] transition hover:bg-[#f2f5f2]"
+        >
+          <span className="text-[var(--brand)]">+ Ajouter un palier</span>
+          <span className="text-[color:rgba(11,11,11,0.5)]">{addOpen ? "−" : "+"}</span>
+        </button>
+        <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${addOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+          <div className="min-h-0 overflow-hidden">
+          <form onSubmit={(e) => { handleSubmit(e); setAddOpen(false); }} className="space-y-4 border-t border-[#e2e7e2] p-4">
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder={namePlaceholder} className="w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} required />
+            <textarea value={details} onChange={(e) => setDetails(e.target.value)} placeholder="Détails" rows={2} className="w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
+            <div className="flex flex-wrap items-center gap-4">
+              <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="Montant annuel (€)" min={0} step={100} className="w-44 rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
+              <button type="submit" disabled={loading} className="cursor-pointer rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">Ajouter</button>
+            </div>
+          </form>
+          </div>
+        </div>
+      </div>
       <div className="mt-4 space-y-2">
         {items.length === 0 ? (
           <p className="text-sm text-[color:rgba(11,11,11,0.5)]">Aucun palier.</p>
@@ -416,7 +433,8 @@ function AvantageEditRow({
 }) {
   const [name, setName] = useState(avantage.name);
   const [montant, setMontant] = useState(String(avantage.montant_annuel_brut));
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(avantage.department_ids ?? []));
+  const initialIds = (avantage.department_ids ?? []).length === 0 ? departments.map((d) => d.id) : (avantage.department_ids ?? []);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(initialIds));
 
   const toggleDept = (id: string) => {
     setSelectedIds((prev) => {
@@ -431,7 +449,8 @@ function AvantageEditRow({
     e.preventDefault();
     const m = Number(montant);
     if (!name.trim() || isNaN(m) || m < 0) return;
-    onSave({ name: name.trim(), montant_annuel_brut: m, department_ids: Array.from(selectedIds) });
+    const ids = Array.from(selectedIds);
+    onSave({ name: name.trim(), montant_annuel_brut: m, department_ids: ids.length === departments.length ? [] : ids });
   };
 
   return (
@@ -443,14 +462,25 @@ function AvantageEditRow({
         <button type="button" onClick={onCancel} disabled={loading} className="cursor-pointer rounded-full border border-[#e2e7e2] px-3 py-2 text-xs font-medium hover:bg-[#f2f5f2]">Annuler</button>
       </div>
       <div>
-        <p className="mb-2 text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Départements concernés (cocher)</p>
-        <div className="flex flex-wrap gap-3">
-          {departments.map((d) => (
-            <label key={d.id} className="flex cursor-pointer items-center gap-2 rounded-full border border-[#e2e7e2] bg-white px-3 py-1.5 text-sm hover:bg-[#f8faf8]">
-              <input type="checkbox" checked={selectedIds.has(d.id)} onChange={() => toggleDept(d.id)} className="h-4 w-4 rounded border-[#e2e7e2] text-[var(--brand)]" />
-              <span>{d.name}</span>
-            </label>
-          ))}
+        <p className="mb-2 text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Départements concernés</p>
+        <div className="flex flex-wrap gap-4">
+          {departments.map((d) => {
+            const checked = selectedIds.has(d.id);
+            return (
+              <label key={d.id} className="flex cursor-pointer items-center gap-2">
+                <span className="text-sm text-[var(--text)]">{d.name}</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={checked}
+                  onClick={() => toggleDept(d.id)}
+                  className={`relative h-6 w-11 shrink-0 cursor-pointer rounded-full transition ${checked ? "bg-[var(--brand)]" : "bg-[#e2e7e2]"}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition ${checked ? "translate-x-5" : "translate-x-0"}`} />
+                </button>
+              </label>
+            );
+          })}
         </div>
       </div>
     </form>
@@ -483,7 +513,7 @@ export function GrillesClient({
   const [expandedDeptId, setExpandedDeptId] = useState<string | null>(initialDepartmentsWithPaliers[0]?.id ?? null);
   const [avantageName, setAvantageName] = useState("");
   const [avantageMontant, setAvantageMontant] = useState("");
-  const [avantageDepartmentIds, setAvantageDepartmentIds] = useState<string[]>([]);
+  const [avantageDepartmentIds, setAvantageDepartmentIds] = useState<string[]>([]); // empty = "all departments" for display
   const [editingGrilleExtraId, setEditingGrilleExtraId] = useState<string | null>(null);
   const [editingGrilleExtraType, setEditingGrilleExtraType] = useState<"management" | "anciennete">("management");
   const [grilleExtraError, setGrilleExtraError] = useState<string | null>(null);
@@ -493,8 +523,25 @@ export function GrillesClient({
   const [activeTab, setActiveTab] = useState<"grilles" | "simulateur">("grilles");
   const [selectedPalierIds, setSelectedPalierIds] = useState<Set<string>>(new Set());
   const [selectedAvantageIds, setSelectedAvantageIds] = useState<Set<string>>(new Set());
+  const [addPalierOpenDeptId, setAddPalierOpenDeptId] = useState<string | null>(null);
+  const [simuDeptTabId, setSimuDeptTabId] = useState<string | null>(null);
+  const mainRef = useRef<HTMLDivElement>(null);
+  const sectionRefs = useRef<HTMLElement[]>([]);
 
   const departments = deptsWithPaliers.map(({ paliers, ...d }) => d);
+
+  useEffect(() => {
+    if (!mainRef.current) return;
+    const els = mainRef.current.querySelectorAll("[data-animate-section]");
+    sectionRefs.current = Array.from(els) as HTMLElement[];
+  }, [activeTab]);
+
+  useEffect(() => {
+    sectionRefs.current.forEach((el, i) => {
+      if (!el) return;
+      gsap.fromTo(el, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4, delay: i * 0.05, ease: "power2.out" });
+    });
+  }, [activeTab]);
 
   async function handleCreateGrilleExtra(type: "management" | "anciennete", data: { name: string; details?: string; montant_annuel?: number; department_id?: string | null }) {
     setLoading(true);
@@ -671,13 +718,14 @@ export function GrillesClient({
     }
     setLoading(true);
     try {
+      const deptIds = avantageDepartmentIds.length === 0 ? departments.map((d) => d.id) : avantageDepartmentIds;
       const res = await fetch("/api/avantages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: trimmed,
           montant_annuel_brut: montant,
-          department_ids: avantageDepartmentIds,
+          department_ids: deptIds,
         }),
       });
       const data = await res.json();
@@ -812,10 +860,15 @@ export function GrillesClient({
     totalPaliersByDept +
     avantages.filter((a) => selectedAvantageIds.has(a.id)).reduce((s, a) => s + Number(a.montant_annuel_brut), 0);
 
+  const effectiveSimuDeptId = simuDeptTabId ?? deptsWithPaliers[0]?.id ?? null;
+  const paliersForSimuTab = effectiveSimuDeptId
+    ? (deptsWithPaliers.find((d) => d.id === effectiveSimuDeptId)?.paliers ?? [])
+    : [];
+
   return (
-    <div className="space-y-8">
+    <div ref={mainRef} className="space-y-8">
       {/* Onglets */}
-      <div className="flex gap-2 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-1">
+      <div data-animate-section className="flex gap-2 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-1">
         <button
           type="button"
           onClick={() => setActiveTab("grilles")}
@@ -833,48 +886,65 @@ export function GrillesClient({
       </div>
 
       {activeTab === "simulateur" ? (
-        <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+        <section data-animate-section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
           <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Simulateur de rémunération annuelle brute</h2>
           <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
-            Cochez les paliers et avantages pour calculer le montant total annuel brut.
+            Choisissez un département puis cochez le palier correspondant. Les avantages s&apos;ajoutent au total.
           </p>
+          {deptsWithPaliers.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-1 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-1">
+              {deptsWithPaliers.map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => setSimuDeptTabId(d.id)}
+                  className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-medium transition ${effectiveSimuDeptId === d.id ? "bg-white text-[var(--text)] shadow" : "text-[color:rgba(11,11,11,0.65)] hover:bg-white/60"}`}
+                >
+                  {d.name}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="mt-6 grid gap-8 lg:grid-cols-2">
             <div>
-              <h3 className="text-sm font-semibold text-[var(--text)]">Paliers</h3>
+              <h3 className="text-sm font-semibold text-[var(--text)]">
+                Paliers {effectiveSimuDeptId ? `— ${deptsWithPaliers.find((d) => d.id === effectiveSimuDeptId)?.name ?? ""}` : ""}
+              </h3>
               <div className="mt-2 space-y-2 max-h-64 overflow-y-auto">
-                {allPaliers.length === 0 ? (
-                  <p className="text-sm text-[color:rgba(11,11,11,0.5)]">Aucun palier.</p>
+                {!effectiveSimuDeptId || paliersForSimuTab.length === 0 ? (
+                  <p className="text-sm text-[color:rgba(11,11,11,0.5)]">Aucun palier pour ce département.</p>
                 ) : (
-                  allPaliers.map((p) => (
-                    <label key={p.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-[#e2e7e2] px-3 py-2 hover:bg-[#f8faf8]">
-                      <input
-                        type="checkbox"
-                        checked={selectedPalierIds.has(p.id)}
-                        onChange={(e) =>
-                          setSelectedPalierIds((prev) => {
-                            const next = new Set(prev);
-                            const amount = p.montant_annuel ?? 0;
-                            if (e.target.checked) {
-                              allPaliers
-                                .filter((q) => q.department_id === p.department_id && (q.montant_annuel ?? 0) <= amount)
-                                .forEach((q) => next.add(q.id));
-                            } else {
-                              allPaliers
-                                .filter((q) => q.department_id === p.department_id && (q.montant_annuel ?? 0) >= amount)
-                                .forEach((q) => next.delete(q.id));
-                            }
-                            return next;
-                          })
-                        }
-                        className="rounded border-[#e2e7e2]"
-                      />
-                      <span className="text-sm font-medium">{p.name}</span>
-                      <span className="text-xs text-[color:rgba(11,11,11,0.65)]">({p.deptName})</span>
-                      <span className="ml-auto text-sm text-[var(--brand)]">
-                        {p.montant_annuel != null ? `${Number(p.montant_annuel).toLocaleString("fr-FR")} €` : "—"}
-                      </span>
-                    </label>
-                  ))
+                  paliersForSimuTab.map((p) => {
+                    const amount = p.montant_annuel ?? 0;
+                    return (
+                      <label key={p.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-[#e2e7e2] px-3 py-2.5 transition hover:bg-[#f8faf8]">
+                        <input
+                          type="checkbox"
+                          checked={selectedPalierIds.has(p.id)}
+                          onChange={(e) =>
+                            setSelectedPalierIds((prev) => {
+                              const next = new Set(prev);
+                              if (e.target.checked) {
+                                allPaliers
+                                  .filter((q) => q.department_id === p.department_id && (q.montant_annuel ?? 0) <= amount)
+                                  .forEach((q) => next.add(q.id));
+                              } else {
+                                allPaliers
+                                  .filter((q) => q.department_id === p.department_id && (q.montant_annuel ?? 0) >= amount)
+                                  .forEach((q) => next.delete(q.id));
+                              }
+                              return next;
+                            })
+                          }
+                          className="h-4 w-4 rounded border-[#e2e7e2] text-[var(--brand)]"
+                        />
+                        <span className="text-sm font-medium">{p.name}</span>
+                        <span className="ml-auto text-sm font-semibold text-[var(--brand)]">
+                          {p.montant_annuel != null ? `${Number(p.montant_annuel).toLocaleString("fr-FR")} €` : "—"}
+                        </span>
+                      </label>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -885,7 +955,7 @@ export function GrillesClient({
                   <p className="text-sm text-[color:rgba(11,11,11,0.5)]">Aucun avantage.</p>
                 ) : (
                   avantages.map((a) => (
-                    <label key={a.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-[#e2e7e2] px-3 py-2 hover:bg-[#f8faf8]">
+                    <label key={a.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-[#e2e7e2] px-3 py-2.5 transition hover:bg-[#f8faf8]">
                       <input
                         type="checkbox"
                         checked={selectedAvantageIds.has(a.id)}
@@ -897,10 +967,10 @@ export function GrillesClient({
                             return next;
                           })
                         }
-                        className="rounded border-[#e2e7e2]"
+                        className="h-4 w-4 rounded border-[#e2e7e2] text-[var(--brand)]"
                       />
                       <span className="text-sm font-medium">{a.name}</span>
-                      <span className="ml-auto text-sm text-[var(--brand)]">
+                      <span className="ml-auto text-sm font-semibold text-[var(--brand)]">
                         {Number(a.montant_annuel_brut).toLocaleString("fr-FR")} €
                       </span>
                     </label>
@@ -917,7 +987,7 @@ export function GrillesClient({
       ) : (
         <>
       {/* Départements */}
-      <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+      <section data-animate-section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
         <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Départements & paliers</h2>
         <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
           Ajoutez des départements, puis définissez pour chacun des paliers avec rémunération annuelle brute fixe et critères pour passer au palier suivant.
@@ -1022,7 +1092,7 @@ export function GrillesClient({
       </section>
 
       {/* Paliers par département */}
-      <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+      <section data-animate-section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
         <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Paliers par département</h2>
         <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
           Cliquez sur un département pour gérer ses paliers. Chaque palier requiert des critères (objectifs, compétences, ancienneté) pour définir les conditions d&apos;accès.
@@ -1042,14 +1112,15 @@ export function GrillesClient({
                 <button
                   type="button"
                   onClick={() => setExpandedDeptId(expandedDeptId === dept.id ? null : dept.id)}
-                  className="flex w-full cursor-pointer items-center justify-between px-4 py-3 text-left hover:bg-[#f2f5f2]"
+                  className="flex w-full cursor-pointer items-center justify-between px-4 py-3 text-left transition hover:bg-[#f2f5f2]"
                 >
                   <span className="font-semibold text-[var(--text)]">{dept.name}</span>
                   <span className="text-xs text-[color:rgba(11,11,11,0.5)]">
                     {dept.paliers?.length ?? 0} palier{(dept.paliers?.length ?? 0) > 1 ? "s" : ""}
                   </span>
                 </button>
-                {expandedDeptId === dept.id && (
+                <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${expandedDeptId === dept.id ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                  <div className="min-h-0 overflow-hidden">
                   <div className="border-t border-[#e2e7e2] bg-white p-4">
                     <div className="space-y-2">
                       {(dept.paliers ?? []).length === 0 ? (
@@ -1090,9 +1161,10 @@ export function GrillesClient({
                                         </span>
                                       )}
                                     </div>
-                                    <span className="text-xs text-[color:rgba(11,11,11,0.5)]">{isExpanded ? "▼" : "▶"}</span>
+                                    <span className="text-[color:rgba(11,11,11,0.4)]">{isExpanded ? "−" : "+"}</span>
                                   </button>
-                                  {isExpanded && (
+                                  <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                                    <div className="min-h-0 overflow-hidden">
                                     <div className="border-t border-[#e2e7e2] bg-[#fafbfa] px-4 py-3 text-sm">
                                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Détails des critères</p>
                                       <div className="grid gap-2 sm:grid-cols-2">
@@ -1132,7 +1204,8 @@ export function GrillesClient({
                                         </button>
                                       </div>
                                     </div>
-                                  )}
+                                    </div>
+                                  </div>
                                 </>
                               )}
                             </div>
@@ -1140,17 +1213,29 @@ export function GrillesClient({
                         })
                       )}
                     </div>
-                    <details className="mt-4 rounded-lg border border-[#e2e7e2] bg-[#f8faf8]">
-                      <summary className="cursor-pointer px-4 py-3 font-medium text-[var(--text)] hover:bg-[#f2f5f2]">+ Ajouter un palier</summary>
-                      <div className="border-t border-[#e2e7e2] p-4">
-                        <PalierForm onAdd={(data) => handleCreatePalier(dept.id, data)} loading={loading} />
+                    <div className="mt-4 overflow-hidden rounded-xl border border-[#e2e7e2] bg-[#f8faf8]">
+                      <button
+                        type="button"
+                        onClick={() => setAddPalierOpenDeptId((id) => (id === dept.id ? null : dept.id))}
+                        className="flex w-full cursor-pointer items-center justify-between px-4 py-3.5 text-left font-medium text-[var(--text)] transition hover:bg-[#f2f5f2]"
+                      >
+                        <span className="font-semibold text-[var(--brand)]">+ Ajouter un palier</span>
+                        <span className="text-[color:rgba(11,11,11,0.5)]">{addPalierOpenDeptId === dept.id ? "−" : "+"}</span>
+                      </button>
+                      <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${addPalierOpenDeptId === dept.id ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                        <div className="min-h-0 overflow-hidden">
+                          <div className="border-t border-[#e2e7e2] p-4">
+                            <PalierForm onAdd={(data) => { handleCreatePalier(dept.id, data); setAddPalierOpenDeptId(null); }} loading={loading} />
+                          </div>
+                        </div>
                       </div>
-                    </details>
+                    </div>
                     <button type="button" onClick={() => handleDeleteDept(dept.id)} disabled={loading} className="cursor-pointer mt-4 text-xs font-medium text-red-600 hover:underline disabled:opacity-50">
                       Supprimer ce département
                     </button>
                   </div>
-                )}
+                  </div>
+                </div>
               </div>
             ))
           )}
@@ -1158,7 +1243,7 @@ export function GrillesClient({
       </section>
 
       {/* Avantages en nature */}
-      <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+      <section data-animate-section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
         <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Avantages en nature</h2>
         <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
           Voiture de fonction, ticket resto, abonnement gym, etc. Chaque avantage a un montant annuel brut et peut être rattaché à un ou plusieurs départements (cases à cocher).
@@ -1193,19 +1278,33 @@ export function GrillesClient({
             </button>
           </div>
           <div>
-            <p className="mb-2 text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Départements concernés (cocher, vide = tous)</p>
-            <div className="flex flex-wrap gap-2">
-              {departments.map((d) => (
-                <label key={d.id} className="flex cursor-pointer items-center gap-2 rounded-full border border-[#e2e7e2] bg-white px-3 py-1.5 text-sm hover:bg-[#f8faf8]">
-                  <input
-                    type="checkbox"
-                    checked={avantageDepartmentIds.includes(d.id)}
-                    onChange={(e) => setAvantageDepartmentIds((prev) => (e.target.checked ? [...prev, d.id] : prev.filter((id) => id !== d.id)))}
-                    className="h-4 w-4 rounded border-[#e2e7e2] text-[var(--brand)]"
-                  />
-                  <span>{d.name}</span>
-                </label>
-              ))}
+            <p className="mb-2 text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Départements concernés</p>
+            <div className="flex flex-wrap gap-4">
+              {departments.map((d) => {
+                const effectiveIds = avantageDepartmentIds.length === 0 ? departments.map((x) => x.id) : avantageDepartmentIds;
+                const checked = effectiveIds.includes(d.id);
+                return (
+                  <label key={d.id} className="flex cursor-pointer items-center gap-2">
+                    <span className="text-sm text-[var(--text)]">{d.name}</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={checked}
+                      onClick={() => {
+                        if (avantageDepartmentIds.length === 0) {
+                          setAvantageDepartmentIds(departments.map((x) => x.id).filter((id) => id !== d.id));
+                        } else {
+                          const next = checked ? avantageDepartmentIds.filter((id) => id !== d.id) : [...avantageDepartmentIds, d.id];
+                          setAvantageDepartmentIds(next.length === departments.length ? [] : next);
+                        }
+                      }}
+                      className={`relative h-6 w-11 shrink-0 cursor-pointer rounded-full transition ${checked ? "bg-[var(--brand)]" : "bg-[#e2e7e2]"}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition ${checked ? "translate-x-5" : "translate-x-0"}`} />
+                    </button>
+                  </label>
+                );
+              })}
             </div>
           </div>
         </form>
