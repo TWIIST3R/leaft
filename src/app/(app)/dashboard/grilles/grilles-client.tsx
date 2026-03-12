@@ -38,15 +38,19 @@ type GrilleExtraItem = {
 function PalierForm({
   onAdd,
   loading,
+  ancienneteItems = [],
 }: {
   onAdd: (data: { name: string; montant_annuel?: number; criteria?: Criteria }) => void;
   loading: boolean;
+  ancienneteItems?: GrilleExtraItem[];
 }) {
   const [name, setName] = useState("");
   const [montant, setMontant] = useState("");
   const [objectives, setObjectives] = useState("");
   const [competencies, setCompetencies] = useState("");
+  const [tenureMode, setTenureMode] = useState<"manual" | "palier">(ancienneteItems.length > 0 ? "palier" : "manual");
   const [minTenure, setMinTenure] = useState("");
+  const [selectedAnciennetePalier, setSelectedAnciennetePalier] = useState("");
   const [notes, setNotes] = useState("");
 
   const [criteriaError, setCriteriaError] = useState<string | null>(null);
@@ -58,9 +62,19 @@ function PalierForm({
     if (!n) return;
     const objList = objectives.trim() ? objectives.split("\n").map((s) => s.trim()).filter(Boolean) : [];
     const compList = competencies.trim() ? competencies.split("\n").map((s) => s.trim()).filter(Boolean) : [];
-    const tenure = minTenure ? Number(minTenure) : null;
-    const notesVal = notes.trim() || undefined;
-    const hasCriteria = objList.length > 0 || compList.length > 0 || tenure != null || notesVal;
+    let tenure: number | null = null;
+    let tenureNoteSuffix = "";
+    if (tenureMode === "palier" && selectedAnciennetePalier) {
+      const palier = ancienneteItems.find((a) => a.id === selectedAnciennetePalier);
+      if (palier) {
+        tenure = null;
+        tenureNoteSuffix = `[Ancienneté requise : ${palier.name}]`;
+      }
+    } else if (tenureMode === "manual" && minTenure) {
+      tenure = Number(minTenure);
+    }
+    const notesVal = [notes.trim(), tenureNoteSuffix].filter(Boolean).join(" ") || undefined;
+    const hasCriteria = objList.length > 0 || compList.length > 0 || tenure != null || selectedAnciennetePalier || notesVal;
     if (!hasCriteria) {
       setCriteriaError("Au moins un critère est requis (objectifs, compétences, ancienneté ou notes)");
       return;
@@ -80,6 +94,7 @@ function PalierForm({
     setObjectives("");
     setCompetencies("");
     setMinTenure("");
+    setSelectedAnciennetePalier("");
     setNotes("");
   };
 
@@ -144,16 +159,42 @@ function PalierForm({
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Ancienneté min. (mois)</label>
-            <input
-              type="number"
-              value={minTenure}
-              onChange={(e) => setMinTenure(e.target.value)}
-              min={0}
-              placeholder="Ex: 12"
-              className="mt-1 w-24 rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm"
-              disabled={loading}
-            />
+            <label className="block text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Ancienneté minimum</label>
+            {ancienneteItems.length > 0 && (
+              <div className="mt-1.5 flex gap-3">
+                <label className="flex cursor-pointer items-center gap-1.5 text-xs">
+                  <input type="radio" name="tenure-mode" checked={tenureMode === "palier"} onChange={() => setTenureMode("palier")} className="text-[var(--brand)]" />
+                  Palier d&apos;ancienneté
+                </label>
+                <label className="flex cursor-pointer items-center gap-1.5 text-xs">
+                  <input type="radio" name="tenure-mode" checked={tenureMode === "manual"} onChange={() => setTenureMode("manual")} className="text-[var(--brand)]" />
+                  Saisie manuelle (mois)
+                </label>
+              </div>
+            )}
+            {tenureMode === "palier" && ancienneteItems.length > 0 ? (
+              <select
+                value={selectedAnciennetePalier}
+                onChange={(e) => setSelectedAnciennetePalier(e.target.value)}
+                className="mt-1.5 w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm"
+                disabled={loading}
+              >
+                <option value="">— Sélectionner un palier —</option>
+                {ancienneteItems.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}{a.montant_annuel != null ? ` (${Number(a.montant_annuel).toLocaleString("fr-FR")} €)` : ""}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="number"
+                value={minTenure}
+                onChange={(e) => setMinTenure(e.target.value)}
+                min={0}
+                placeholder="Ex: 12"
+                className="mt-1.5 w-24 rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm"
+                disabled={loading}
+              />
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Notes</label>
@@ -174,21 +215,30 @@ function PalierForm({
 
 function PalierEditForm({
   palier,
+  ancienneteItems = [],
   onSave,
   onCancel,
   loading,
 }: {
   palier: Palier;
+  ancienneteItems?: GrilleExtraItem[];
   onSave: (data: { name: string; montant_annuel: number | null; criteria: NonNullable<Criteria> }) => void;
   onCancel: () => void;
   loading: boolean;
 }) {
+  const existingNotes = palier.criteria?.notes ?? "";
+  const ancienneteMatch = existingNotes.match(/\[Ancienneté requise : (.+?)\]/);
+  const initialPalierId = ancienneteMatch ? (ancienneteItems.find((a) => a.name === ancienneteMatch[1])?.id ?? "") : "";
+  const cleanNotes = existingNotes.replace(/\s*\[Ancienneté requise : .+?\]/, "").trim();
+
   const [name, setName] = useState(palier.name);
   const [montant, setMontant] = useState(palier.montant_annuel != null ? String(palier.montant_annuel) : "");
   const [objectives, setObjectives] = useState((palier.criteria?.objectives ?? []).join("\n"));
   const [competencies, setCompetencies] = useState((palier.criteria?.competencies ?? []).join("\n"));
+  const [tenureMode, setTenureMode] = useState<"manual" | "palier">(initialPalierId ? "palier" : "manual");
   const [minTenure, setMinTenure] = useState(palier.criteria?.min_tenure_months != null ? String(palier.criteria.min_tenure_months) : "");
-  const [notes, setNotes] = useState(palier.criteria?.notes ?? "");
+  const [selectedAnciennetePalier, setSelectedAnciennetePalier] = useState(initialPalierId);
+  const [notes, setNotes] = useState(cleanNotes);
   const [criteriaError, setCriteriaError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -198,9 +248,16 @@ function PalierEditForm({
     if (!n) return;
     const objList = objectives.trim() ? objectives.split("\n").map((s) => s.trim()).filter(Boolean) : [];
     const compList = competencies.trim() ? competencies.split("\n").map((s) => s.trim()).filter(Boolean) : [];
-    const tenure = minTenure ? Number(minTenure) : null;
-    const notesVal = notes.trim() || undefined;
-    const hasCriteria = objList.length > 0 || compList.length > 0 || tenure != null || notesVal;
+    let tenure: number | null = null;
+    let tenureNoteSuffix = "";
+    if (tenureMode === "palier" && selectedAnciennetePalier) {
+      const pal = ancienneteItems.find((a) => a.id === selectedAnciennetePalier);
+      if (pal) tenureNoteSuffix = `[Ancienneté requise : ${pal.name}]`;
+    } else if (tenureMode === "manual" && minTenure) {
+      tenure = Number(minTenure);
+    }
+    const notesVal = [notes.trim(), tenureNoteSuffix].filter(Boolean).join(" ") || undefined;
+    const hasCriteria = objList.length > 0 || compList.length > 0 || tenure != null || selectedAnciennetePalier || notesVal;
     if (!hasCriteria) {
       setCriteriaError("Au moins un critère est requis");
       return;
@@ -252,8 +309,34 @@ function PalierEditForm({
           <textarea value={competencies} onChange={(e) => setCompetencies(e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Ancienneté min. (mois)</label>
-          <input type="number" value={minTenure} onChange={(e) => setMinTenure(e.target.value)} min={0} className="mt-1 w-24 rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
+          <label className="block text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Ancienneté minimum</label>
+          {ancienneteItems.length > 0 && (
+            <div className="mt-1 flex gap-3">
+              <label className="flex cursor-pointer items-center gap-1.5 text-xs">
+                <input type="radio" name="edit-tenure-mode" checked={tenureMode === "palier"} onChange={() => setTenureMode("palier")} className="text-[var(--brand)]" />
+                Palier d&apos;ancienneté
+              </label>
+              <label className="flex cursor-pointer items-center gap-1.5 text-xs">
+                <input type="radio" name="edit-tenure-mode" checked={tenureMode === "manual"} onChange={() => setTenureMode("manual")} className="text-[var(--brand)]" />
+                Saisie manuelle (mois)
+              </label>
+            </div>
+          )}
+          {tenureMode === "palier" && ancienneteItems.length > 0 ? (
+            <select
+              value={selectedAnciennetePalier}
+              onChange={(e) => setSelectedAnciennetePalier(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm"
+              disabled={loading}
+            >
+              <option value="">— Sélectionner un palier —</option>
+              {ancienneteItems.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}{a.montant_annuel != null ? ` (${Number(a.montant_annuel).toLocaleString("fr-FR")} €)` : ""}</option>
+              ))}
+            </select>
+          ) : (
+            <input type="number" value={minTenure} onChange={(e) => setMinTenure(e.target.value)} min={0} className="mt-1 w-24 rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
+          )}
         </div>
         <div>
           <label className="block text-xs font-medium text-[color:rgba(11,11,11,0.65)]">Notes</label>
@@ -1095,76 +1178,77 @@ export function GrillesClient({
       <section data-animate-section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
         <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Paliers par département</h2>
         <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
-          Cliquez sur un département pour gérer ses paliers. Chaque palier requiert des critères (objectifs, compétences, ancienneté) pour définir les conditions d&apos;accès.
+          Sélectionnez un département pour gérer ses paliers. Chaque palier requiert des critères (objectifs, compétences, ancienneté) pour définir les conditions d&apos;accès.
         </p>
         {paliersError && (
           <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{paliersError}</p>
         )}
-        <div className="mt-6 space-y-3">
-          {deptsWithPaliers.length === 0 ? (
-            <p className="text-sm text-[color:rgba(11,11,11,0.65)]">Aucun département. Créez-en un dans la section ci-dessus.</p>
-          ) : (
-            deptsWithPaliers.map((dept) => (
-              <div
-                key={dept.id}
-                className="overflow-hidden rounded-xl border border-[#e2e7e2] bg-[#f8faf8]"
-              >
+        {deptsWithPaliers.length === 0 ? (
+          <p className="mt-6 text-sm text-[color:rgba(11,11,11,0.65)]">Aucun département. Créez-en un dans la section ci-dessus.</p>
+        ) : (
+          <>
+            <div className="mt-4 flex flex-wrap gap-1 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-1">
+              {deptsWithPaliers.map((dept) => (
                 <button
+                  key={dept.id}
                   type="button"
-                  onClick={() => setExpandedDeptId(expandedDeptId === dept.id ? null : dept.id)}
-                  className="flex w-full cursor-pointer items-center justify-between px-4 py-3 text-left transition hover:bg-[#f2f5f2]"
+                  onClick={() => setExpandedDeptId(dept.id)}
+                  className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-medium transition ${expandedDeptId === dept.id ? "bg-white text-[var(--text)] shadow" : "text-[color:rgba(11,11,11,0.65)] hover:bg-white/60"}`}
                 >
-                  <span className="font-semibold text-[var(--text)]">{dept.name}</span>
-                  <span className="text-xs text-[color:rgba(11,11,11,0.5)]">
-                    {dept.paliers?.length ?? 0} palier{(dept.paliers?.length ?? 0) > 1 ? "s" : ""}
-                  </span>
+                  {dept.name}
+                  <span className="ml-1.5 text-xs text-[color:rgba(11,11,11,0.4)]">({dept.paliers?.length ?? 0})</span>
                 </button>
-                <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${expandedDeptId === dept.id ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-                  <div className="min-h-0 overflow-hidden">
-                  <div className="border-t border-[#e2e7e2] bg-white p-4">
-                    <div className="space-y-2">
-                      {(dept.paliers ?? []).length === 0 ? (
-                        <p className="text-sm text-[color:rgba(11,11,11,0.5)]">Aucun palier.</p>
-                      ) : (
-                        (dept.paliers ?? []).map((p) => {
-                          const key = `${dept.id}_${p.id}`;
-                          const isExpanded = expandedPalierKey === key;
-                          const isEditing = editingPalierId === p.id;
-                          return (
-                            <div key={p.id} className="overflow-hidden rounded-lg border border-[#e2e7e2] bg-[#f8faf8]">
-                              {isEditing ? (
-                                <PalierEditForm
-                                  palier={p}
-                                  onSave={(data) => handleUpdatePalier(dept.id, p.id, data)}
-                                  onCancel={() => setEditingPalierId(null)}
-                                  loading={loading}
-                                />
-                              ) : (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={() => setExpandedPalierKey(isExpanded ? null : key)}
-                                    className="flex w-full cursor-pointer flex-wrap items-center justify-between gap-2 px-4 py-3 text-left hover:bg-[#f2f5f2]"
-                                  >
-                                    <div className="flex flex-wrap items-center gap-3">
-                                      <span className="font-semibold text-[var(--text)]">{p.name}</span>
-                                      <span className="rounded-lg bg-[var(--brand)]/15 px-2.5 py-1 text-sm font-semibold text-[var(--brand)]">
-                                        {p.montant_annuel != null ? `${Number(p.montant_annuel).toLocaleString("fr-FR")} € brut / an` : "—"}
+              ))}
+            </div>
+            {(() => {
+              const dept = deptsWithPaliers.find((d) => d.id === expandedDeptId);
+              if (!dept) return null;
+              return (
+                <div className="mt-5">
+                  <div className="space-y-2">
+                    {(dept.paliers ?? []).length === 0 ? (
+                      <p className="text-sm text-[color:rgba(11,11,11,0.5)]">Aucun palier pour ce département.</p>
+                    ) : (
+                      (dept.paliers ?? []).map((p) => {
+                        const key = `${dept.id}_${p.id}`;
+                        const isExpanded = expandedPalierKey === key;
+                        const isEditing = editingPalierId === p.id;
+                        return (
+                          <div key={p.id} className="overflow-hidden rounded-lg border border-[#e2e7e2] bg-[#f8faf8]">
+                            {isEditing ? (
+                              <PalierEditForm
+                                palier={p}
+                                ancienneteItems={ancienneteItems}
+                                onSave={(data) => handleUpdatePalier(dept.id, p.id, data)}
+                                onCancel={() => setEditingPalierId(null)}
+                                loading={loading}
+                              />
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedPalierKey(isExpanded ? null : key)}
+                                  className="flex w-full cursor-pointer flex-wrap items-center justify-between gap-2 px-4 py-3 text-left hover:bg-[#f2f5f2]"
+                                >
+                                  <div className="flex flex-wrap items-center gap-3">
+                                    <span className="font-semibold text-[var(--text)]">{p.name}</span>
+                                    <span className="rounded-lg bg-[var(--brand)]/15 px-2.5 py-1 text-sm font-semibold text-[var(--brand)]">
+                                      {p.montant_annuel != null ? `${Number(p.montant_annuel).toLocaleString("fr-FR")} € brut / an` : "—"}
+                                    </span>
+                                    {p.criteria && (
+                                      <span className="text-xs text-[color:rgba(11,11,11,0.55)]">
+                                        {[
+                                          (p.criteria.objectives?.length ?? 0) > 0 && `${p.criteria.objectives?.length ?? 0} objectif(s)`,
+                                          (p.criteria.competencies?.length ?? 0) > 0 && `${p.criteria.competencies?.length ?? 0} compétence(s)`,
+                                          p.criteria.min_tenure_months != null && `≥ ${p.criteria.min_tenure_months} mois`,
+                                        ].filter(Boolean).join(" · ")}
                                       </span>
-                                      {p.criteria && (
-                                        <span className="text-xs text-[color:rgba(11,11,11,0.55)]">
-                                          {[
-                                            (p.criteria.objectives?.length ?? 0) > 0 && `${p.criteria.objectives?.length ?? 0} objectif(s)`,
-                                            (p.criteria.competencies?.length ?? 0) > 0 && `${p.criteria.competencies?.length ?? 0} compétence(s)`,
-                                            p.criteria.min_tenure_months != null && `≥ ${p.criteria.min_tenure_months} mois`,
-                                          ].filter(Boolean).join(" · ")}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <span className="text-[color:rgba(11,11,11,0.4)]">{isExpanded ? "−" : "+"}</span>
-                                  </button>
-                                  <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-                                    <div className="min-h-0 overflow-hidden">
+                                    )}
+                                  </div>
+                                  <span className="text-[color:rgba(11,11,11,0.4)]">{isExpanded ? "−" : "+"}</span>
+                                </button>
+                                <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                                  <div className="min-h-0 overflow-hidden">
                                     <div className="border-t border-[#e2e7e2] bg-[#fafbfa] px-4 py-3 text-sm">
                                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Détails des critères</p>
                                       <div className="grid gap-2 sm:grid-cols-2">
@@ -1204,43 +1288,41 @@ export function GrillesClient({
                                         </button>
                                       </div>
                                     </div>
-                                    </div>
                                   </div>
-                                </>
-                              )}
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                    <div className="mt-4 overflow-hidden rounded-xl border border-[#e2e7e2] bg-[#f8faf8]">
-                      <button
-                        type="button"
-                        onClick={() => setAddPalierOpenDeptId((id) => (id === dept.id ? null : dept.id))}
-                        className="flex w-full cursor-pointer items-center justify-between px-4 py-3.5 text-left font-medium text-[var(--text)] transition hover:bg-[#f2f5f2]"
-                      >
-                        <span className="font-semibold text-[var(--brand)]">+ Ajouter un palier</span>
-                        <span className="text-[color:rgba(11,11,11,0.5)]">{addPalierOpenDeptId === dept.id ? "−" : "+"}</span>
-                      </button>
-                      <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${addPalierOpenDeptId === dept.id ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-                        <div className="min-h-0 overflow-hidden">
-                          <div className="border-t border-[#e2e7e2] p-4">
-                            <PalierForm onAdd={(data) => { handleCreatePalier(dept.id, data); setAddPalierOpenDeptId(null); }} loading={loading} />
+                                </div>
+                              </>
+                            )}
                           </div>
+                        );
+                      })
+                    )}
+                  </div>
+                  <div className="mt-4 overflow-hidden rounded-xl border border-[#e2e7e2] bg-[#f8faf8]">
+                    <button
+                      type="button"
+                      onClick={() => setAddPalierOpenDeptId((id) => (id === dept.id ? null : dept.id))}
+                      className="flex w-full cursor-pointer items-center justify-between px-4 py-3.5 text-left font-medium text-[var(--text)] transition hover:bg-[#f2f5f2]"
+                    >
+                      <span className="font-semibold text-[var(--brand)]">+ Ajouter un palier</span>
+                      <span className="text-[color:rgba(11,11,11,0.5)]">{addPalierOpenDeptId === dept.id ? "−" : "+"}</span>
+                    </button>
+                    <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${addPalierOpenDeptId === dept.id ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                      <div className="min-h-0 overflow-hidden">
+                        <div className="border-t border-[#e2e7e2] p-4">
+                          <PalierForm ancienneteItems={ancienneteItems} onAdd={(data) => { handleCreatePalier(dept.id, data); setAddPalierOpenDeptId(null); }} loading={loading} />
                         </div>
                       </div>
                     </div>
-                    <button type="button" onClick={() => handleDeleteDept(dept.id)} disabled={loading} className="cursor-pointer mt-4 text-xs font-medium text-red-600 hover:underline disabled:opacity-50">
-                      Supprimer ce département
-                    </button>
                   </div>
-                  </div>
+                  <button type="button" onClick={() => handleDeleteDept(dept.id)} disabled={loading} className="cursor-pointer mt-4 text-xs font-medium text-red-600 hover:underline disabled:opacity-50">
+                    Supprimer ce département
+                  </button>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
+              );
+            })()}
+          </>
+        )}
+                                                                                                                          </section>
 
       {/* Avantages en nature */}
       <section data-animate-section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
