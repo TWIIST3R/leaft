@@ -3,18 +3,22 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const LINKS = [
+const BASE_LINKS = [
   { href: "/espace-talent", label: "Mon profil", exact: true },
   { href: "/espace-talent/simulateur", label: "Simulateur", exact: false },
   { href: "/espace-talent/organigramme", label: "Organigramme", exact: false },
 ];
 
-export function TalentNav() {
+export function TalentNav({ isManager = false }: { isManager?: boolean }) {
   const pathname = usePathname();
+
+  const links = isManager
+    ? [...BASE_LINKS, { href: "/espace-talent/mon-equipe", label: "Mon equipe", exact: false }]
+    : BASE_LINKS;
 
   return (
     <nav className="mt-3 space-y-1">
-      {LINKS.map((link) => {
+      {links.map((link) => {
         const isActive = link.exact ? pathname === link.href : pathname.startsWith(link.href);
         return (
           <Link

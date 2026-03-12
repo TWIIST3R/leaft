@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { updateSubscriptionSeats } from "@/lib/stripe/subscriptions";
+import { sendRemoveTalentEmail } from "@/lib/email";
 
 async function getOrganizationId(userId: string, orgId: string | null) {
   const supabase = supabaseAdmin();
@@ -24,7 +26,7 @@ const EMPLOYEE_SELECT = `
   id, first_name, last_name, email, gender, birth_date, hire_date,
   current_job_title, current_level_id, current_department_id, manager_id,
   current_management_id, current_anciennete_id, salary_adjustment,
-  location, annual_salary_brut, avatar_url, created_at, updated_at
+  location, annual_salary_brut, avatar_url, is_manager, created_at, updated_at
 `;
 
 async function computeSalary(
@@ -111,6 +113,7 @@ export async function PATCH(
     if (body.salary_adjustment !== undefined) updates.salary_adjustment = body.salary_adjustment ?? 0;
     if (body.manager_id !== undefined) updates.manager_id = body.manager_id || null;
     if (body.location !== undefined) updates.location = typeof body.location === "string" ? body.location.trim() || null : null;
+    if (body.is_manager !== undefined) updates.is_manager = !!body.is_manager;
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "Aucune modification" }, { status: 400 });
@@ -167,6 +170,14 @@ export async function DELETE(
 
     const { id } = await params;
     const supabase = supabaseAdmin();
+
+    const { data: empData } = await supabase
+      .from("employees")
+      .select("first_name, last_name")
+      .eq("id", id)
+      .eq("organization_id", organizationId)
+      .single();
+
     const { error } = await supabase
       .from("employees")
       .delete()
@@ -177,7 +188,49 @@ export async function DELETE(
       console.error("Error deleting employee:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    return NextResponse.json({ success: true });
+
+    let billingInfo: { previousSeats: number; newSeats: number; creditCents: number; newMonthlyCents: number } | null = null;
+    try {
+      const { data: subRow } = await supabase
+        .from("subscriptions")
+        .select("seat_count")
+        .eq("organization_id", organizationId)
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (subRow) {
+        const currentSeats = subRow.seat_count ?? 0;
+        const newSeats = Math.max(1, currentSeats - 1);
+        if (newSeats < currentSeats) {
+          const result = await updateSubscriptionSeats(organizationId, newSeats);
+          billingInfo = {
+            previousSeats: result.previousSeatCount,
+            newSeats: result.newSeatCount,
+            creditCents: result.prorationAmountCents,
+            newMonthlyCents: result.newMonthlyAmountCents,
+          };
+
+          const user = await currentUser();
+          const adminEmail = user?.emailAddresses?.[0]?.emailAddress ?? "";
+          if (adminEmail) {
+            const { data: orgData } = await supabase.from("organizations").select("name").eq("id", organizationId).single();
+            await sendRemoveTalentEmail({
+              to: adminEmail,
+              organizationName: orgData?.name ?? "Votre organisation",
+              removedTalentName: empData ? `${empData.first_name} ${empData.last_name}` : "Talent",
+              previousSeatCount: result.previousSeatCount,
+              newSeatCount: result.newSeatCount,
+              newAmountPerMonthEur: (result.newMonthlyAmountCents / 100).toFixed(2).replace(".", ","),
+              creditAmountEur: (Math.abs(result.prorationAmountCents) / 100).toFixed(2).replace(".", ","),
+            });
+          }
+        }
+      }
+    } catch (billingErr) {
+      console.error("Stripe billing update on delete (non-blocking):", billingErr);
+    }
+
+    return NextResponse.json({ success: true, billingInfo });
   } catch (e) {
     console.error("Employee DELETE:", e);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });

@@ -27,14 +27,19 @@ export function PieChart({
   useEffect(() => {
     if (!svgRef.current || total === 0) return;
     const circles = svgRef.current.querySelectorAll("[data-slice]");
-    gsap.fromTo(
-      circles,
-      { strokeDashoffset: (i: number) => {
-        const pct = items[i].value / total;
-        return pct * Math.PI * (size - strokeWidth);
-      }},
-      { strokeDashoffset: 0, duration: 0.9, stagger: 0.06, ease: "power2.out" }
-    );
+    circles.forEach((circle, i) => {
+      const pct = items[i].value / total;
+      const radius = (size - strokeWidth) / 2;
+      const circumference = 2 * Math.PI * radius;
+      const dash = pct * circumference;
+      const gap = circumference - dash;
+
+      gsap.fromTo(
+        circle,
+        { attr: { "stroke-dasharray": `0 ${circumference}` } },
+        { attr: { "stroke-dasharray": `${dash} ${gap}` }, duration: 0.9, delay: i * 0.06, ease: "power2.out" }
+      );
+    });
   }, [items, total, size, strokeWidth]);
 
   if (total === 0) {
@@ -65,7 +70,6 @@ export function PieChart({
               strokeWidth={strokeWidth}
               strokeDasharray={`${dash} ${circumference - dash}`}
               strokeDashoffset={-currentOffset}
-              strokeLinecap="round"
             />
           );
         })}

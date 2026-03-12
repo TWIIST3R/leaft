@@ -3,7 +3,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import gsap from "gsap";
 
-type Employee = { id: string; first_name: string; last_name: string; email: string; current_job_title: string };
+type Employee = { id: string; first_name: string; last_name: string; email: string; current_job_title: string; current_department_id: string | null };
+type Dept = { id: string; name: string };
+type Level = { id: string; name: string; department_id: string; montant_annuel: number | null };
+type ExtraLevel = { id: string; name: string; type: string; montant_annuel: number | null };
 type Interview = {
   id: string;
   employee_id: string;
@@ -33,9 +36,17 @@ const BTN_SECONDARY = "inline-flex cursor-pointer items-center rounded-full bord
 export function EntretiensClient({
   initialInterviews,
   employees,
+  departments,
+  levels,
+  managementLevels,
+  ancienneteLevels,
 }: {
   initialInterviews: Interview[];
   employees: Employee[];
+  departments: Dept[];
+  levels: Level[];
+  managementLevels: ExtraLevel[];
+  ancienneteLevels: ExtraLevel[];
 }) {
   const [interviews, setInterviews] = useState(initialInterviews);
   const [showForm, setShowForm] = useState(false);
@@ -43,6 +54,17 @@ export function EntretiensClient({
   const [filterEmployeeId, setFilterEmployeeId] = useState("");
   const [filterType, setFilterType] = useState("");
   const [loading, setLoading] = useState(false);
+
+  type MeetingRequest = {
+    id: string;
+    employee_id: string;
+    requested_to: string;
+    note: string | null;
+    status: string;
+    created_at: string;
+    employee?: { id: string; first_name: string; last_name: string; email: string } | null;
+  };
+  const [meetingRequests, setMeetingRequests] = useState<MeetingRequest[]>([]);
 
   const [form, setForm] = useState({
     employee_id: "",
@@ -54,9 +76,44 @@ export function EntretiensClient({
     salary_adjustment: "",
   });
 
+  const [salaryForm, setSalaryForm] = useState({
+    apply_salary_changes: false,
+    new_level_id: "",
+    new_management_id: "",
+    new_anciennete_id: "",
+  });
+
   const tableRef = useRef<HTMLTableSectionElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const empMap = new Map(employees.map((e) => [e.id, e]));
+
+  const selectedEmp = empMap.get(form.employee_id);
+  const empDeptLevels = selectedEmp?.current_department_id
+    ? levels.filter((l) => l.department_id === selectedEmp.current_department_id)
+    : [];
+
+  function fmtEuro(n: number | null | undefined) {
+    if (n == null) return "";
+    return ` (${Number(n).toLocaleString("fr-FR")} €)`;
+  }
+
+  useEffect(() => {
+    fetch("/api/meeting-requests?admin=true")
+      .then((r) => r.json())
+      .then((d) => { if (Array.isArray(d)) setMeetingRequests(d); })
+      .catch(() => {});
+  }, []);
+
+  async function handleMeetingRequestAction(id: string, status: "accepted" | "declined") {
+    const res = await fetch("/api/meeting-requests", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    });
+    if (res.ok) {
+      setMeetingRequests((prev) => prev.map((r) => r.id === id ? { ...r, status } : r));
+    }
+  }
 
   useEffect(() => {
     if (!tableRef.current) return;
@@ -78,6 +135,7 @@ export function EntretiensClient({
 
   const resetForm = useCallback(() => {
     setForm({ employee_id: "", interview_date: new Date().toISOString().split("T")[0], type: "Entretien annuel", email_subject: "Entretien annuel", notes: "", justification: "", salary_adjustment: "" });
+    setSalaryForm({ apply_salary_changes: false, new_level_id: "", new_management_id: "", new_anciennete_id: "" });
     setEditingId(null);
     setShowForm(false);
   }, []);
@@ -88,10 +146,14 @@ export function EntretiensClient({
 
     try {
       if (editingId) {
+        const payload = {
+          ...form,
+          ...(salaryForm.apply_salary_changes ? salaryForm : {}),
+        };
         const res = await fetch(`/api/interviews/${editingId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         });
         if (res.ok) {
           const updated = await res.json();
@@ -260,6 +322,69 @@ export function EntretiensClient({
               />
             </div>
           </div>
+
+          {editingId && (
+            <div className="mt-5 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-5">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={salaryForm.apply_salary_changes}
+                  onClick={() => setSalaryForm((s) => ({ ...s, apply_salary_changes: !s.apply_salary_changes }))}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${salaryForm.apply_salary_changes ? "bg-[var(--brand)]" : "bg-gray-200"}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${salaryForm.apply_salary_changes ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+                <span className="text-sm font-medium text-[var(--text)] cursor-pointer" onClick={() => setSalaryForm((s) => ({ ...s, apply_salary_changes: !s.apply_salary_changes }))}>
+                  Appliquer des changements de rémunération
+                </span>
+              </div>
+
+              {salaryForm.apply_salary_changes && (
+                <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <label className={LABEL}>Nouveau palier</label>
+                    <select
+                      value={salaryForm.new_level_id}
+                      onChange={(e) => setSalaryForm((s) => ({ ...s, new_level_id: e.target.value }))}
+                      className={`${INPUT} cursor-pointer`}
+                    >
+                      <option value="">— Inchangé —</option>
+                      {empDeptLevels.map((l) => (
+                        <option key={l.id} value={l.id}>{l.name}{fmtEuro(l.montant_annuel)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={LABEL}>Nouveau management</label>
+                    <select
+                      value={salaryForm.new_management_id}
+                      onChange={(e) => setSalaryForm((s) => ({ ...s, new_management_id: e.target.value }))}
+                      className={`${INPUT} cursor-pointer`}
+                    >
+                      <option value="">— Inchangé —</option>
+                      {managementLevels.map((m) => (
+                        <option key={m.id} value={m.id}>{m.name}{fmtEuro(m.montant_annuel)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={LABEL}>Nouvelle ancienneté</label>
+                    <select
+                      value={salaryForm.new_anciennete_id}
+                      onChange={(e) => setSalaryForm((s) => ({ ...s, new_anciennete_id: e.target.value }))}
+                      className={`${INPUT} cursor-pointer`}
+                    >
+                      <option value="">— Inchangé —</option>
+                      {ancienneteLevels.map((a) => (
+                        <option key={a.id} value={a.id}>{a.name}{fmtEuro(a.montant_annuel)}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <div className="mt-5 flex items-center gap-3">
             <button onClick={handleSubmit} disabled={loading || !form.employee_id} className={BTN_PRIMARY}>
               {loading ? "Enregistrement..." : editingId ? "Mettre à jour" : "Créer l\u2019entretien"}
@@ -267,6 +392,57 @@ export function EntretiensClient({
             <button onClick={resetForm} className={BTN_SECONDARY}>Annuler</button>
           </div>
         </div>
+      )}
+
+      {meetingRequests.length > 0 && (
+        <section className={CARD + " p-6"}>
+          <h3 className="border-l-4 border-purple-500 pl-4 text-lg font-semibold text-[var(--text)]">
+            Demandes de rendez-vous ({meetingRequests.filter((r) => r.status === "pending").length} en attente)
+          </h3>
+          <div className="mt-4 space-y-3">
+            {meetingRequests.map((req) => (
+              <div key={req.id} className="flex items-center justify-between rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm text-[var(--text)]">
+                      {req.employee ? `${req.employee.first_name} ${req.employee.last_name}` : "—"}
+                    </span>
+                    <span className="rounded-lg bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800">
+                      {req.requested_to === "manager" ? "Manager" : "RH"}
+                    </span>
+                    <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${
+                      req.status === "pending" ? "bg-amber-100 text-amber-800" :
+                      req.status === "accepted" ? "bg-green-100 text-green-800" :
+                      "bg-red-100 text-red-800"
+                    }`}>
+                      {req.status === "pending" ? "En attente" : req.status === "accepted" ? "Accepté" : "Décliné"}
+                    </span>
+                  </div>
+                  {req.note && <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">{req.note}</p>}
+                  <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.45)]">
+                    {new Date(req.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                  </p>
+                </div>
+                {req.status === "pending" && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleMeetingRequestAction(req.id, "accepted")}
+                      className="cursor-pointer rounded-full bg-green-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-green-700"
+                    >
+                      Accepter
+                    </button>
+                    <button
+                      onClick={() => handleMeetingRequestAction(req.id, "declined")}
+                      className="cursor-pointer rounded-full border border-red-200 px-4 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50"
+                    >
+                      Décliner
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       <section className={CARD}>

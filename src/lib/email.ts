@@ -75,3 +75,128 @@ L'équipe Leaft
   });
   return { ok: true };
 }
+
+export type RemoveTalentEmailData = {
+  to: string;
+  organizationName: string;
+  removedTalentName: string;
+  previousSeatCount: number;
+  newSeatCount: number;
+  newAmountPerMonthEur: string;
+  creditAmountEur: string;
+};
+
+export async function sendRemoveTalentEmail(data: RemoveTalentEmailData): Promise<{ ok: boolean; error?: string }> {
+  const subject = `Leaft – Abonnement mis à jour (${data.newSeatCount} talent${data.newSeatCount > 1 ? "s" : ""})`;
+  const body = `
+Bonjour,
+
+Le talent ${data.removedTalentName} a été retiré de ${data.organizationName}.
+
+Modalités :
+- Ancien nombre de talents : ${data.previousSeatCount}
+- Nouveau total : ${data.newSeatCount} talent${data.newSeatCount > 1 ? "s" : ""}
+
+Montant :
+- Nouveau montant de l'abonnement (par mois) : ${data.newAmountPerMonthEur} €
+${data.creditAmountEur !== "0,00" ? `- Crédit au prorata appliqué : ${data.creditAmountEur} €` : ""}
+
+Le crédit au prorata sera appliqué sur votre prochaine facture.
+
+À bientôt,
+L'équipe Leaft
+  `.trim();
+
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM || "onboarding@resend.dev";
+
+  if (resendApiKey) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${resendApiKey}`,
+        },
+        body: JSON.stringify({ from, to: data.to, subject, text: body }),
+      });
+      const json = (await res.json()) as { id?: string; message?: string };
+      if (!res.ok) {
+        console.error("Resend error:", json);
+        return { ok: false, error: json.message || "Failed to send email" };
+      }
+      return { ok: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("Error sending remove-talent email:", err);
+      return { ok: false, error: message };
+    }
+  }
+
+  console.log("[Email] Remove talent (no RESEND_API_KEY, logging only):", {
+    to: data.to,
+    subject,
+    body: body.substring(0, 200) + "...",
+  });
+  return { ok: true };
+}
+
+export type InterviewReminderEmailData = {
+  to: string;
+  talentName: string;
+  interviewType: string;
+  interviewDate: string;
+  organizationName: string;
+  daysUntil: number;
+};
+
+export async function sendInterviewReminderEmail(data: InterviewReminderEmailData): Promise<{ ok: boolean; error?: string }> {
+  const subject = `Rappel : ${data.interviewType} avec ${data.talentName} dans ${data.daysUntil} jour${data.daysUntil > 1 ? "s" : ""}`;
+  const body = `
+Bonjour,
+
+Ceci est un rappel pour l'entretien prévu :
+
+- Type : ${data.interviewType}
+- Talent : ${data.talentName}
+- Date : ${data.interviewDate}
+- Organisation : ${data.organizationName}
+
+L'entretien aura lieu dans ${data.daysUntil} jour${data.daysUntil > 1 ? "s" : ""}.
+
+À bientôt,
+L'équipe Leaft
+  `.trim();
+
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM || "onboarding@resend.dev";
+
+  if (resendApiKey) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${resendApiKey}`,
+        },
+        body: JSON.stringify({ from, to: data.to, subject, text: body }),
+      });
+      const json = (await res.json()) as { id?: string; message?: string };
+      if (!res.ok) {
+        console.error("Resend error:", json);
+        return { ok: false, error: json.message || "Failed to send email" };
+      }
+      return { ok: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("Error sending interview reminder email:", err);
+      return { ok: false, error: message };
+    }
+  }
+
+  console.log("[Email] Interview reminder (no RESEND_API_KEY, logging only):", {
+    to: data.to,
+    subject,
+  });
+  return { ok: true };
+}

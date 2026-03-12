@@ -71,6 +71,13 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const [showRdvModal, setShowRdvModal] = useState(false);
+  const [rdvTo, setRdvTo] = useState<"manager" | "rh">("manager");
+  const [rdvNote, setRdvNote] = useState("");
+  const [rdvLoading, setRdvLoading] = useState(false);
+  const [rdvSuccess, setRdvSuccess] = useState<string | null>(null);
+  const [rdvRequests, setRdvRequests] = useState<{ id: string; requested_to: string; note: string | null; status: string; created_at: string }[]>([]);
+
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -91,6 +98,33 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
     const sections = mainRef.current.querySelectorAll("[data-section]");
     gsap.fromTo(sections, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.08, ease: "power2.out" });
   }, []);
+
+  useEffect(() => {
+    fetch(`/api/meeting-requests?employee_id=${employee.id}`)
+      .then((r) => r.json())
+      .then((d) => { if (Array.isArray(d)) setRdvRequests(d); })
+      .catch(() => {});
+  }, [employee.id]);
+
+  async function handleRdvSubmit() {
+    setRdvLoading(true);
+    setRdvSuccess(null);
+    try {
+      const res = await fetch("/api/meeting-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requested_to: rdvTo, note: rdvNote }),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setRdvRequests((prev) => [created, ...prev]);
+        setRdvSuccess("Votre demande de rendez-vous a été envoyée.");
+        setShowRdvModal(false);
+        setRdvNote("");
+      }
+    } catch { /* ignore */ }
+    finally { setRdvLoading(false); }
+  }
 
   const salary = employee.annual_salary_brut != null ? Number(employee.annual_salary_brut) : null;
 
@@ -404,6 +438,109 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
           </p>
         </section>
       )}
+
+      <section data-section className={CARD}>
+        <div className="flex items-center justify-between">
+          <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Demander un rendez-vous</h2>
+          <button
+            onClick={() => setShowRdvModal(true)}
+            className="cursor-pointer rounded-full bg-[var(--brand)] px-5 py-2 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.98]"
+          >
+            Nouveau RDV
+          </button>
+        </div>
+
+        {rdvSuccess && (
+          <p className="mt-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{rdvSuccess}</p>
+        )}
+
+        {showRdvModal && (
+          <div className="mt-4 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-5">
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[var(--text)]">Destinataire</label>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setRdvTo("manager")}
+                    className={`cursor-pointer rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
+                      rdvTo === "manager"
+                        ? "border-[var(--brand)] bg-[var(--brand)]/10 text-[var(--brand)]"
+                        : "border-[#e2e7e2] bg-white text-[var(--text)] hover:border-[var(--brand)]/30"
+                    }`}
+                  >
+                    Mon manager
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRdvTo("rh")}
+                    className={`cursor-pointer rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
+                      rdvTo === "rh"
+                        ? "border-[var(--brand)] bg-[var(--brand)]/10 text-[var(--brand)]"
+                        : "border-[#e2e7e2] bg-white text-[var(--text)] hover:border-[var(--brand)]/30"
+                    }`}
+                  >
+                    Ressources Humaines
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[var(--text)]">Note (optionnel)</label>
+                <textarea
+                  rows={3}
+                  value={rdvNote}
+                  onChange={(e) => setRdvNote(e.target.value)}
+                  className="w-full cursor-text rounded-xl border border-[#e2e7e2] bg-white px-4 py-2.5 text-sm text-[var(--text)] transition hover:border-[var(--brand)]/40 focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
+                  placeholder="Précisez le motif de votre demande..."
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleRdvSubmit}
+                  disabled={rdvLoading}
+                  className="cursor-pointer rounded-full bg-[var(--brand)] px-5 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
+                >
+                  {rdvLoading ? "Envoi..." : "Envoyer la demande"}
+                </button>
+                <button
+                  onClick={() => { setShowRdvModal(false); setRdvNote(""); }}
+                  className="cursor-pointer rounded-full border border-[#e2e7e2] px-4 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-[#f8faf8]"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {rdvRequests.length > 0 && (
+          <div className="mt-4 space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Mes demandes</p>
+            {rdvRequests.map((req) => (
+              <div key={req.id} className="flex items-center justify-between rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-lg bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                      {req.requested_to === "manager" ? "Manager" : "RH"}
+                    </span>
+                    <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${
+                      req.status === "pending" ? "bg-amber-100 text-amber-800" :
+                      req.status === "accepted" ? "bg-green-100 text-green-800" :
+                      "bg-red-100 text-red-800"
+                    }`}>
+                      {req.status === "pending" ? "En attente" : req.status === "accepted" ? "Accepté" : "Décliné"}
+                    </span>
+                  </div>
+                  {req.note && <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">{req.note}</p>}
+                </div>
+                <span className="text-xs text-[color:rgba(11,11,11,0.5)]">
+                  {new Date(req.created_at).toLocaleDateString("fr-FR")}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

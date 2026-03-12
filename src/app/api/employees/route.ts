@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth, clerkClient } from "@clerk/nextjs/server";
+import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { updateSubscriptionSeats, calculateSubscriptionAmount, getPricingTier } from "@/lib/stripe/subscriptions";
+import { sendAddTalentsEmail } from "@/lib/email";
 
 async function getOrganizationId(userId: string, orgId: string | null) {
   const supabase = supabaseAdmin();
@@ -34,7 +36,7 @@ const EMPLOYEE_SELECT = `
   id, first_name, last_name, email, gender, birth_date, hire_date,
   current_job_title, current_level_id, current_department_id, manager_id,
   current_management_id, current_anciennete_id, salary_adjustment,
-  location, annual_salary_brut, avatar_url, created_at, updated_at
+  location, annual_salary_brut, avatar_url, is_manager, created_at, updated_at
 `;
 
 async function computeSalary(
@@ -136,6 +138,7 @@ export async function POST(request: NextRequest) {
     if (current_anciennete_id) insert.current_anciennete_id = current_anciennete_id;
     if (body.manager_id) insert.manager_id = body.manager_id;
     if (body.location) insert.location = typeof body.location === "string" ? body.location.trim() : null;
+    if (body.is_manager !== undefined) insert.is_manager = !!body.is_manager;
 
     const { data, error } = await supabase
       .from("employees")
@@ -163,7 +166,46 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json(data, { status: 201 });
+    let billingInfo: { previousSeats: number; newSeats: number; prorationCents: number; newMonthlyCents: number } | null = null;
+    try {
+      const { data: subRow } = await supabase
+        .from("subscriptions")
+        .select("seat_count")
+        .eq("organization_id", organizationId)
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (subRow) {
+        const currentSeats = subRow.seat_count ?? 0;
+        const newSeats = currentSeats + 1;
+        const result = await updateSubscriptionSeats(organizationId, newSeats);
+        billingInfo = {
+          previousSeats: result.previousSeatCount,
+          newSeats: result.newSeatCount,
+          prorationCents: result.prorationAmountCents,
+          newMonthlyCents: result.newMonthlyAmountCents,
+        };
+
+        const user = await currentUser();
+        const adminEmail = user?.emailAddresses?.[0]?.emailAddress ?? "";
+        if (adminEmail) {
+          const { data: orgData } = await supabase.from("organizations").select("name").eq("id", organizationId).single();
+          await sendAddTalentsEmail({
+            to: adminEmail,
+            organizationName: orgData?.name ?? "Votre organisation",
+            previousSeatCount: result.previousSeatCount,
+            newSeatCount: result.newSeatCount,
+            addCount: 1,
+            newAmountPerMonthEur: (result.newMonthlyAmountCents / 100).toFixed(2).replace(".", ","),
+            prorationAmountEur: (result.prorationAmountCents / 100).toFixed(2).replace(".", ","),
+          });
+        }
+      }
+    } catch (billingErr) {
+      console.error("Stripe billing update (non-blocking):", billingErr);
+    }
+
+    return NextResponse.json({ ...data, billingInfo }, { status: 201 });
   } catch (e) {
     console.error("Employees POST:", e);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });

@@ -7,7 +7,7 @@ import { Avatar } from "@/components/ui/avatar";
 
 type Dept = { id: string; name: string };
 type Level = { id: string; name: string; department_id: string; montant_annuel: number | null };
-type Emp = { id: string; first_name: string; last_name: string };
+type Emp = { id: string; first_name: string; last_name: string; is_manager?: boolean };
 type ExtraLevel = { id: string; name: string; type: string; montant_annuel: number | null };
 type Interview = {
   id: string;
@@ -36,6 +36,7 @@ type Employee = {
   location: string | null;
   annual_salary_brut: number;
   avatar_url: string | null;
+  is_manager: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -53,6 +54,7 @@ export function TalentDetailClient({
   departments,
   levels,
   employees,
+  managers,
   managementLevels,
   ancienneteLevels,
   interviews,
@@ -61,6 +63,7 @@ export function TalentDetailClient({
   departments: Dept[];
   levels: Level[];
   employees: Emp[];
+  managers: Emp[];
   managementLevels: ExtraLevel[];
   ancienneteLevels: ExtraLevel[];
   interviews: Interview[];
@@ -84,6 +87,7 @@ export function TalentDetailClient({
   const [ancienneteId, setAncienneteId] = useState(employee.current_anciennete_id ?? "");
   const [adjustment, setAdjustment] = useState(String(employee.salary_adjustment ?? 0));
   const [managerId, setManagerId] = useState(employee.manager_id ?? "");
+  const [isManager, setIsManager] = useState(employee.is_manager ?? false);
   const [loc, setLoc] = useState(employee.location ?? "");
   const [hireDate, setHireDate] = useState(employee.hire_date);
 
@@ -121,6 +125,7 @@ export function TalentDetailClient({
     setAncienneteId(employee.current_anciennete_id ?? "");
     setAdjustment(String(employee.salary_adjustment ?? 0));
     setManagerId(employee.manager_id ?? "");
+    setIsManager(employee.is_manager ?? false);
     setLoc(employee.location ?? "");
     setHireDate(employee.hire_date);
   }
@@ -147,6 +152,7 @@ export function TalentDetailClient({
           current_anciennete_id: ancienneteId || null,
           salary_adjustment: adj,
           manager_id: managerId || null,
+          is_manager: isManager,
           location: loc.trim() || null,
           hire_date: hireDate,
         }),
@@ -165,7 +171,7 @@ export function TalentDetailClient({
   }
 
   async function handleDelete() {
-    if (!confirm(`Supprimer ${employee.first_name} ${employee.last_name} ? Cette action est irréversible.`)) return;
+    if (!confirm(`Supprimer ${employee.first_name} ${employee.last_name} ?\n\nCette action est irréversible. Votre abonnement sera ajusté et un crédit au prorata sera appliqué.`)) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/employees/${employee.id}`, { method: "DELETE" });
@@ -249,7 +255,13 @@ export function TalentDetailClient({
               <div><label className={labelCls}>Niveau Management</label><select value={managementId} onChange={(e) => setManagementId(e.target.value)} className={selectCls} disabled={loading}><option value="">— Aucun —</option>{managementLevels.map((m) => <option key={m.id} value={m.id}>{m.name}{fmtEuro(m.montant_annuel)}</option>)}</select></div>
               <div><label className={labelCls}>Niveau Ancienneté</label><select value={ancienneteId} onChange={(e) => setAncienneteId(e.target.value)} className={selectCls} disabled={loading}><option value="">— Aucun —</option>{ancienneteLevels.map((a) => <option key={a.id} value={a.id}>{a.name}{fmtEuro(a.montant_annuel)}</option>)}</select></div>
               <div><label className={labelCls}>Ajustement annuel brut (€)</label><input type="number" value={adjustment} onChange={(e) => setAdjustment(e.target.value)} step={100} className={inputCls} disabled={loading} /></div>
-              <div><label className={labelCls}>Manager</label><select value={managerId} onChange={(e) => setManagerId(e.target.value)} className={selectCls} disabled={loading}><option value="">— Aucun —</option>{employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name}</option>)}</select></div>
+              <div><label className={labelCls}>Manager</label><select value={managerId} onChange={(e) => setManagerId(e.target.value)} className={selectCls} disabled={loading}><option value="">— Aucun —</option>{managers.map((emp) => <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name}</option>)}</select></div>
+              <div className="flex items-center gap-3 sm:col-span-2">
+                <button type="button" role="switch" aria-checked={isManager} onClick={() => setIsManager(!isManager)} disabled={loading} className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${isManager ? "bg-[var(--brand)]" : "bg-gray-200"} disabled:cursor-not-allowed disabled:opacity-50`}>
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${isManager ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+                <label className="cursor-pointer text-sm font-medium text-[var(--text)]" onClick={() => !loading && setIsManager(!isManager)}>Ce talent est un manager</label>
+              </div>
             </div>
 
             <div className="mt-6 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 px-5 py-4">
@@ -332,6 +344,16 @@ export function TalentDetailClient({
                       {managerEmp.first_name} {managerEmp.last_name}
                     </Link>
                   ) : "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className={labelCls}>Rôle</dt>
+                <dd className="mt-1 text-sm text-[var(--text)]">
+                  {employee.is_manager ? (
+                    <span className="rounded-lg bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800">Manager</span>
+                  ) : (
+                    <span className="rounded-lg bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">Collaborateur</span>
+                  )}
                 </dd>
               </div>
               <div>

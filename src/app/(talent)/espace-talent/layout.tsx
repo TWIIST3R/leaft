@@ -16,7 +16,7 @@ async function getEmployeeInfo(userId: string, orgId: string | null) {
       organizationId = data.id;
       const { data: emp } = await supabase
         .from("employees")
-        .select("id, first_name, last_name, current_job_title, email")
+        .select("id, first_name, last_name, current_job_title, email, is_manager")
         .eq("organization_id", organizationId)
         .eq("clerk_user_id", userId)
         .single();
@@ -35,10 +35,10 @@ async function getEmployeeInfo(userId: string, orgId: string | null) {
     const org = userOrg.organizations as { name?: string; logo_url?: string } | null;
     const { data: emp } = await supabase
       .from("employees")
-      .select("id, first_name, last_name, current_job_title, email")
-      .eq("organization_id", organizationId)
-      .eq("clerk_user_id", userId)
-      .single();
+      .select("id, first_name, last_name, current_job_title, email, is_manager")
+        .eq("organization_id", organizationId)
+        .eq("clerk_user_id", userId)
+        .single();
     return { orgName: org?.name ?? "", orgLogo: org?.logo_url ?? null, employee: emp };
   }
 
@@ -73,7 +73,7 @@ export default async function TalentSpaceLayout({ children }: { children: ReactN
 
         <div className="mt-6 space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.4)]">Mon espace</p>
-          <TalentNav />
+          <TalentNav isManager={info.employee?.is_manager ?? false} />
         </div>
 
         {info.employee && (

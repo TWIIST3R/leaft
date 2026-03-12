@@ -24,7 +24,7 @@ async function getData() {
   }
   if (!organizationId) redirect("/onboarding");
 
-  const [{ data: interviews }, { data: employees }] = await Promise.all([
+  const [{ data: interviews }, { data: employees }, { data: departments }, { data: grilleExtra }] = await Promise.all([
     supabase
       .from("interviews")
       .select("id, employee_id, interview_date, type, notes, justification, salary_adjustment, created_by, created_at")
@@ -32,14 +32,26 @@ async function getData() {
       .order("interview_date", { ascending: false }),
     supabase
       .from("employees")
-      .select("id, first_name, last_name, email, current_job_title")
+      .select("id, first_name, last_name, email, current_job_title, current_department_id")
       .eq("organization_id", organizationId)
       .order("last_name"),
+    supabase.from("departments").select("id, name").eq("organization_id", organizationId).order("name"),
+    supabase.from("grille_extra").select("id, name, type, montant_annuel").eq("organization_id", organizationId).order("order"),
   ]);
 
+  const deptIds = (departments ?? []).map((d) => d.id);
+  const { data: levels } = deptIds.length > 0
+    ? await supabase.from("levels").select("id, name, department_id, montant_annuel").in("department_id", deptIds).order("order")
+    : { data: [] };
+
+  const extras = grilleExtra ?? [];
   return {
     interviews: interviews ?? [],
     employees: employees ?? [],
+    departments: departments ?? [],
+    levels: levels ?? [],
+    managementLevels: extras.filter((e) => e.type === "management"),
+    ancienneteLevels: extras.filter((e) => e.type === "anciennete"),
   };
 }
 
@@ -57,6 +69,10 @@ export default async function EntretiensPage() {
       <EntretiensClient
         initialInterviews={data.interviews}
         employees={data.employees}
+        departments={data.departments}
+        levels={data.levels}
+        managementLevels={data.managementLevels}
+        ancienneteLevels={data.ancienneteLevels}
       />
     </div>
   );

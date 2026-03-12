@@ -7,7 +7,7 @@ import gsap from "gsap";
 
 type Dept = { id: string; name: string };
 type Level = { id: string; name: string; department_id: string; montant_annuel: number | null };
-type Employee = { id: string; first_name: string; last_name: string };
+type Employee = { id: string; first_name: string; last_name: string; is_manager?: boolean };
 type ExtraLevel = { id: string; name: string; type: string; montant_annuel: number | null };
 
 const GENDER_OPTIONS = [
@@ -22,12 +22,14 @@ export function NewTalentClient({
   departments,
   levels,
   employees,
+  managers,
   managementLevels,
   ancienneteLevels,
 }: {
   departments: Dept[];
   levels: Level[];
   employees: Employee[];
+  managers: Employee[];
   managementLevels: ExtraLevel[];
   ancienneteLevels: ExtraLevel[];
 }) {
@@ -48,6 +50,7 @@ export function NewTalentClient({
   const [ancienneteId, setAncienneteId] = useState("");
   const [adjustment, setAdjustment] = useState("");
   const [managerId, setManagerId] = useState("");
+  const [isManager, setIsManager] = useState(false);
   const [location, setLocation] = useState("");
   const [hireDate, setHireDate] = useState("");
 
@@ -77,9 +80,16 @@ export function NewTalentClient({
     return total;
   }, [selectedLevel, selectedMgmt, selectedAnc, adj]);
 
+  const [billingResult, setBillingResult] = useState<{ previousSeats: number; newSeats: number; prorationCents: number; newMonthlyCents: number } | null>(null);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!confirm("L'ajout d'un talent va mettre à jour votre abonnement. Le montant sera ajusté au prorata. Souhaitez-vous continuer ?")) {
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch("/api/employees", {
@@ -98,12 +108,14 @@ export function NewTalentClient({
           current_anciennete_id: ancienneteId || null,
           salary_adjustment: adj,
           manager_id: managerId || null,
+          is_manager: isManager,
           location: location.trim() || null,
           hire_date: hireDate,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erreur lors de la création");
+      if (data.billingInfo) setBillingResult(data.billingInfo);
       router.push(`/dashboard/talents/${data.id}`);
       router.refresh();
     } catch (err) {
@@ -215,8 +227,26 @@ export function NewTalentClient({
             <label htmlFor="mgr" className={labelCls}>Manager</label>
             <select id="mgr" value={managerId} onChange={(e) => setManagerId(e.target.value)} className={selectCls} disabled={loading}>
               <option value="">— Aucun —</option>
-              {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name}</option>)}
+              {managers.map((emp) => <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name}</option>)}
             </select>
+            {managers.length === 0 && (
+              <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.45)]">Aucun manager défini. Créez d&apos;abord un talent avec le rôle manager.</p>
+            )}
+          </div>
+          <div className="flex items-center gap-3 sm:col-span-2">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isManager}
+              onClick={() => setIsManager(!isManager)}
+              disabled={loading}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${isManager ? "bg-[var(--brand)]" : "bg-gray-200"} disabled:cursor-not-allowed disabled:opacity-50`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${isManager ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+            <label className="cursor-pointer text-sm font-medium text-[var(--text)]" onClick={() => !loading && setIsManager(!isManager)}>
+              Ce talent est un manager
+            </label>
           </div>
         </div>
 
