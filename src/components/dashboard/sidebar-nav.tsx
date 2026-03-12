@@ -7,6 +7,9 @@ const navigation = [
   { label: "Accueil", href: "/dashboard" },
   { label: "Talents", href: "/dashboard/talents" },
   { label: "Grilles de salaire", href: "/dashboard/grilles" },
+  { label: "Entretiens", href: "/dashboard/entretiens" },
+  { label: "Statistiques", href: "/dashboard/statistiques" },
+  { label: "Organigramme", href: "/dashboard/organigramme" },
   { label: "Paramétrage", href: "/dashboard/parametres" },
 ];
 

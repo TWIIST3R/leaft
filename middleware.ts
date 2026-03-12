@@ -23,6 +23,8 @@ const isPublicRoute = createRouteMatcher([
 const isDashboardRoute = createRouteMatcher(["/dashboard(.*)"]);
 const isTalentSpaceRoute = createRouteMatcher(["/espace-talent(.*)"]);
 
+const TALENT_ROLES = ["Talent"];
+
 async function getUserRole(userId: string, orgId: string | null | undefined): Promise<"admin" | "member" | null> {
   const supabase = supabaseAdmin();
   let organizationId: string | null = null;
@@ -38,7 +40,7 @@ async function getUserRole(userId: string, orgId: string | null | undefined): Pr
       .eq("clerk_user_id", userId)
       .maybeSingle();
     if (userOrg) {
-      return userOrg.role === "member" ? "member" : "admin";
+      return TALENT_ROLES.includes(userOrg.role) ? "member" : "admin";
     }
     return null;
   }
@@ -51,7 +53,7 @@ async function getUserRole(userId: string, orgId: string | null | undefined): Pr
     .maybeSingle();
 
   if (userOrg) {
-    return userOrg.role === "member" ? "member" : "admin";
+    return TALENT_ROLES.includes(userOrg.role) ? "member" : "admin";
   }
   return null;
 }

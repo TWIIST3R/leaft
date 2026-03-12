@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     }
 
     const isAdmin = clerkRole === "org:admin";
-    const dbRole = isAdmin ? "admin" : "member";
+    const dbRole = isAdmin ? "Owner" : "Talent";
 
     const { error: uoError } = await supabase
       .from("user_organizations")

@@ -8,6 +8,15 @@ type Dept = { id: string; name: string };
 type Level = { id: string; name: string; department_id: string; montant_annuel: number | null };
 type Emp = { id: string; first_name: string; last_name: string };
 type ExtraLevel = { id: string; name: string; type: string; montant_annuel: number | null };
+type Interview = {
+  id: string;
+  interview_date: string;
+  type: string;
+  notes: string | null;
+  justification: string | null;
+  salary_adjustment: number | null;
+  created_at: string;
+};
 type Employee = {
   id: string;
   first_name: string;
@@ -44,6 +53,7 @@ export function TalentDetailClient({
   employees,
   managementLevels,
   ancienneteLevels,
+  interviews,
 }: {
   employee: Employee;
   departments: Dept[];
@@ -51,6 +61,7 @@ export function TalentDetailClient({
   employees: Emp[];
   managementLevels: ExtraLevel[];
   ancienneteLevels: ExtraLevel[];
+  interviews: Interview[];
 }) {
   const router = useRouter();
   const [employee, setEmployee] = useState(initialEmployee);
@@ -336,13 +347,44 @@ export function TalentDetailClient({
           </section>
 
           <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
-            <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Entretiens annuels</h2>
-            <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
-              Historique et prochain entretien. Bientôt disponible depuis cette fiche.
-            </p>
-            <div className="mt-4 rounded-xl border border-dashed border-[#e2e7e2] bg-[#f8faf8] p-6 text-center text-sm text-[color:rgba(11,11,11,0.6)]">
-              Suivi des entretiens à venir.
+            <div className="flex items-center justify-between">
+              <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Entretiens</h2>
+              <Link href="/dashboard/entretiens" className="text-xs font-medium text-[var(--brand)] hover:underline">
+                Voir tous les entretiens
+              </Link>
             </div>
+            {interviews.length === 0 ? (
+              <div className="mt-4 rounded-xl border border-dashed border-[#e2e7e2] bg-[#f8faf8] p-6 text-center text-sm text-[color:rgba(11,11,11,0.6)]">
+                Aucun entretien enregistré pour ce talent.
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {interviews.map((iv) => {
+                  const typeColors: Record<string, string> = { annuel: "bg-[var(--brand)]/10 text-[var(--brand)]", semestriel: "bg-blue-100 text-blue-800", ponctuel: "bg-amber-100 text-amber-800" };
+                  return (
+                    <div key={iv.id} className="rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${typeColors[iv.type] || "bg-gray-100 text-gray-800"}`}>
+                            {iv.type.charAt(0).toUpperCase() + iv.type.slice(1)}
+                          </span>
+                          <span className="text-sm text-[color:rgba(11,11,11,0.65)]">
+                            {new Date(iv.interview_date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                          </span>
+                        </div>
+                        {iv.salary_adjustment != null && Number(iv.salary_adjustment) !== 0 && (
+                          <span className="text-sm font-medium text-[var(--text)]">
+                            {Number(iv.salary_adjustment) > 0 ? "+" : ""}{Number(iv.salary_adjustment).toLocaleString("fr-FR")} €
+                          </span>
+                        )}
+                      </div>
+                      {iv.notes && <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.7)]">{iv.notes}</p>}
+                      {iv.justification && <p className="mt-1 text-xs italic text-[color:rgba(11,11,11,0.5)]">{iv.justification}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
         </>
       )}

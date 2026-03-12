@@ -203,14 +203,20 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
             <p className="text-sm font-semibold text-[var(--text)]">Grilles de salaire</p>
             <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.65)]">Départements et grilles</p>
           </Link>
-          <div className="rounded-2xl border border-[#e2e7e2] bg-[#f8faf8] p-4 text-left opacity-60">
+          <Link
+            href="/dashboard/entretiens"
+            className="block rounded-2xl border border-[#e2e7e2] bg-[#f8faf8] p-4 text-left transition hover:bg-[#f2f5f2]"
+          >
             <p className="text-sm font-semibold text-[var(--text)]">Entretiens</p>
-            <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.65)]">Bientôt disponible</p>
-          </div>
-          <div className="rounded-2xl border border-[#e2e7e2] bg-[#f8faf8] p-4 text-left opacity-60">
+            <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.65)]">Gérer les entretiens annuels</p>
+          </Link>
+          <Link
+            href="/dashboard/statistiques"
+            className="block rounded-2xl border border-[#e2e7e2] bg-[#f8faf8] p-4 text-left transition hover:bg-[#f2f5f2]"
+          >
             <p className="text-sm font-semibold text-[var(--text)]">Statistiques</p>
-            <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.65)]">Bientôt disponible</p>
-          </div>
+            <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.65)]">Démographie et équité</p>
+          </Link>
         </div>
       </section>
 

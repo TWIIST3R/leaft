@@ -44,6 +44,13 @@ async function getData(id: string) {
     ? await supabase.from("levels").select("id, name, department_id, montant_annuel").in("department_id", deptIds).order("order")
     : { data: [] };
 
+  const { data: interviews } = await supabase
+    .from("interviews")
+    .select("id, interview_date, type, notes, justification, salary_adjustment, created_at")
+    .eq("employee_id", id)
+    .eq("organization_id", organizationId)
+    .order("interview_date", { ascending: false });
+
   const extras = grilleExtra ?? [];
   return {
     employee,
@@ -52,6 +59,7 @@ async function getData(id: string) {
     employees: (allEmployees ?? []).filter((e) => e.id !== id),
     managementLevels: extras.filter((e) => e.type === "management"),
     ancienneteLevels: extras.filter((e) => e.type === "anciennete"),
+    interviews: interviews ?? [],
   };
 }
 
@@ -68,6 +76,7 @@ export default async function TalentFichePage({ params }: { params: Promise<{ id
       employees={data.employees}
       managementLevels={data.managementLevels}
       ancienneteLevels={data.ancienneteLevels}
+      interviews={data.interviews}
     />
   );
 }
