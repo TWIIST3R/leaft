@@ -38,7 +38,7 @@ async function getUserRole(userId: string, orgId: string | null | undefined): Pr
       .eq("clerk_user_id", userId)
       .maybeSingle();
     if (userOrg) {
-      return userOrg.role === "admin" ? "admin" : "member";
+      return userOrg.role === "member" ? "member" : "admin";
     }
     return null;
   }
@@ -51,7 +51,7 @@ async function getUserRole(userId: string, orgId: string | null | undefined): Pr
     .maybeSingle();
 
   if (userOrg) {
-    return userOrg.role === "admin" ? "admin" : "member";
+    return userOrg.role === "member" ? "member" : "admin";
   }
   return null;
 }
