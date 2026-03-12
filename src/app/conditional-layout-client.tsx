@@ -5,7 +5,7 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 
 // Routes where header and footer should be hidden (public header/footer; app has its own layout)
-const HIDDEN_HEADER_ROUTES = ["/onboarding", "/sign-in", "/sign-up", "/dashboard"];
+const HIDDEN_HEADER_ROUTES = ["/onboarding", "/sign-in", "/sign-up", "/dashboard", "/espace-talent"];
 
 export function ConditionalLayoutClient({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
