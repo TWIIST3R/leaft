@@ -31,7 +31,7 @@ export async function GET() {
     const supabase = supabaseAdmin();
     const { data, error } = await supabase
       .from("organizations")
-      .select("id, name, salary_transparency_enabled")
+      .select("id, name, salary_transparency_enabled, logo_url")
       .eq("id", organizationId)
       .single();
 
@@ -41,6 +41,7 @@ export async function GET() {
     return NextResponse.json({
       salary_transparency_enabled: data.salary_transparency_enabled ?? false,
       name: data.name,
+      logo_url: data.logo_url ?? null,
     });
   } catch (e) {
     console.error("Organization settings GET:", e);
@@ -57,12 +58,15 @@ export async function PATCH(request: NextRequest) {
     if (!organizationId) return NextResponse.json({ error: "Organisation introuvable" }, { status: 404 });
 
     const body = await request.json();
-    const updates: { salary_transparency_enabled?: boolean; name?: string } = {};
+    const updates: { salary_transparency_enabled?: boolean; name?: string; logo_url?: string | null } = {};
     if (typeof body.salary_transparency_enabled === "boolean") {
       updates.salary_transparency_enabled = body.salary_transparency_enabled;
     }
     if (typeof body.name === "string" && body.name.trim()) {
       updates.name = body.name.trim();
+    }
+    if (body.logo_url !== undefined) {
+      updates.logo_url = typeof body.logo_url === "string" ? body.logo_url : null;
     }
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "Aucune modification" }, { status: 400 });
@@ -73,7 +77,7 @@ export async function PATCH(request: NextRequest) {
       .from("organizations")
       .update(updates)
       .eq("id", organizationId)
-      .select("id, name, salary_transparency_enabled")
+      .select("id, name, salary_transparency_enabled, logo_url")
       .single();
 
     if (error) {
@@ -83,6 +87,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({
       salary_transparency_enabled: data.salary_transparency_enabled ?? false,
       name: data.name,
+      logo_url: data.logo_url ?? null,
     });
   } catch (e) {
     console.error("Organization settings PATCH:", e);

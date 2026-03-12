@@ -74,11 +74,28 @@ async function getOrganizationData() {
           .in("department_id", ids)
       : { count: 0 };
 
+  const { data: allEmployees } = await supabase
+    .from("employees")
+    .select("annual_salary_brut, gender, hire_date, first_name, last_name")
+    .eq("organization_id", organization.id)
+    .order("hire_date", { ascending: false });
+
+  const emps = allEmployees ?? [];
+  const salaries = emps.map((e) => Number(e.annual_salary_brut)).filter((s) => s > 0);
+  const avgSalary = salaries.length > 0 ? Math.round(salaries.reduce((a, b) => a + b, 0) / salaries.length) : 0;
+  const genderF = emps.filter((e) => e.gender === "F").length;
+  const genderH = emps.filter((e) => e.gender === "H").length;
+  const newestHire = emps.length > 0 ? emps[0] : null;
+
   return {
     organization,
     employeesCount: employeesCount ?? 0,
     departmentsCount: departmentsCount ?? 0,
     paliersCount: paliersCount ?? 0,
+    avgSalary,
+    genderF,
+    genderH,
+    newestHire: newestHire ? { name: `${newestHire.first_name} ${newestHire.last_name}`, date: newestHire.hire_date } : null,
   };
 }
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
@@ -7,23 +8,24 @@ import { SidebarNav } from "@/components/dashboard/sidebar-nav";
 import { checkSubscriptionAccess } from "@/lib/subscription-check";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-async function getOrgName(orgId?: string | null, userId?: string | null): Promise<string> {
-  if (!userId) return "";
+async function getOrgInfo(orgId?: string | null, userId?: string | null): Promise<{ name: string; logo_url: string | null }> {
+  if (!userId) return { name: "", logo_url: null };
   const supabase = supabaseAdmin();
   if (orgId) {
     const { data } = await supabase
       .from("organizations")
-      .select("name")
+      .select("name, logo_url")
       .eq("clerk_organization_id", orgId)
       .single();
-    if (data?.name) return data.name;
+    if (data?.name) return { name: data.name, logo_url: data.logo_url ?? null };
   }
   const { data: userOrg } = await supabase
     .from("user_organizations")
-    .select("organizations(name)")
+    .select("organizations(name, logo_url)")
     .eq("clerk_user_id", userId)
     .maybeSingle();
-  return (userOrg as { organizations?: { name?: string } })?.organizations?.name ?? "";
+  const org = (userOrg as { organizations?: { name?: string; logo_url?: string } })?.organizations;
+  return { name: org?.name ?? "", logo_url: org?.logo_url ?? null };
 }
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
@@ -42,22 +44,25 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect("/onboarding");
   }
 
-  const orgName = await getOrgName(orgId, userId);
+  const { name: orgName, logo_url: orgLogo } = await getOrgInfo(orgId, userId);
 
   return (
     <div className="flex min-h-screen bg-[#f7f9f7] text-[var(--text)]">
       <aside className="hidden w-64 border-r border-[#e2e7e2] bg-white/90 px-6 py-8 lg:flex lg:flex-col lg:backdrop-blur">
         <Link href="/" className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--brand)] text-sm font-bold text-white">
-            L
-          </span>
-          <span className="text-xs font-medium text-[color:rgba(11,11,11,0.45)]">Leaft</span>
+          <Image src="/brand/logo-dark.png" width={100} height={40} alt="Leaft" />
         </Link>
         {orgName && (
           <div className="mt-4 flex items-center gap-2.5 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] px-3 py-2.5">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--brand)]/15 text-sm font-bold text-[var(--brand)]">
-              {orgName.charAt(0).toUpperCase()}
-            </span>
+            {orgLogo ? (
+              <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg">
+                <Image src={orgLogo} alt={orgName} fill className="object-contain" unoptimized />
+              </div>
+            ) : (
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--brand)]/15 text-sm font-bold text-[var(--brand)]">
+                {orgName.charAt(0).toUpperCase()}
+              </span>
+            )}
             <span className="truncate text-sm font-semibold text-[var(--text)]">{orgName}</span>
           </div>
         )}
