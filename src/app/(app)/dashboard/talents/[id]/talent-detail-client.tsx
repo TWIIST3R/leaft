@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 type Dept = { id: string; name: string };
 type Level = { id: string; name: string; department_id: string; montant_annuel: number | null };
 type Emp = { id: string; first_name: string; last_name: string };
+type ExtraLevel = { id: string; name: string; type: string; montant_annuel: number | null };
 type Employee = {
   id: string;
   first_name: string;
@@ -18,6 +19,9 @@ type Employee = {
   current_job_title: string;
   current_level_id: string | null;
   current_department_id: string | null;
+  current_management_id: string | null;
+  current_anciennete_id: string | null;
+  salary_adjustment: number | null;
   manager_id: string | null;
   location: string | null;
   annual_salary_brut: number;
@@ -38,11 +42,15 @@ export function TalentDetailClient({
   departments,
   levels,
   employees,
+  managementLevels,
+  ancienneteLevels,
 }: {
   employee: Employee;
   departments: Dept[];
   levels: Level[];
   employees: Emp[];
+  managementLevels: ExtraLevel[];
+  ancienneteLevels: ExtraLevel[];
 }) {
   const router = useRouter();
   const [employee, setEmployee] = useState(initialEmployee);
@@ -59,15 +67,33 @@ export function TalentDetailClient({
   const [jobTitle, setJobTitle] = useState(employee.current_job_title);
   const [departmentId, setDepartmentId] = useState(employee.current_department_id ?? "");
   const [levelId, setLevelId] = useState(employee.current_level_id ?? "");
+  const [managementId, setManagementId] = useState(employee.current_management_id ?? "");
+  const [ancienneteId, setAncienneteId] = useState(employee.current_anciennete_id ?? "");
+  const [adjustment, setAdjustment] = useState(String(employee.salary_adjustment ?? 0));
   const [managerId, setManagerId] = useState(employee.manager_id ?? "");
   const [loc, setLoc] = useState(employee.location ?? "");
   const [hireDate, setHireDate] = useState(employee.hire_date);
-  const [salary, setSalary] = useState(String(employee.annual_salary_brut));
 
   const filteredLevels = departmentId ? levels.filter((l) => l.department_id === departmentId) : [];
   const deptName = departments.find((d) => d.id === employee.current_department_id)?.name;
-  const levelName = levels.find((l) => l.id === employee.current_level_id)?.name;
+  const levelObj = levels.find((l) => l.id === employee.current_level_id);
+  const mgmtObj = managementLevels.find((m) => m.id === employee.current_management_id);
+  const ancObj = ancienneteLevels.find((a) => a.id === employee.current_anciennete_id);
   const managerEmp = employees.find((e) => e.id === employee.manager_id);
+
+  const editLevel = levels.find((l) => l.id === levelId);
+  const editMgmt = managementLevels.find((m) => m.id === managementId);
+  const editAnc = ancienneteLevels.find((a) => a.id === ancienneteId);
+  const adj = Number(adjustment) || 0;
+
+  const computedSalary = useMemo(() => {
+    let total = 0;
+    if (editLevel?.montant_annuel) total += Number(editLevel.montant_annuel);
+    if (editMgmt?.montant_annuel) total += Number(editMgmt.montant_annuel);
+    if (editAnc?.montant_annuel) total += Number(editAnc.montant_annuel);
+    total += adj;
+    return total;
+  }, [editLevel, editMgmt, editAnc, adj]);
 
   function resetForm() {
     setFirstName(employee.first_name);
@@ -78,10 +104,12 @@ export function TalentDetailClient({
     setJobTitle(employee.current_job_title);
     setDepartmentId(employee.current_department_id ?? "");
     setLevelId(employee.current_level_id ?? "");
+    setManagementId(employee.current_management_id ?? "");
+    setAncienneteId(employee.current_anciennete_id ?? "");
+    setAdjustment(String(employee.salary_adjustment ?? 0));
     setManagerId(employee.manager_id ?? "");
     setLoc(employee.location ?? "");
     setHireDate(employee.hire_date);
-    setSalary(String(employee.annual_salary_brut));
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -102,10 +130,12 @@ export function TalentDetailClient({
           current_job_title: jobTitle.trim(),
           current_department_id: departmentId || null,
           current_level_id: levelId || null,
+          current_management_id: managementId || null,
+          current_anciennete_id: ancienneteId || null,
+          salary_adjustment: adj,
           manager_id: managerId || null,
           location: loc.trim() || null,
           hire_date: hireDate,
-          annual_salary_brut: Number(salary),
         }),
       });
       const data = await res.json();
@@ -138,8 +168,14 @@ export function TalentDetailClient({
     }
   }
 
-  const inputCls = "w-full rounded-xl border border-[#e2e7e2] bg-white px-4 py-2.5 text-sm text-[var(--text)] transition focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20 disabled:opacity-50";
-  const labelCls = "block text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]";
+  function fmtEuro(n: number | null | undefined) {
+    if (n == null) return "";
+    return ` (${Number(n).toLocaleString("fr-FR")} €)`;
+  }
+
+  const inputCls = "w-full cursor-text rounded-xl border border-[#e2e7e2] bg-white px-4 py-2.5 text-sm text-[var(--text)] shadow-sm transition-all duration-200 hover:border-[var(--brand)]/40 hover:shadow-md focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20 focus:shadow-md disabled:cursor-not-allowed disabled:opacity-50";
+  const selectCls = "w-full cursor-pointer rounded-xl border border-[#e2e7e2] bg-white px-4 py-2.5 text-sm text-[var(--text)] shadow-sm transition-all duration-200 hover:border-[var(--brand)]/40 hover:shadow-md focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20 focus:shadow-md disabled:cursor-not-allowed disabled:opacity-50";
+  const labelCls = "mb-1 block cursor-pointer text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]";
 
   return (
     <div className="space-y-8">
@@ -179,22 +215,39 @@ export function TalentDetailClient({
               <div><label className={labelCls}>Prénom *</label><input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputCls} required disabled={loading} /></div>
               <div><label className={labelCls}>Nom *</label><input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputCls} required disabled={loading} /></div>
               <div><label className={labelCls}>Email *</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} required disabled={loading} /></div>
-              <div><label className={labelCls}>Genre</label><select value={gender} onChange={(e) => setGender(e.target.value)} className={inputCls} disabled={loading}>{GENDER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
-              <div><label className={labelCls}>Date de naissance</label><input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} className={inputCls} disabled={loading} /></div>
+              <div><label className={labelCls}>Genre</label><select value={gender} onChange={(e) => setGender(e.target.value)} className={selectCls} disabled={loading}>{GENDER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
+              <div><label className={labelCls}>Date de naissance</label><input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} className={`${inputCls} cursor-pointer`} disabled={loading} /></div>
               <div><label className={labelCls}>Localisation</label><input type="text" value={loc} onChange={(e) => setLoc(e.target.value)} className={inputCls} disabled={loading} /></div>
             </div>
           </section>
+
           <section className="rounded-3xl border border-[var(--brand)]/30 bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
             <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Poste & rémunération</h2>
             <div className="mt-5 grid gap-5 sm:grid-cols-2">
               <div><label className={labelCls}>Poste *</label><input type="text" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className={inputCls} required disabled={loading} /></div>
-              <div><label className={labelCls}>Date d&apos;entrée *</label><input type="date" value={hireDate} onChange={(e) => setHireDate(e.target.value)} className={inputCls} required disabled={loading} /></div>
-              <div><label className={labelCls}>Département</label><select value={departmentId} onChange={(e) => { setDepartmentId(e.target.value); setLevelId(""); }} className={inputCls} disabled={loading}><option value="">— Aucun —</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
-              <div><label className={labelCls}>Niveau / Palier</label><select value={levelId} onChange={(e) => setLevelId(e.target.value)} className={inputCls} disabled={loading || !departmentId}><option value="">— Aucun —</option>{filteredLevels.map((l) => <option key={l.id} value={l.id}>{l.name}{l.montant_annuel != null ? ` (${Number(l.montant_annuel).toLocaleString("fr-FR")} €)` : ""}</option>)}</select></div>
-              <div><label className={labelCls}>Salaire annuel brut (€) *</label><input type="number" value={salary} onChange={(e) => setSalary(e.target.value)} min={0} step={100} className={inputCls} required disabled={loading} /></div>
-              <div><label className={labelCls}>Manager</label><select value={managerId} onChange={(e) => setManagerId(e.target.value)} className={inputCls} disabled={loading}><option value="">— Aucun —</option>{employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name}</option>)}</select></div>
+              <div><label className={labelCls}>Date d&apos;entrée *</label><input type="date" value={hireDate} onChange={(e) => setHireDate(e.target.value)} className={`${inputCls} cursor-pointer`} required disabled={loading} /></div>
+              <div><label className={labelCls}>Département</label><select value={departmentId} onChange={(e) => { setDepartmentId(e.target.value); setLevelId(""); }} className={selectCls} disabled={loading}><option value="">— Aucun —</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
+              <div><label className={labelCls}>Niveau / Palier</label><select value={levelId} onChange={(e) => setLevelId(e.target.value)} className={selectCls} disabled={loading || !departmentId}><option value="">— Aucun —</option>{filteredLevels.map((l) => <option key={l.id} value={l.id}>{l.name}{fmtEuro(l.montant_annuel)}</option>)}</select></div>
+              <div><label className={labelCls}>Niveau Management</label><select value={managementId} onChange={(e) => setManagementId(e.target.value)} className={selectCls} disabled={loading}><option value="">— Aucun —</option>{managementLevels.map((m) => <option key={m.id} value={m.id}>{m.name}{fmtEuro(m.montant_annuel)}</option>)}</select></div>
+              <div><label className={labelCls}>Niveau Ancienneté</label><select value={ancienneteId} onChange={(e) => setAncienneteId(e.target.value)} className={selectCls} disabled={loading}><option value="">— Aucun —</option>{ancienneteLevels.map((a) => <option key={a.id} value={a.id}>{a.name}{fmtEuro(a.montant_annuel)}</option>)}</select></div>
+              <div><label className={labelCls}>Ajustement annuel brut (€)</label><input type="number" value={adjustment} onChange={(e) => setAdjustment(e.target.value)} step={100} className={inputCls} disabled={loading} /></div>
+              <div><label className={labelCls}>Manager</label><select value={managerId} onChange={(e) => setManagerId(e.target.value)} className={selectCls} disabled={loading}><option value="">— Aucun —</option>{employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name}</option>)}</select></div>
+            </div>
+
+            <div className="mt-6 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 px-5 py-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Rémunération totale calculée</p>
+              <p className="mt-1 text-2xl font-semibold text-[var(--text)]">
+                {computedSalary > 0 ? `${computedSalary.toLocaleString("fr-FR")} €` : "—"}
+              </p>
+              <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.5)]">
+                = Palier{editLevel ? ` (${Number(editLevel.montant_annuel ?? 0).toLocaleString("fr-FR")} €)` : " (—)"}
+                {" + "}Management{editMgmt ? ` (${Number(editMgmt.montant_annuel ?? 0).toLocaleString("fr-FR")} €)` : " (—)"}
+                {" + "}Ancienneté{editAnc ? ` (${Number(editAnc.montant_annuel ?? 0).toLocaleString("fr-FR")} €)` : " (—)"}
+                {" + "}Ajustement ({adj.toLocaleString("fr-FR")} €)
+              </p>
             </div>
           </section>
+
           <div className="flex items-center gap-3">
             <button type="submit" disabled={loading} className="cursor-pointer rounded-full bg-[var(--brand)] px-6 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50">
               {loading ? "Enregistrement..." : "Enregistrer"}
@@ -226,11 +279,29 @@ export function TalentDetailClient({
               <div>
                 <dt className={labelCls}>Niveau / Palier</dt>
                 <dd className="mt-1 text-sm text-[var(--text)]">
-                  {levelName ? <span className="rounded-lg bg-[var(--brand)]/15 px-2 py-0.5 text-xs font-semibold text-[var(--brand)]">{levelName}</span> : "—"}
+                  {levelObj ? <span className="rounded-lg bg-[var(--brand)]/15 px-2 py-0.5 text-xs font-semibold text-[var(--brand)]">{levelObj.name}{fmtEuro(levelObj.montant_annuel)}</span> : "—"}
                 </dd>
               </div>
               <div>
-                <dt className={labelCls}>Salaire annuel brut</dt>
+                <dt className={labelCls}>Niveau Management</dt>
+                <dd className="mt-1 text-sm text-[var(--text)]">
+                  {mgmtObj ? <span className="rounded-lg bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">{mgmtObj.name}{fmtEuro(mgmtObj.montant_annuel)}</span> : "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className={labelCls}>Niveau Ancienneté</dt>
+                <dd className="mt-1 text-sm text-[var(--text)]">
+                  {ancObj ? <span className="rounded-lg bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">{ancObj.name}{fmtEuro(ancObj.montant_annuel)}</span> : "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className={labelCls}>Ajustement annuel</dt>
+                <dd className="mt-1 text-sm text-[var(--text)]">
+                  {employee.salary_adjustment ? `${Number(employee.salary_adjustment).toLocaleString("fr-FR")} €` : "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className={labelCls}>Rémunération totale</dt>
                 <dd className="mt-1 text-sm font-semibold text-[var(--text)]">
                   {employee.annual_salary_brut != null ? `${Number(employee.annual_salary_brut).toLocaleString("fr-FR")} €` : "—"}
                 </dd>

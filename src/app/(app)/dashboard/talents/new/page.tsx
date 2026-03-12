@@ -19,9 +19,10 @@ async function getData() {
   }
   if (!organizationId) redirect("/onboarding");
 
-  const [{ data: departments }, { data: employees }] = await Promise.all([
+  const [{ data: departments }, { data: employees }, { data: grilleExtra }] = await Promise.all([
     supabase.from("departments").select("id, name").eq("organization_id", organizationId).order("name"),
     supabase.from("employees").select("id, first_name, last_name").eq("organization_id", organizationId).order("last_name"),
+    supabase.from("grille_extra").select("id, name, type, montant_annuel").eq("organization_id", organizationId).order("order"),
   ]);
 
   const deptIds = (departments ?? []).map((d) => d.id);
@@ -29,10 +30,13 @@ async function getData() {
     ? await supabase.from("levels").select("id, name, department_id, montant_annuel").in("department_id", deptIds).order("order")
     : { data: [] };
 
+  const extras = grilleExtra ?? [];
   return {
     departments: departments ?? [],
     levels: levels ?? [],
     employees: employees ?? [],
+    managementLevels: extras.filter((e) => e.type === "management"),
+    ancienneteLevels: extras.filter((e) => e.type === "anciennete"),
   };
 }
 
@@ -51,6 +55,8 @@ export default async function NewTalentPage() {
         departments={data.departments}
         levels={data.levels}
         employees={data.employees}
+        managementLevels={data.managementLevels}
+        ancienneteLevels={data.ancienneteLevels}
       />
     </div>
   );

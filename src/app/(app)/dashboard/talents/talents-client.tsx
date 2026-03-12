@@ -119,7 +119,7 @@ export function TalentsClient({
                   <th className="px-6 py-4 font-semibold text-[var(--text)]">Poste</th>
                   <th className="px-6 py-4 font-semibold text-[var(--text)]">Département</th>
                   <th className="px-6 py-4 font-semibold text-[var(--text)]">Niveau</th>
-                  <th className="px-6 py-4 font-semibold text-[var(--text)]">Salaire brut</th>
+                  <th className="px-6 py-4 font-semibold text-[var(--text)]">Rémunération</th>
                   <th className="px-6 py-4 font-semibold text-[var(--text)]">Entrée</th>
                   <th className="px-6 py-4"></th>
                 </tr>

@@ -23,8 +23,34 @@ async function getOrganizationId(userId: string, orgId: string | null) {
 const EMPLOYEE_SELECT = `
   id, first_name, last_name, email, gender, birth_date, hire_date,
   current_job_title, current_level_id, current_department_id, manager_id,
+  current_management_id, current_anciennete_id, salary_adjustment,
   location, annual_salary_brut, created_at, updated_at
 `;
+
+async function computeSalary(
+  supabase: ReturnType<typeof supabaseAdmin>,
+  levelId: string | null,
+  managementId: string | null,
+  ancienneteId: string | null,
+  adjustment: number
+): Promise<number> {
+  let total = adjustment || 0;
+
+  if (levelId) {
+    const { data } = await supabase.from("levels").select("montant_annuel").eq("id", levelId).single();
+    if (data?.montant_annuel) total += Number(data.montant_annuel);
+  }
+  if (managementId) {
+    const { data } = await supabase.from("grille_extra").select("montant_annuel").eq("id", managementId).single();
+    if (data?.montant_annuel) total += Number(data.montant_annuel);
+  }
+  if (ancienneteId) {
+    const { data } = await supabase.from("grille_extra").select("montant_annuel").eq("id", ancienneteId).single();
+    if (data?.montant_annuel) total += Number(data.montant_annuel);
+  }
+
+  return total;
+}
 
 export async function GET(
   _request: NextRequest,
@@ -76,11 +102,13 @@ export async function PATCH(
     if (typeof body.email === "string" && body.email.trim()) updates.email = body.email.trim();
     if (typeof body.current_job_title === "string") updates.current_job_title = body.current_job_title.trim();
     if (body.hire_date !== undefined) updates.hire_date = body.hire_date;
-    if (body.annual_salary_brut !== undefined) updates.annual_salary_brut = body.annual_salary_brut;
     if (body.gender !== undefined) updates.gender = body.gender || null;
     if (body.birth_date !== undefined) updates.birth_date = body.birth_date || null;
     if (body.current_department_id !== undefined) updates.current_department_id = body.current_department_id || null;
     if (body.current_level_id !== undefined) updates.current_level_id = body.current_level_id || null;
+    if (body.current_management_id !== undefined) updates.current_management_id = body.current_management_id || null;
+    if (body.current_anciennete_id !== undefined) updates.current_anciennete_id = body.current_anciennete_id || null;
+    if (body.salary_adjustment !== undefined) updates.salary_adjustment = body.salary_adjustment ?? 0;
     if (body.manager_id !== undefined) updates.manager_id = body.manager_id || null;
     if (body.location !== undefined) updates.location = typeof body.location === "string" ? body.location.trim() || null : null;
 
@@ -89,6 +117,23 @@ export async function PATCH(
     }
 
     const supabase = supabaseAdmin();
+
+    const needsRecompute = body.current_level_id !== undefined ||
+      body.current_management_id !== undefined ||
+      body.current_anciennete_id !== undefined ||
+      body.salary_adjustment !== undefined;
+
+    if (needsRecompute) {
+      const { data: current } = await supabase.from("employees").select("current_level_id, current_management_id, current_anciennete_id, salary_adjustment").eq("id", id).single();
+      if (current) {
+        const levelId = body.current_level_id !== undefined ? (body.current_level_id || null) : current.current_level_id;
+        const mgmtId = body.current_management_id !== undefined ? (body.current_management_id || null) : current.current_management_id;
+        const ancId = body.current_anciennete_id !== undefined ? (body.current_anciennete_id || null) : current.current_anciennete_id;
+        const adj = body.salary_adjustment !== undefined ? (body.salary_adjustment ?? 0) : (current.salary_adjustment ?? 0);
+        updates.annual_salary_brut = await computeSalary(supabase, levelId, mgmtId, ancId, Number(adj));
+      }
+    }
+
     const { data, error } = await supabase
       .from("employees")
       .update(updates)
