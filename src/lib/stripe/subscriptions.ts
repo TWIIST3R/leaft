@@ -539,25 +539,33 @@ export async function previewAddSeat(organizationId: string): Promise<PreviewAdd
   );
   if (!talentItem) return null;
 
+  const periodStart = (subscription as { current_period_start?: number }).current_period_start ?? 0;
+  const periodEnd = (subscription as { current_period_end?: number }).current_period_end ?? 0;
+  const now = Math.floor(Date.now() / 1000);
+  const daysInPeriod = periodEnd > periodStart ? Math.ceil((periodEnd - periodStart) / 86400) : 365;
+  const daysRemaining = Math.max(1, Math.ceil((periodEnd - now) / 86400));
+
   let prorationAmountCents = 0;
   try {
     const preview = await stripe.invoices.createPreview({
       subscription: subscription.id,
       subscription_details: {
         items: [{ id: talentItem.id, quantity: newSeatCount }],
+        proration_date: now,
+        proration_behavior: "always_invoice",
       },
     });
-    prorationAmountCents = preview.amount_due ?? 0;
+    const lines = (preview as { lines?: { data?: { amount: number; subscription_item_details?: { proration?: boolean } }[] } }).lines?.data ?? [];
+    const prorationSum = lines
+      .filter((line) => line.subscription_item_details?.proration === true)
+      .reduce((sum, line) => sum + (line.amount ?? 0), 0);
+    prorationAmountCents = prorationSum > 0 ? prorationSum : (preview.amount_due ?? 0);
   } catch {
-    // Fallback to calculated estimate
     const tier = getPricingTier(newSeatCount);
     const planType = (subscription.metadata?.plan_type || "monthly") as "monthly" | "annual";
     const pricing = PRICING_TIERS[planType][tier];
-    const perSeat = pricing.perSeat * 100;
-    const daysInPeriod = 365;
-    const periodEnd = (subscription as { current_period_end?: number }).current_period_end ?? 0;
-    const daysRemaining = Math.max(1, Math.ceil((periodEnd - Math.floor(Date.now() / 1000)) / 86400));
-    prorationAmountCents = Math.round((perSeat * daysRemaining) / daysInPeriod);
+    const perSeatCents = Math.round(pricing.perSeat * 100);
+    prorationAmountCents = Math.round((perSeatCents * daysRemaining) / daysInPeriod);
   }
 
   const tier = getPricingTier(newSeatCount);
@@ -568,7 +576,6 @@ export async function previewAddSeat(organizationId: string): Promise<PreviewAdd
     : pricing.perSeat * newSeatCount;
   const newMonthlyAmountCents = Math.round(amountPerMonthEur * 100);
 
-  const periodEnd = (subscription as { current_period_end?: number }).current_period_end;
   const nextBillingDate = periodEnd
     ? new Date(periodEnd * 1000).toISOString().split("T")[0]
     : null;
