@@ -2,6 +2,7 @@
  * Email helpers. Configure RESEND_API_KEY and RESEND_FROM to send real emails.
  * Without Resend, emails are logged (e.g. in development).
  */
+const DEFAULT_FROM = process.env.RESEND_FROM || "Leaft <info@leaft.io>";
 
 export type AddTalentsEmailData = {
   to: string;
@@ -38,7 +39,7 @@ L'équipe Leaft
   `.trim();
 
   const resendApiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM || "onboarding@resend.dev";
+  const from = DEFAULT_FROM;
 
   if (resendApiKey) {
     try {
@@ -108,7 +109,7 @@ L'équipe Leaft
   `.trim();
 
   const resendApiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM || "onboarding@resend.dev";
+  const from = DEFAULT_FROM;
 
   if (resendApiKey) {
     try {
@@ -169,7 +170,7 @@ L'équipe Leaft
   `.trim();
 
   const resendApiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM || "onboarding@resend.dev";
+  const from = DEFAULT_FROM;
 
   if (resendApiKey) {
     try {

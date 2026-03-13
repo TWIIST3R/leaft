@@ -48,9 +48,9 @@ export default async function NewTalentPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-[var(--text)]">Ajouter un ou plusieurs talents</h1>
+        <h1 className="text-2xl font-semibold text-[var(--text)]">Ajouter un talent</h1>
         <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
-          Ajoutez un talent via le formulaire ou importez plusieurs talents en déposant un fichier CSV (modèle fourni).
+          Renseignez les informations du collaborateur. Les champs marqués d&apos;un * sont obligatoires.
         </p>
       </div>
       <NewTalentClient

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import gsap from "gsap";
@@ -91,14 +91,6 @@ export function NewTalentClient({
   const [pendingSuccessId, setPendingSuccessId] = useState<string | null>(null);
   const successCheckRef = useRef<HTMLDivElement>(null);
 
-  const [addMode, setAddMode] = useState<"single" | "bulk">("single");
-  const [bulkFile, setBulkFile] = useState<File | null>(null);
-  const [bulkDragOver, setBulkDragOver] = useState(false);
-  const [bulkLoading, setBulkLoading] = useState(false);
-  const [bulkResult, setBulkResult] = useState<{ created: number; errors: { row: number; message: string }[]; billingInfo?: { previousSeats: number; newSeats: number; prorationCents: number; newMonthlyCents: number } } | null>(null);
-  const [showBulkInfoModal, setShowBulkInfoModal] = useState(false);
-  const bulkInputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
     if (successModalOpen && successCheckRef.current) {
       const el = successCheckRef.current;
@@ -106,46 +98,6 @@ export function NewTalentClient({
       gsap.to(el, { scale: 1, opacity: 1, duration: 0.4, ease: "back.out(1.2)" });
     }
   }, [successModalOpen]);
-
-  const onBulkDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setBulkDragOver(false);
-    const f = e.dataTransfer.files?.[0];
-    const name = (f?.name || "").toLowerCase();
-    if (f && (name.endsWith(".csv") || name.endsWith(".xlsx") || name.endsWith(".xls"))) {
-      setBulkFile(f);
-      setBulkResult(null);
-    }
-  }, []);
-  const onBulkDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setBulkDragOver(true);
-  }, []);
-  const onBulkDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setBulkDragOver(false);
-  }, []);
-
-  async function handleBulkSubmit() {
-    if (!bulkFile) return;
-    setBulkLoading(true);
-    setBulkResult(null);
-    try {
-      const formData = new FormData();
-      formData.append("file", bulkFile);
-      const res = await fetch("/api/employees/bulk", { method: "POST", body: formData });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erreur import");
-      setBulkResult({ created: data.created, errors: data.errors ?? [], billingInfo: data.billingInfo ?? undefined });
-      if (data.created > 0) setBulkFile(null);
-      if (data.created > 0 && data.errors?.length === 0) router.refresh();
-    } catch (err) {
-      setBulkResult({ created: 0, errors: [{ row: 0, message: err instanceof Error ? err.message : "Erreur" }] });
-    } finally {
-      setBulkLoading(false);
-    }
-  }
-
 
   async function openConfirmModal() {
     setError(null);
@@ -236,175 +188,7 @@ export function NewTalentClient({
 
   return (
     <div className="space-y-8">
-      <div className="flex gap-2 border-b border-[#e2e7e2]">
-        <button
-          type="button"
-          onClick={() => setAddMode("single")}
-          className={`cursor-pointer border-b-2 px-4 py-2 text-sm font-medium transition ${addMode === "single" ? "border-[var(--brand)] text-[var(--brand)]" : "border-transparent text-[color:rgba(11,11,11,0.6)] hover:text-[var(--text)]"}`}
-        >
-          Un talent
-        </button>
-        <button
-          type="button"
-          onClick={() => setAddMode("bulk")}
-          className={`cursor-pointer border-b-2 px-4 py-2 text-sm font-medium transition ${addMode === "bulk" ? "border-[var(--brand)] text-[var(--brand)]" : "border-transparent text-[color:rgba(11,11,11,0.6)] hover:text-[var(--text)]"}`}
-        >
-          Plusieurs talents
-        </button>
-      </div>
-
-      {addMode === "bulk" && (
-        <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
-          <div className="flex items-center gap-2">
-            <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Import par fichier (CSV ou Excel)</h2>
-            <button
-              type="button"
-              onClick={() => setShowBulkInfoModal(true)}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--brand)]/10 text-[var(--brand)] transition hover:bg-[var(--brand)]/20"
-              title="Format attendu et colonnes"
-              aria-label="Informations sur le format du fichier"
-            >
-              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
-            </button>
-          </div>
-          <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
-            Téléchargez le modèle (CSV ou Excel), remplissez-le, puis déposez votre fichier .csv ou .xlsx ici.
-          </p>
-          <div
-            onDrop={onBulkDrop}
-            onDragOver={onBulkDragOver}
-            onDragLeave={onBulkDragLeave}
-            className={`mt-4 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 transition ${bulkDragOver ? "border-[var(--brand)] bg-[var(--brand)]/5" : "border-[#e2e7e2] bg-[#f8faf8]"}`}
-          >
-            <input
-              ref={bulkInputRef}
-              type="file"
-              accept=".csv,.xlsx,.xls"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) {
-                  setBulkFile(f);
-                  setBulkResult(null);
-                }
-                e.target.value = "";
-              }}
-            />
-            {bulkFile ? (
-              <div className="flex flex-col items-center gap-3">
-                <p className="font-medium text-[var(--text)]">{bulkFile.name}</p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => bulkInputRef.current?.click()}
-                    className="cursor-pointer rounded-full border border-[#e2e7e2] px-4 py-2 text-sm font-medium text-[var(--text)] hover:bg-[#f8faf8]"
-                  >
-                    Changer
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleBulkSubmit}
-                    disabled={bulkLoading}
-                    className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50"
-                  >
-                    {bulkLoading ? "Import en cours..." : "Importer"}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <p className="text-sm text-[color:rgba(11,11,11,0.65)]">Glissez-déposez un fichier .csv ou .xlsx ici</p>
-                <button
-                  type="button"
-                  onClick={() => bulkInputRef.current?.click()}
-                  className="mt-3 cursor-pointer rounded-full bg-[var(--brand)]/10 px-4 py-2 text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)]/20"
-                >
-                  Ou parcourir
-                </button>
-              </>
-            )}
-          </div>
-          {bulkResult && (
-            <div className="mt-6 space-y-2 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-4">
-              <p className="font-medium text-[var(--text)]">
-                {bulkResult.created} talent{bulkResult.created !== 1 ? "s" : ""} créé{bulkResult.created !== 1 ? "s" : ""}.
-                {bulkResult.errors.length > 0 && ` ${bulkResult.errors.length} erreur(s) sur certaines lignes.`}
-              </p>
-              {bulkResult.billingInfo && (
-                <ul className="list-inside list-disc text-sm text-[color:rgba(11,11,11,0.8)]">
-                  <li>Abonnement : {bulkResult.billingInfo.previousSeats} → {bulkResult.billingInfo.newSeats} talents</li>
-                  <li>Montant au prorata facturé : {(bulkResult.billingInfo.prorationCents / 100).toFixed(2).replace(".", ",")} €</li>
-                </ul>
-              )}
-              {bulkResult.errors.length > 0 && (
-                <ul className="mt-2 max-h-32 overflow-y-auto text-xs text-red-700">
-                  {bulkResult.errors.slice(0, 10).map((e, i) => (
-                    <li key={i}>Ligne {e.row} : {e.message}</li>
-                  ))}
-                  {bulkResult.errors.length > 10 && <li>… et {bulkResult.errors.length - 10} autre(s) erreur(s)</li>}
-                </ul>
-              )}
-            </div>
-          )}
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => window.open("/api/employees/template", "_blank")}
-              className="cursor-pointer rounded-full border border-[var(--brand)] px-4 py-2 text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)]/10"
-            >
-              Télécharger le modèle CSV
-            </button>
-            <button
-              type="button"
-              onClick={() => window.open("/api/employees/template?format=xlsx", "_blank")}
-              className="cursor-pointer rounded-full border border-[var(--brand)] px-4 py-2 text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)]/10"
-            >
-              Télécharger le modèle Excel
-            </button>
-            <Link href="/dashboard/talents" className="cursor-pointer rounded-full border border-[#e2e7e2] px-4 py-2 text-sm font-medium text-[var(--text)] hover:bg-[#f8faf8]">
-              Retour aux talents
-            </Link>
-          </div>
-        </section>
-      )}
-
-      <Modal open={showBulkInfoModal} onClose={() => setShowBulkInfoModal(false)} title="Format du fichier d'import (CSV ou Excel)">
-        <div className="space-y-4 text-sm text-[var(--text)]">
-          <p>
-            Formats acceptés : CSV (.csv) ou Excel (.xlsx, .xls). Première ligne = en-têtes de colonnes (comme dans le modèle). Lignes suivantes = un talent par ligne. CSV : séparateur <strong>point-virgule (;)</strong> ou virgule. Depuis Excel : enregistrer sous « CSV UTF-8 » ou « CSV (séparateur : point-virgule) ».
-          </p>
-          <p className="font-semibold">Colonnes attendues :</p>
-          <ul className="list-inside space-y-1 text-[color:rgba(11,11,11,0.8)]">
-            <li><strong>Prénom</strong>, <strong>Nom</strong>, <strong>Email</strong>, <strong>Poste</strong>, <strong>Date d&apos;entrée</strong> (obligatoires). Date au format AAAA-MM-JJ (ex. 2025-01-15).</li>
-            <li><strong>Genre</strong> : F, H, Autre, ou vide.</li>
-            <li><strong>Date de naissance</strong> : format AAAA-MM-JJ.</li>
-            <li><strong>Localisation</strong> : texte libre.</li>
-            <li><strong>Département</strong>, <strong>Niveau</strong> : noms exacts tels que dans votre grille (sinon laissés vides).</li>
-            <li><strong>Management</strong>, <strong>Ancienneté</strong> : noms des paliers correspondants, ou vide.</li>
-            <li><strong>Ajustement annuel</strong> : nombre (€), 0 si vide.</li>
-            <li><strong>Manager</strong> : Prénom Nom ou email d’un manager existant.</li>
-            <li><strong>Est manager</strong> : Oui / Non (ou 1/0).</li>
-          </ul>
-          <div className="flex flex-wrap gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => { window.open("/api/employees/template", "_blank"); setShowBulkInfoModal(false); }}
-              className="cursor-pointer rounded-full border border-[var(--brand)] px-4 py-2 text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)]/10"
-            >
-              Télécharger le modèle CSV
-            </button>
-            <button
-              type="button"
-              onClick={() => { window.open("/api/employees/template?format=xlsx", "_blank"); setShowBulkInfoModal(false); }}
-              className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white hover:brightness-110"
-            >
-              Télécharger le modèle Excel
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-    <form ref={formRef} onSubmit={handleSubmit} className="space-y-8" style={{ display: addMode === "single" ? undefined : "none" }}>
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-8">
       {error && (
         <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
       )}
@@ -546,7 +330,8 @@ export function NewTalentClient({
       </section>
 
       <div data-form-section className="flex items-center gap-3">
-        <button type="submit" disabled={loading} className="cursor-pointer rounded-full bg-[var(--brand)] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:brightness-110 hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50">
+        <button type="submit" disabled={loading} className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-[var(--brand)] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:brightness-110 hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50">
+          {loading && <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
           {loading ? "Création & envoi de l'invitation..." : "Ajouter le talent"}
         </button>
         <Link href="/dashboard/talents" className="cursor-pointer rounded-full border border-[#e2e7e2] px-5 py-2.5 text-sm font-medium text-[var(--text)] transition-all duration-200 hover:bg-[#f8faf8] hover:shadow-sm">
@@ -571,8 +356,9 @@ export function NewTalentClient({
               type="button"
               onClick={confirmAddTalent}
               disabled={loading}
-              className="cursor-pointer rounded-full bg-[var(--brand)] px-6 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
+              className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-[var(--brand)] px-6 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
             >
+              {loading && <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
               {loading ? "Création..." : "Confirmer l'ajout"}
             </button>
           </>

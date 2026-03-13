@@ -441,8 +441,9 @@ export function TalentDetailClient({
               type="button"
               onClick={confirmDelete}
               disabled={loading}
-              className="cursor-pointer rounded-full border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+              className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-100 disabled:opacity-50"
             >
+              {loading && <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-red-400 border-t-transparent" />}
               {loading ? "Suppression..." : "Supprimer"}
             </button>
           </>

@@ -590,6 +590,83 @@ export async function previewAddSeat(organizationId: string): Promise<PreviewAdd
 }
 
 /**
+ * Preview the cost of adding N seats (no subscription change).
+ */
+export async function previewAddSeats(organizationId: string, addCount: number): Promise<PreviewAddSeatResult | null> {
+  if (addCount < 1) return null;
+  const supabase = supabaseAdmin();
+  const { data: subRow, error: subError } = await supabase
+    .from("subscriptions")
+    .select("stripe_subscription_id, seat_count")
+    .eq("organization_id", organizationId)
+    .eq("status", "active")
+    .single();
+
+  if (subError || !subRow?.stripe_subscription_id) return null;
+
+  const previousSeatCount = subRow.seat_count ?? 0;
+  const newSeatCount = previousSeatCount + addCount;
+
+  const subscription = await stripe.subscriptions.retrieve(subRow.stripe_subscription_id, {
+    expand: ["items.data.price"],
+  });
+
+  const talentItem = subscription.items.data.find(
+    (item) => (item.price.metadata as Record<string, string> | null)?.type === "talent",
+  );
+  if (!talentItem) return null;
+
+  const periodStart = (subscription as { current_period_start?: number }).current_period_start ?? 0;
+  const periodEnd = (subscription as { current_period_end?: number }).current_period_end ?? 0;
+  const now = Math.floor(Date.now() / 1000);
+  const daysInPeriod = periodEnd > periodStart ? Math.ceil((periodEnd - periodStart) / 86400) : 365;
+  const daysRemaining = Math.max(1, Math.ceil((periodEnd - now) / 86400));
+
+  let prorationAmountCents = 0;
+  try {
+    const preview = await stripe.invoices.createPreview({
+      subscription: subscription.id,
+      subscription_details: {
+        items: [{ id: talentItem.id, quantity: newSeatCount }],
+        proration_date: now,
+        proration_behavior: "always_invoice",
+      },
+    });
+    const lines = (preview as { lines?: { data?: { amount: number; subscription_item_details?: { proration?: boolean } }[] } }).lines?.data ?? [];
+    const prorationSum = lines
+      .filter((line) => line.subscription_item_details?.proration === true)
+      .reduce((sum, line) => sum + (line.amount ?? 0), 0);
+    prorationAmountCents = prorationSum > 0 ? prorationSum : (preview.amount_due ?? 0);
+  } catch {
+    const tier = getPricingTier(newSeatCount);
+    const planType = (subscription.metadata?.plan_type || "monthly") as "monthly" | "annual";
+    const pricing = PRICING_TIERS[planType][tier];
+    const perSeatCents = Math.round(pricing.perSeat * 100);
+    prorationAmountCents = Math.round((perSeatCents * daysRemaining * addCount) / daysInPeriod);
+  }
+
+  const tier = getPricingTier(newSeatCount);
+  const planType = (subscription.metadata?.plan_type || "monthly") as "monthly" | "annual";
+  const pricing = PRICING_TIERS[planType][tier];
+  const amountPerMonthEur = planType === "annual"
+    ? (pricing.perSeat * newSeatCount) / 12
+    : pricing.perSeat * newSeatCount;
+  const newMonthlyAmountCents = Math.round(amountPerMonthEur * 100);
+
+  const nextBillingDate = periodEnd
+    ? new Date(periodEnd * 1000).toISOString().split("T")[0]
+    : null;
+
+  return {
+    previousSeatCount,
+    newSeatCount,
+    prorationAmountCents,
+    newMonthlyAmountCents,
+    nextBillingDate,
+  };
+}
+
+/**
  * Update subscription seat count (add or remove talents) with proration.
  * Uses always_invoice so the proration is charged immediately (invoice date = today).
  */

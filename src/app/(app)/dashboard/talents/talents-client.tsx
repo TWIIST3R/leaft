@@ -62,12 +62,20 @@ export function TalentsClient({
             {employees.length} collaborateur{employees.length > 1 ? "s" : ""} dans votre organisation.
           </p>
         </div>
-        <Link
-          href="/dashboard/talents/new"
-          className="inline-flex cursor-pointer items-center rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
-        >
-          Ajouter un talent
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href="/dashboard/talents/new"
+            className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+          >
+            <span>Ajouter un talent</span>
+          </Link>
+          <Link
+            href="/dashboard/talents/import"
+            className="inline-flex cursor-pointer items-center gap-2 rounded-full border-2 border-[var(--brand)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--brand)] transition hover:bg-[var(--brand)]/5"
+          >
+            Importer plusieurs talents
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
