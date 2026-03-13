@@ -19,19 +19,19 @@ export async function sendAddTalentsEmail(data: AddTalentsEmailData): Promise<{ 
   const body = `
 Bonjour,
 
-Votre abonnement Leaft pour ${data.organizationName} a été mis à jour.
+Votre abonnement Leaft pour ${data.organizationName} a été mis à jour suite à l'ajout d'un talent.
 
-Modalités :
-- Ancien nombre de talents : ${data.previousSeatCount}
-- Nouveaux talents ajoutés : ${data.addCount}
+Détail de l'ajustement :
+- Nombre de talents avant ajout : ${data.previousSeatCount}
+- Talent(s) ajouté(s) : ${data.addCount}
 - Nouveau total : ${data.newSeatCount} talent${data.newSeatCount > 1 ? "s" : ""}
 
-Montant :
+Montants :
 - Nouveau montant de l'abonnement (par mois) : ${data.newAmountPerMonthEur} €
-${data.prorationAmountEur !== "0,00" ? `- Montant au prorata (facturé maintenant) : ${data.prorationAmountEur} €` : ""}
-${data.nextBillingDate ? `- Prochaine facturation : ${data.nextBillingDate}` : ""}
+${data.prorationAmountEur !== "0,00" ? `- Montant au prorata (facturé aujourd'hui, à la date d'anniversaire de votre abonnement) : ${data.prorationAmountEur} €` : ""}
+${data.nextBillingDate ? `- Prochaine facturation (prochain anniversaire d'abonnement) : ${data.nextBillingDate}` : ""}
 
-Le prorata est calculé à partir de la date de début de votre période en cours.
+Un récapitulatif est également disponible dans votre espace Leaft.
 
 À bientôt,
 L'équipe Leaft

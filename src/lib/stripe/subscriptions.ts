@@ -505,9 +505,86 @@ export type AddTalentsResult = {
   newMonthlyAmountCents: number;
 };
 
+export type PreviewAddSeatResult = {
+  previousSeatCount: number;
+  newSeatCount: number;
+  prorationAmountCents: number;
+  newMonthlyAmountCents: number;
+  nextBillingDate: string | null;
+};
+
+/**
+ * Preview the cost of adding one seat (no subscription change).
+ */
+export async function previewAddSeat(organizationId: string): Promise<PreviewAddSeatResult | null> {
+  const supabase = supabaseAdmin();
+  const { data: subRow, error: subError } = await supabase
+    .from("subscriptions")
+    .select("stripe_subscription_id, seat_count")
+    .eq("organization_id", organizationId)
+    .eq("status", "active")
+    .single();
+
+  if (subError || !subRow?.stripe_subscription_id) return null;
+
+  const previousSeatCount = subRow.seat_count ?? 0;
+  const newSeatCount = previousSeatCount + 1;
+
+  const subscription = await stripe.subscriptions.retrieve(subRow.stripe_subscription_id, {
+    expand: ["items.data.price"],
+  });
+
+  const talentItem = subscription.items.data.find(
+    (item) => (item.price.metadata as Record<string, string> | null)?.type === "talent",
+  );
+  if (!talentItem) return null;
+
+  let prorationAmountCents = 0;
+  try {
+    const preview = await stripe.invoices.createPreview({
+      subscription: subscription.id,
+      subscription_details: {
+        items: [{ id: talentItem.id, quantity: newSeatCount }],
+      },
+    });
+    prorationAmountCents = preview.amount_due ?? 0;
+  } catch {
+    // Fallback to calculated estimate
+    const tier = getPricingTier(newSeatCount);
+    const planType = (subscription.metadata?.plan_type || "monthly") as "monthly" | "annual";
+    const pricing = PRICING_TIERS[planType][tier];
+    const perSeat = pricing.perSeat * 100;
+    const daysInPeriod = 365;
+    const periodEnd = (subscription as { current_period_end?: number }).current_period_end ?? 0;
+    const daysRemaining = Math.max(1, Math.ceil((periodEnd - Math.floor(Date.now() / 1000)) / 86400));
+    prorationAmountCents = Math.round((perSeat * daysRemaining) / daysInPeriod);
+  }
+
+  const tier = getPricingTier(newSeatCount);
+  const planType = (subscription.metadata?.plan_type || "monthly") as "monthly" | "annual";
+  const pricing = PRICING_TIERS[planType][tier];
+  const amountPerMonthEur = planType === "annual"
+    ? (pricing.perSeat * newSeatCount) / 12
+    : pricing.perSeat * newSeatCount;
+  const newMonthlyAmountCents = Math.round(amountPerMonthEur * 100);
+
+  const periodEnd = (subscription as { current_period_end?: number }).current_period_end;
+  const nextBillingDate = periodEnd
+    ? new Date(periodEnd * 1000).toISOString().split("T")[0]
+    : null;
+
+  return {
+    previousSeatCount,
+    newSeatCount,
+    prorationAmountCents,
+    newMonthlyAmountCents,
+    nextBillingDate,
+  };
+}
+
 /**
  * Update subscription seat count (add or remove talents) with proration.
- * No checkout: uses existing payment method. Proration is applied from subscription start.
+ * Uses always_invoice so the proration is charged immediately (invoice date = today).
  */
 export async function updateSubscriptionSeats(
   organizationId: string,
@@ -559,7 +636,7 @@ export async function updateSubscriptionSeats(
         quantity: newSeatCount,
       },
     ],
-    proration_behavior: "create_prorations",
+    proration_behavior: "always_invoice",
     metadata: {
       ...subscription.metadata,
       seat_count: String(newSeatCount),
@@ -579,12 +656,15 @@ export async function updateSubscriptionSeats(
 
   let prorationAmountCents = 0;
   try {
-    const invoice = await stripe.invoices.createPreview({
-      subscription: updated.id,
-    });
-    prorationAmountCents = invoice.amount_due ?? 0;
+    if (typeof updated.latest_invoice === "string" && updated.latest_invoice) {
+      const invoice = await stripe.invoices.retrieve(updated.latest_invoice);
+      prorationAmountCents = invoice.amount_due ?? 0;
+    } else if (updated.latest_invoice && typeof updated.latest_invoice === "object" && "amount_due" in updated.latest_invoice) {
+      prorationAmountCents = (updated.latest_invoice as Stripe.Invoice).amount_due ?? 0;
+    }
   } catch {
-    // Proration amount optional; email will still show new subscription amount
+    const preview = await stripe.invoices.createPreview({ subscription: updated.id }).catch(() => null);
+    if (preview) prorationAmountCents = preview.amount_due ?? 0;
   }
 
   return {

@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import gsap from "gsap";
+import { Modal } from "@/components/ui/modal";
 
 type Dept = { id: string; name: string };
 type Level = { id: string; name: string; department_id: string; montant_annuel: number | null };
@@ -80,17 +81,40 @@ export function NewTalentClient({
     return total;
   }, [selectedLevel, selectedMgmt, selectedAnc, adj]);
 
-  const [billingResult, setBillingResult] = useState<{ previousSeats: number; newSeats: number; prorationCents: number; newMonthlyCents: number } | null>(null);
+  type BillingInfo = { previousSeats: number; newSeats: number; prorationCents: number; newMonthlyCents: number };
+  type BillingPreview = { previousSeatCount: number; newSeatCount: number; prorationAmountCents: number; newMonthlyAmountCents: number; nextBillingDate?: string | null };
+
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [billingPreview, setBillingPreview] = useState<BillingPreview | null>(null);
+  const [billingResult, setBillingResult] = useState<BillingInfo | null>(null);
+  const [pendingSuccessId, setPendingSuccessId] = useState<string | null>(null);
+
+  async function openConfirmModal() {
+    setError(null);
+    try {
+      const res = await fetch("/api/subscription/preview-add-seat");
+      if (res.ok) {
+        const data = await res.json();
+        setBillingPreview(data);
+      } else {
+        setBillingPreview(null);
+      }
+    } catch {
+      setBillingPreview(null);
+    }
+    setConfirmModalOpen(true);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
+    await openConfirmModal();
+  }
 
-    if (!confirm("L'ajout d'un talent va mettre à jour votre abonnement. Le montant sera ajusté au prorata. Souhaitez-vous continuer ?")) {
-      return;
-    }
-
+  async function confirmAddTalent() {
+    setConfirmModalOpen(false);
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch("/api/employees", {
         method: "POST",
@@ -115,14 +139,31 @@ export function NewTalentClient({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erreur lors de la création");
-      if (data.billingInfo) setBillingResult(data.billingInfo);
-      router.push(`/dashboard/talents/${data.id}`);
-      router.refresh();
+      if (data.billingInfo) {
+        setBillingResult({
+          previousSeats: data.billingInfo.previousSeats,
+          newSeats: data.billingInfo.newSeats,
+          prorationCents: data.billingInfo.prorationCents,
+          newMonthlyCents: data.billingInfo.newMonthlyCents,
+        });
+      }
+      setPendingSuccessId(data.id);
+      setSuccessModalOpen(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur");
     } finally {
       setLoading(false);
     }
+  }
+
+  function closeSuccessModal() {
+    setSuccessModalOpen(false);
+    if (pendingSuccessId) {
+      router.push(`/dashboard/talents/${pendingSuccessId}`);
+      router.refresh();
+    }
+    setPendingSuccessId(null);
+    setBillingResult(null);
   }
 
   const inputCls =
@@ -286,6 +327,82 @@ export function NewTalentClient({
           Annuler
         </Link>
       </div>
+
+      <Modal
+        open={confirmModalOpen}
+        onClose={() => setConfirmModalOpen(false)}
+        title="Confirmer l'ajout du talent"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setConfirmModalOpen(false)}
+              className="cursor-pointer rounded-full border border-[#e2e7e2] px-5 py-2.5 text-sm font-medium text-[var(--text)] transition hover:bg-[#f8faf8]"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={confirmAddTalent}
+              disabled={loading}
+              className="cursor-pointer rounded-full bg-[var(--brand)] px-6 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
+            >
+              {loading ? "Création..." : "Confirmer l'ajout"}
+            </button>
+          </>
+        }
+      >
+        <p className="text-[var(--text)]">
+          L'ajout de ce talent va faire évoluer votre abonnement Leaft.
+        </p>
+        {billingPreview ? (
+          <div className="mt-4 space-y-2 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-4">
+            <p className="font-medium text-[var(--text)]">Détail de l'ajustement :</p>
+            <ul className="list-inside list-disc space-y-1 text-[color:rgba(11,11,11,0.8)]">
+              <li>Nombre de talents actuel : <strong>{billingPreview.previousSeatCount}</strong></li>
+              <li>Après ajout : <strong>{billingPreview.newSeatCount}</strong> talent{billingPreview.newSeatCount > 1 ? "s" : ""}</li>
+              <li>Nouveau montant mensuel de l'abonnement : <strong>{(billingPreview.newMonthlyAmountCents / 100).toFixed(2).replace(".", ",")} €</strong></li>
+              <li>Montant au prorata (facturé dès maintenant) : <strong>{(billingPreview.prorationAmountCents / 100).toFixed(2).replace(".", ",")} €</strong></li>
+            </ul>
+            <p className="mt-2 text-xs text-[color:rgba(11,11,11,0.6)]">
+              Un email récapitulatif vous sera envoyé après validation.
+            </p>
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
+            Le montant sera ajusté au prorata. Un email récapitulatif vous sera envoyé.
+          </p>
+        )}
+      </Modal>
+
+      <Modal
+        open={successModalOpen}
+        onClose={closeSuccessModal}
+        title="Talent ajouté"
+        footer={
+          <button
+            type="button"
+            onClick={closeSuccessModal}
+            className="cursor-pointer rounded-full bg-[var(--brand)] px-6 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+          >
+            OK
+          </button>
+        }
+      >
+        <p className="text-[var(--text)]">Le talent a été créé et une invitation par email lui a été envoyée.</p>
+        {billingResult && (
+          <div className="mt-4 space-y-2 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-4">
+            <p className="font-medium text-[var(--text)]">Votre abonnement a été mis à jour :</p>
+            <ul className="list-inside list-disc space-y-1 text-[color:rgba(11,11,11,0.8)]">
+              <li>Ancien nombre de talents : <strong>{billingResult.previousSeats}</strong></li>
+              <li>Nouveau total : <strong>{billingResult.newSeats}</strong> talent{billingResult.newSeats > 1 ? "s" : ""}</li>
+              <li>Nouveau montant mensuel : <strong>{(billingResult.newMonthlyCents / 100).toFixed(2).replace(".", ",")} €</strong></li>
+              <li>Montant au prorata facturé : <strong>{(billingResult.prorationCents / 100).toFixed(2).replace(".", ",")} €</strong></li>
+            </ul>
+            <p className="mt-2 text-sm font-medium text-[var(--brand)]">Un email récapitulatif vous a été envoyé.</p>
+          </div>
+        )}
+      </Modal>
     </form>
   );
 }

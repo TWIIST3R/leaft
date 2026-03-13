@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
+import { Modal } from "@/components/ui/modal";
 
 type Dept = { id: string; name: string };
 type Level = { id: string; name: string; department_id: string; montant_annuel: number | null };
@@ -74,6 +75,7 @@ export function TalentDetailClient({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   const [firstName, setFirstName] = useState(employee.first_name);
   const [lastName, setLastName] = useState(employee.last_name);
@@ -170,8 +172,12 @@ export function TalentDetailClient({
     }
   }
 
-  async function handleDelete() {
-    if (!confirm(`Supprimer ${employee.first_name} ${employee.last_name} ?\n\nCette action est irréversible. Votre abonnement sera ajusté et un crédit au prorata sera appliqué.`)) return;
+  function openDeleteModal() {
+    setDeleteModalOpen(true);
+  }
+
+  async function confirmDelete() {
+    setDeleteModalOpen(false);
     setLoading(true);
     try {
       const res = await fetch(`/api/employees/${employee.id}`, { method: "DELETE" });
@@ -221,7 +227,7 @@ export function TalentDetailClient({
             <button type="button" onClick={() => setEditing(true)} className="cursor-pointer rounded-full bg-[var(--brand)] px-5 py-2 text-sm font-semibold text-white transition hover:brightness-110">
               Modifier
             </button>
-            <button type="button" onClick={handleDelete} disabled={loading} className="cursor-pointer rounded-full border border-red-200 px-5 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50">
+            <button type="button" onClick={openDeleteModal} disabled={loading} className="cursor-pointer rounded-full border border-red-200 px-5 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50">
               Supprimer
             </button>
           </div>
@@ -417,6 +423,38 @@ export function TalentDetailClient({
           </section>
         </>
       )}
+
+      <Modal
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Supprimer ce talent"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setDeleteModalOpen(false)}
+              className="cursor-pointer rounded-full border border-[#e2e7e2] px-5 py-2.5 text-sm font-medium text-[var(--text)] transition hover:bg-[#f8faf8]"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={confirmDelete}
+              disabled={loading}
+              className="cursor-pointer rounded-full border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+            >
+              {loading ? "Suppression..." : "Supprimer"}
+            </button>
+          </>
+        }
+      >
+        <p className="text-[var(--text)]">
+          Souhaitez-vous vraiment supprimer <strong>{employee.first_name} {employee.last_name}</strong> ?
+        </p>
+        <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
+          Cette action est irréversible. Votre abonnement sera ajusté et un crédit au prorata sera appliqué sur votre prochaine facture. Un email récapitulatif vous sera envoyé.
+        </p>
+      </Modal>
     </div>
   );
 }

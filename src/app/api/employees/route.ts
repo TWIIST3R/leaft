@@ -190,6 +190,10 @@ export async function POST(request: NextRequest) {
         const adminEmail = user?.emailAddresses?.[0]?.emailAddress ?? "";
         if (adminEmail) {
           const { data: orgData } = await supabase.from("organizations").select("name").eq("id", organizationId).single();
+          const subAny = result.subscription as { current_period_end?: number };
+          const nextBillingDate = subAny?.current_period_end
+            ? new Date(subAny.current_period_end * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
+            : undefined;
           await sendAddTalentsEmail({
             to: adminEmail,
             organizationName: orgData?.name ?? "Votre organisation",
@@ -198,6 +202,7 @@ export async function POST(request: NextRequest) {
             addCount: 1,
             newAmountPerMonthEur: (result.newMonthlyAmountCents / 100).toFixed(2).replace(".", ","),
             prorationAmountEur: (result.prorationAmountCents / 100).toFixed(2).replace(".", ","),
+            nextBillingDate,
           });
         }
       }

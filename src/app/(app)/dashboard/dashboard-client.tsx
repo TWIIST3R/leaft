@@ -29,6 +29,7 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
   const router = useRouter();
   const { setActive, userMemberships } = useOrganizationList();
   const [isVerifying, setIsVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
   const sessionId = searchParams.get("session_id");
   const mainRef = useRef<HTMLDivElement>(null);
 
@@ -64,7 +65,7 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
             setTimeout(() => verifySubscription(), 2000);
           } else {
             setIsVerifying(false);
-            alert("Impossible de vérifier votre abonnement. Veuillez rafraîchir la page ou contacter le support.");
+            setVerifyError("Impossible de vérifier votre abonnement. Veuillez rafraîchir la page ou contacter le support.");
           }
         }
       } catch {
@@ -73,7 +74,7 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
           setTimeout(() => verifySubscription(), 2000);
         } else {
           setIsVerifying(false);
-          alert("Erreur lors de la vérification de l'abonnement. Veuillez rafraîchir la page.");
+          setVerifyError("Erreur lors de la vérification de l'abonnement. Veuillez rafraîchir la page.");
         }
       }
     };
@@ -86,6 +87,23 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
     const sections = mainRef.current.querySelectorAll("[data-animate]");
     gsap.fromTo(sections, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: "power2.out" });
   }, [isVerifying]);
+
+  if (verifyError) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center px-4">
+        <div className="max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
+          <p className="text-sm font-medium text-amber-800">{verifyError}</p>
+          <button
+            type="button"
+            onClick={() => { setVerifyError(null); router.refresh(); }}
+            className="mt-4 cursor-pointer rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+          >
+            Rafraîchir la page
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (isVerifying) {
     return (
