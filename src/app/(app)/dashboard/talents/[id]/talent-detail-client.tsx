@@ -19,6 +19,12 @@ type Interview = {
   salary_adjustment: number | null;
   created_at: string;
 };
+type SalaryHistoryEntry = {
+  id: string;
+  effective_date: string;
+  reason: string | null;
+  annual_salary: number | null;
+};
 type Employee = {
   id: string;
   first_name: string;
@@ -59,6 +65,7 @@ export function TalentDetailClient({
   managementLevels,
   ancienneteLevels,
   interviews,
+  salaryHistory = [],
 }: {
   employee: Employee;
   departments: Dept[];
@@ -68,6 +75,7 @@ export function TalentDetailClient({
   managementLevels: ExtraLevel[];
   ancienneteLevels: ExtraLevel[];
   interviews: Interview[];
+  salaryHistory?: SalaryHistoryEntry[];
 }) {
   const router = useRouter();
   const [employee, setEmployee] = useState(initialEmployee);
@@ -395,12 +403,16 @@ export function TalentDetailClient({
             ) : (
               <div className="mt-4 space-y-3">
                 {interviews.map((iv) => {
-                  const typeColors: Record<string, string> = { annuel: "bg-[var(--brand)]/10 text-[var(--brand)]", semestriel: "bg-blue-100 text-blue-800", ponctuel: "bg-amber-100 text-amber-800" };
+                  const typeColor = iv.type.includes("annuel") ? "bg-[var(--brand)]/10 text-[var(--brand)]" : iv.type.includes("semestriel") ? "bg-blue-100 text-blue-800" : iv.type.includes("mensuel") ? "bg-violet-100 text-violet-800" : iv.type.includes("performance") ? "bg-rose-100 text-rose-800" : iv.type.includes("ponctuel") ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-800";
                   return (
-                    <div key={iv.id} className="rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-4">
+                    <Link
+                      key={iv.id}
+                      href={`/dashboard/entretiens?edit=${iv.id}`}
+                      className="block rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-4 transition hover:border-[var(--brand)]/40 hover:bg-[var(--brand)]/5"
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${typeColors[iv.type] || "bg-gray-100 text-gray-800"}`}>
+                          <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${typeColor}`}>
                             {iv.type.charAt(0).toUpperCase() + iv.type.slice(1)}
                           </span>
                           <span className="text-sm text-[color:rgba(11,11,11,0.65)]">
@@ -415,12 +427,33 @@ export function TalentDetailClient({
                       </div>
                       {iv.notes && <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.7)]">{iv.notes}</p>}
                       {iv.justification && <p className="mt-1 text-xs italic text-[color:rgba(11,11,11,0.5)]">{iv.justification}</p>}
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
             )}
           </section>
+
+          {salaryHistory.length > 0 && (
+            <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+              <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Évolution de la rémunération</h2>
+              <div className="mt-4 space-y-3">
+                {salaryHistory.map((h) => (
+                  <div key={h.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] px-4 py-3">
+                    <div>
+                      <span className="text-sm font-medium text-[var(--text)]">
+                        {h.effective_date ? new Date(h.effective_date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "—"}
+                      </span>
+                      {h.reason && <p className="mt-0.5 text-xs text-[color:rgba(11,11,11,0.6)]">{h.reason}</p>}
+                    </div>
+                    <span className="text-sm font-semibold text-[var(--brand)]">
+                      {h.annual_salary != null ? `${Number(h.annual_salary).toLocaleString("fr-FR")} €` : "—"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </>
       )}
 

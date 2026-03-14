@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { sendSalaryChangeEmail } from "@/lib/email";
 
 async function getOrganizationId(userId: string, orgId: string | null) {
   const supabase = supabaseAdmin();
@@ -79,51 +80,65 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   if (body.apply_salary_changes && data.employee_id) {
     try {
-      const empUpdates: Record<string, unknown> = {};
-      if (body.new_level_id !== undefined) empUpdates.current_level_id = body.new_level_id || null;
-      if (body.new_management_id !== undefined) empUpdates.current_management_id = body.new_management_id || null;
-      if (body.new_anciennete_id !== undefined) empUpdates.current_anciennete_id = body.new_anciennete_id || null;
+      const { data: currentEmp } = await supabase
+        .from("employees")
+        .select("current_level_id, current_management_id, current_anciennete_id, salary_adjustment, annual_salary_brut, first_name, last_name, email")
+        .eq("id", data.employee_id)
+        .single();
 
-      if (Object.keys(empUpdates).length > 0) {
-        const { data: currentEmp } = await supabase
-          .from("employees")
-          .select("current_level_id, current_management_id, current_anciennete_id, salary_adjustment, annual_salary_brut")
-          .eq("id", data.employee_id)
-          .single();
+      if (currentEmp) {
+        const levelId = body.new_level_id !== undefined ? (body.new_level_id || null) : currentEmp.current_level_id;
+        const mgmtId = body.new_management_id !== undefined ? (body.new_management_id || null) : currentEmp.current_management_id;
+        const ancId = body.new_anciennete_id !== undefined ? (body.new_anciennete_id || null) : currentEmp.current_anciennete_id;
+        const adj = body.new_salary_adjustment !== undefined ? Number(body.new_salary_adjustment) || 0 : (Number(currentEmp.salary_adjustment) || 0);
 
-        if (currentEmp) {
-          const levelId = body.new_level_id !== undefined ? (body.new_level_id || null) : currentEmp.current_level_id;
-          const mgmtId = body.new_management_id !== undefined ? (body.new_management_id || null) : currentEmp.current_management_id;
-          const ancId = body.new_anciennete_id !== undefined ? (body.new_anciennete_id || null) : currentEmp.current_anciennete_id;
-          const adj = currentEmp.salary_adjustment ?? 0;
+        let total = Number(adj) || 0;
+        if (levelId) {
+          const { data: lv } = await supabase.from("levels").select("montant_annuel").eq("id", levelId).single();
+          if (lv?.montant_annuel) total += Number(lv.montant_annuel);
+        }
+        if (mgmtId) {
+          const { data: mg } = await supabase.from("grille_extra").select("montant_annuel").eq("id", mgmtId).single();
+          if (mg?.montant_annuel) total += Number(mg.montant_annuel);
+        }
+        if (ancId) {
+          const { data: an } = await supabase.from("grille_extra").select("montant_annuel").eq("id", ancId).single();
+          if (an?.montant_annuel) total += Number(an.montant_annuel);
+        }
 
-          let total = Number(adj) || 0;
-          if (levelId) {
-            const { data: lv } = await supabase.from("levels").select("montant_annuel").eq("id", levelId).single();
-            if (lv?.montant_annuel) total += Number(lv.montant_annuel);
-          }
-          if (mgmtId) {
-            const { data: mg } = await supabase.from("grille_extra").select("montant_annuel").eq("id", mgmtId).single();
-            if (mg?.montant_annuel) total += Number(mg.montant_annuel);
-          }
-          if (ancId) {
-            const { data: an } = await supabase.from("grille_extra").select("montant_annuel").eq("id", ancId).single();
-            if (an?.montant_annuel) total += Number(an.montant_annuel);
-          }
+        const empUpdates: Record<string, unknown> = {
+          annual_salary_brut: total,
+          current_level_id: levelId,
+          current_management_id: mgmtId,
+          current_anciennete_id: ancId,
+          salary_adjustment: adj,
+        };
+        await supabase.from("employees").update(empUpdates).eq("id", data.employee_id);
 
-          empUpdates.annual_salary_brut = total;
-          await supabase.from("employees").update(empUpdates).eq("id", data.employee_id);
+        const effectiveDate = data.interview_date || new Date().toISOString().split("T")[0];
+        const reason = `Suite à ${data.type || "entretien"}`;
+        await supabase.from("employee_position_history").insert({
+          employee_id: data.employee_id,
+          organization_id: organizationId,
+          level_id: levelId,
+          management_id: mgmtId,
+          anciennete_id: ancId,
+          salary_adjustment: adj,
+          annual_salary: total,
+          effective_date: effectiveDate,
+          reason,
+        });
 
-          await supabase.from("employee_position_history").insert({
-            employee_id: data.employee_id,
-            organization_id: organizationId,
-            level_id: levelId,
-            management_id: mgmtId,
-            anciennete_id: ancId,
-            salary_adjustment: Number(adj),
-            annual_salary: total,
-            effective_date: data.interview_date || new Date().toISOString().split("T")[0],
-            reason: `Suite à ${data.type || "entretien"}`,
+        if (currentEmp.email) {
+          const { data: org } = await supabase.from("organizations").select("name").eq("id", organizationId).single();
+          await sendSalaryChangeEmail({
+            to: currentEmp.email,
+            talentFirstName: currentEmp.first_name ?? "",
+            talentLastName: currentEmp.last_name ?? "",
+            organizationName: org?.name ?? "",
+            effectiveDate,
+            newAnnualSalaryEur: total,
+            reason,
           });
         }
       }

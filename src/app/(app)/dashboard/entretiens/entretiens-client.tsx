@@ -1,9 +1,22 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import gsap from "gsap";
 
-type Employee = { id: string; first_name: string; last_name: string; email: string; current_job_title: string; current_department_id: string | null };
+type Employee = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  current_job_title: string;
+  current_department_id: string | null;
+  current_level_id?: string | null;
+  current_management_id?: string | null;
+  current_anciennete_id?: string | null;
+  salary_adjustment?: number | null;
+  annual_salary_brut?: number | null;
+};
 type Dept = { id: string; name: string };
 type Level = { id: string; name: string; department_id: string; montant_annuel: number | null };
 type ExtraLevel = { id: string; name: string; type: string; montant_annuel: number | null };
@@ -48,12 +61,25 @@ export function EntretiensClient({
   managementLevels: ExtraLevel[];
   ancienneteLevels: ExtraLevel[];
 }) {
+  const searchParams = useSearchParams();
+  const editIdFromUrl = searchParams.get("edit");
+
   const [interviews, setInterviews] = useState(initialInterviews);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filterEmployeeId, setFilterEmployeeId] = useState("");
   const [filterType, setFilterType] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const hasOpenedEditRef = useRef(false);
+  useEffect(() => {
+    if (!editIdFromUrl || interviews.length === 0 || hasOpenedEditRef.current) return;
+    const interview = interviews.find((i) => i.id === editIdFromUrl);
+    if (interview) {
+      hasOpenedEditRef.current = true;
+      handleEdit(interview);
+    }
+  }, [editIdFromUrl, interviews]);
 
   type MeetingRequest = {
     id: string;
@@ -81,6 +107,7 @@ export function EntretiensClient({
     new_level_id: "",
     new_management_id: "",
     new_anciennete_id: "",
+    new_salary_adjustment: "",
   });
 
   const tableRef = useRef<HTMLTableSectionElement>(null);
@@ -91,6 +118,16 @@ export function EntretiensClient({
   const empDeptLevels = selectedEmp?.current_department_id
     ? levels.filter((l) => l.department_id === selectedEmp.current_department_id)
     : [];
+
+  const currentLevelObj = selectedEmp?.current_level_id ? levels.find((l) => l.id === selectedEmp.current_level_id) : null;
+  const currentMgmtObj = selectedEmp?.current_management_id ? managementLevels.find((m) => m.id === selectedEmp.current_management_id) : null;
+  const currentAncObj = selectedEmp?.current_anciennete_id ? ancienneteLevels.find((a) => a.id === selectedEmp.current_anciennete_id) : null;
+  const currentAdj = selectedEmp?.salary_adjustment ?? 0;
+  const currentTotal =
+    (currentLevelObj?.montant_annuel ?? 0) +
+    (currentMgmtObj?.montant_annuel ?? 0) +
+    (currentAncObj?.montant_annuel ?? 0) +
+    Number(currentAdj);
 
   function fmtEuro(n: number | null | undefined) {
     if (n == null) return "";
@@ -135,7 +172,7 @@ export function EntretiensClient({
 
   const resetForm = useCallback(() => {
     setForm({ employee_id: "", interview_date: new Date().toISOString().split("T")[0], type: "Entretien annuel", email_subject: "Entretien annuel", notes: "", justification: "", salary_adjustment: "" });
-    setSalaryForm({ apply_salary_changes: false, new_level_id: "", new_management_id: "", new_anciennete_id: "" });
+    setSalaryForm({ apply_salary_changes: false, new_level_id: "", new_management_id: "", new_anciennete_id: "", new_salary_adjustment: "" });
     setEditingId(null);
     setShowForm(false);
   }, []);
@@ -148,7 +185,15 @@ export function EntretiensClient({
       if (editingId) {
         const payload = {
           ...form,
-          ...(salaryForm.apply_salary_changes ? salaryForm : {}),
+          ...(salaryForm.apply_salary_changes
+            ? {
+                apply_salary_changes: true,
+                new_level_id: salaryForm.new_level_id || undefined,
+                new_management_id: salaryForm.new_management_id || undefined,
+                new_anciennete_id: salaryForm.new_anciennete_id || undefined,
+                new_salary_adjustment: salaryForm.new_salary_adjustment !== "" ? Number(salaryForm.new_salary_adjustment) : undefined,
+              }
+            : {}),
         };
         const res = await fetch(`/api/interviews/${editingId}`, {
           method: "PATCH",
@@ -178,6 +223,7 @@ export function EntretiensClient({
   };
 
   const handleEdit = (interview: Interview) => {
+    const emp = empMap.get(interview.employee_id);
     setForm({
       employee_id: interview.employee_id,
       interview_date: interview.interview_date,
@@ -186,6 +232,13 @@ export function EntretiensClient({
       notes: interview.notes || "",
       justification: interview.justification || "",
       salary_adjustment: interview.salary_adjustment?.toString() || "",
+    });
+    setSalaryForm({
+      apply_salary_changes: false,
+      new_level_id: emp?.current_level_id ?? "",
+      new_management_id: emp?.current_management_id ?? "",
+      new_anciennete_id: emp?.current_anciennete_id ?? "",
+      new_salary_adjustment: emp?.salary_adjustment != null ? String(emp.salary_adjustment) : "",
     });
     setEditingId(interview.id);
     setShowForm(true);
@@ -323,67 +376,96 @@ export function EntretiensClient({
             </div>
           </div>
 
-          {editingId && (
-            <div className="mt-5 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-5">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={salaryForm.apply_salary_changes}
-                  onClick={() => setSalaryForm((s) => ({ ...s, apply_salary_changes: !s.apply_salary_changes }))}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${salaryForm.apply_salary_changes ? "bg-[var(--brand)]" : "bg-gray-200"}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${salaryForm.apply_salary_changes ? "translate-x-6" : "translate-x-1"}`} />
-                </button>
-                <span className="text-sm font-medium text-[var(--text)] cursor-pointer" onClick={() => setSalaryForm((s) => ({ ...s, apply_salary_changes: !s.apply_salary_changes }))}>
-                  Appliquer des changements de rémunération
-                </span>
+          {editingId && selectedEmp && (
+            <>
+              <div className="mt-5 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Rémunération actuelle du talent</p>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[var(--text)]">
+                  <span>Palier : <strong>{currentLevelObj ? `${currentLevelObj.name}${fmtEuro(currentLevelObj.montant_annuel)}` : "—"}</strong></span>
+                  <span>·</span>
+                  <span>Management : <strong>{currentMgmtObj ? `${currentMgmtObj.name}${fmtEuro(currentMgmtObj.montant_annuel)}` : "—"}</strong></span>
+                  <span>·</span>
+                  <span>Ancienneté : <strong>{currentAncObj ? `${currentAncObj.name}${fmtEuro(currentAncObj.montant_annuel)}` : "—"}</strong></span>
+                  <span>·</span>
+                  <span>Ajustement : <strong>{currentAdj !== 0 ? `${Number(currentAdj).toLocaleString("fr-FR")} €` : "—"}</strong></span>
+                </div>
+                <p className="mt-2 text-base font-semibold text-[var(--brand)]">
+                  Total annuel brut : {currentTotal > 0 ? `${currentTotal.toLocaleString("fr-FR")} €` : "—"}
+                </p>
               </div>
 
-              {salaryForm.apply_salary_changes && (
-                <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                  <div>
-                    <label className={LABEL}>Nouveau palier</label>
-                    <select
-                      value={salaryForm.new_level_id}
-                      onChange={(e) => setSalaryForm((s) => ({ ...s, new_level_id: e.target.value }))}
-                      className={`${INPUT} cursor-pointer`}
-                    >
-                      <option value="">— Inchangé —</option>
-                      {empDeptLevels.map((l) => (
-                        <option key={l.id} value={l.id}>{l.name}{fmtEuro(l.montant_annuel)}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={LABEL}>Nouveau management</label>
-                    <select
-                      value={salaryForm.new_management_id}
-                      onChange={(e) => setSalaryForm((s) => ({ ...s, new_management_id: e.target.value }))}
-                      className={`${INPUT} cursor-pointer`}
-                    >
-                      <option value="">— Inchangé —</option>
-                      {managementLevels.map((m) => (
-                        <option key={m.id} value={m.id}>{m.name}{fmtEuro(m.montant_annuel)}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={LABEL}>Nouvelle ancienneté</label>
-                    <select
-                      value={salaryForm.new_anciennete_id}
-                      onChange={(e) => setSalaryForm((s) => ({ ...s, new_anciennete_id: e.target.value }))}
-                      className={`${INPUT} cursor-pointer`}
-                    >
-                      <option value="">— Inchangé —</option>
-                      {ancienneteLevels.map((a) => (
-                        <option key={a.id} value={a.id}>{a.name}{fmtEuro(a.montant_annuel)}</option>
-                      ))}
-                    </select>
-                  </div>
+              <div className="mt-5 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-5">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={salaryForm.apply_salary_changes}
+                    onClick={() => setSalaryForm((s) => ({ ...s, apply_salary_changes: !s.apply_salary_changes }))}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${salaryForm.apply_salary_changes ? "bg-[var(--brand)]" : "bg-gray-200"}`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${salaryForm.apply_salary_changes ? "translate-x-6" : "translate-x-1"}`} />
+                  </button>
+                  <span className="text-sm font-medium text-[var(--text)] cursor-pointer" onClick={() => setSalaryForm((s) => ({ ...s, apply_salary_changes: !s.apply_salary_changes }))}>
+                    Appliquer des changements de rémunération
+                  </span>
                 </div>
-              )}
-            </div>
+
+                {salaryForm.apply_salary_changes && (
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div>
+                      <label className={LABEL}>Nouveau palier</label>
+                      <select
+                        value={salaryForm.new_level_id}
+                        onChange={(e) => setSalaryForm((s) => ({ ...s, new_level_id: e.target.value }))}
+                        className={`${INPUT} cursor-pointer`}
+                      >
+                        <option value="">— Inchangé —</option>
+                        {empDeptLevels.map((l) => (
+                          <option key={l.id} value={l.id}>{l.name}{fmtEuro(l.montant_annuel)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={LABEL}>Nouveau management</label>
+                      <select
+                        value={salaryForm.new_management_id}
+                        onChange={(e) => setSalaryForm((s) => ({ ...s, new_management_id: e.target.value }))}
+                        className={`${INPUT} cursor-pointer`}
+                      >
+                        <option value="">— Inchangé —</option>
+                        {managementLevels.map((m) => (
+                          <option key={m.id} value={m.id}>{m.name}{fmtEuro(m.montant_annuel)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={LABEL}>Nouvelle ancienneté</label>
+                      <select
+                        value={salaryForm.new_anciennete_id}
+                        onChange={(e) => setSalaryForm((s) => ({ ...s, new_anciennete_id: e.target.value }))}
+                        className={`${INPUT} cursor-pointer`}
+                      >
+                        <option value="">— Inchangé —</option>
+                        {ancienneteLevels.map((a) => (
+                          <option key={a.id} value={a.id}>{a.name}{fmtEuro(a.montant_annuel)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={LABEL}>Ajustement hors grille (€/an)</label>
+                      <input
+                        type="number"
+                        value={salaryForm.new_salary_adjustment}
+                        onChange={(e) => setSalaryForm((s) => ({ ...s, new_salary_adjustment: e.target.value }))}
+                        className={INPUT}
+                        placeholder="0"
+                        step={100}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
           )}
           <div className="mt-5 flex items-center gap-3">
             <button onClick={handleSubmit} disabled={loading || !form.employee_id} className={BTN_PRIMARY}>
@@ -474,7 +556,11 @@ export function EntretiensClient({
                 {filtered.map((iv) => {
                   const emp = empMap.get(iv.employee_id);
                   return (
-                    <tr key={iv.id} className="border-b border-[#e2e7e2] transition hover:bg-[#f8faf8]">
+                    <tr
+                      key={iv.id}
+                      onClick={() => handleEdit(iv)}
+                      className="cursor-pointer border-b border-[#e2e7e2] transition hover:bg-[#f8faf8]"
+                    >
                       <td className="px-6 py-4 font-medium text-[var(--text)]">
                         {emp ? `${emp.first_name} ${emp.last_name}` : "—"}
                       </td>
@@ -494,12 +580,12 @@ export function EntretiensClient({
                           ? `${Number(iv.salary_adjustment) > 0 ? "+" : ""}${Number(iv.salary_adjustment).toLocaleString("fr-FR")} €`
                           : "—"}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
-                          <button onClick={() => handleEdit(iv)} className="text-xs font-medium text-[var(--brand)] hover:underline cursor-pointer">
+                          <button type="button" onClick={() => handleEdit(iv)} className="text-xs font-medium text-[var(--brand)] hover:underline cursor-pointer">
                             Modifier
                           </button>
-                          <button onClick={() => handleDelete(iv.id)} className="text-xs font-medium text-red-600 hover:underline cursor-pointer">
+                          <button type="button" onClick={() => handleDelete(iv.id)} className="text-xs font-medium text-red-600 hover:underline cursor-pointer">
                             Supprimer
                           </button>
                         </div>

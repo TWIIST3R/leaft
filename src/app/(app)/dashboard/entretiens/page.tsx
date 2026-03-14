@@ -32,7 +32,7 @@ async function getData() {
       .order("interview_date", { ascending: false }),
     supabase
       .from("employees")
-      .select("id, first_name, last_name, email, current_job_title, current_department_id")
+      .select("id, first_name, last_name, email, current_job_title, current_department_id, current_level_id, current_management_id, current_anciennete_id, salary_adjustment, annual_salary_brut")
       .eq("organization_id", organizationId)
       .order("last_name"),
     supabase.from("departments").select("id, name").eq("organization_id", organizationId).order("name"),

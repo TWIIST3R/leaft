@@ -44,12 +44,19 @@ async function getData(id: string) {
     ? await supabase.from("levels").select("id, name, department_id, montant_annuel").in("department_id", deptIds).order("order")
     : { data: [] };
 
-  const { data: interviews } = await supabase
-    .from("interviews")
-    .select("id, interview_date, type, notes, justification, salary_adjustment, created_at")
-    .eq("employee_id", id)
-    .eq("organization_id", organizationId)
-    .order("interview_date", { ascending: false });
+  const [{ data: interviews }, { data: salaryHistory }] = await Promise.all([
+    supabase
+      .from("interviews")
+      .select("id, interview_date, type, notes, justification, salary_adjustment, created_at")
+      .eq("employee_id", id)
+      .eq("organization_id", organizationId)
+      .order("interview_date", { ascending: false }),
+    supabase
+      .from("employee_position_history")
+      .select("id, effective_date, reason, annual_salary")
+      .eq("employee_id", id)
+      .order("effective_date", { ascending: false }),
+  ]);
 
   const extras = grilleExtra ?? [];
   const otherEmps = (allEmployees ?? []).filter((e) => e.id !== id);
@@ -62,6 +69,12 @@ async function getData(id: string) {
     managementLevels: extras.filter((e) => e.type === "management"),
     ancienneteLevels: extras.filter((e) => e.type === "anciennete"),
     interviews: interviews ?? [],
+    salaryHistory: (salaryHistory ?? []).map((h) => ({
+      id: h.id,
+      effective_date: h.effective_date,
+      reason: h.reason,
+      annual_salary: h.annual_salary,
+    })),
   };
 }
 
@@ -80,6 +93,7 @@ export default async function TalentFichePage({ params }: { params: Promise<{ id
       managementLevels={data.managementLevels}
       ancienneteLevels={data.ancienneteLevels}
       interviews={data.interviews}
+      salaryHistory={data.salaryHistory}
     />
   );
 }

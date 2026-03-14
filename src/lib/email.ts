@@ -225,3 +225,62 @@ export async function sendInterviewReminderEmail(data: InterviewReminderEmailDat
   console.log("[Email] Interview reminder (no RESEND_API_KEY, logging only):", { to: data.to, subject });
   return { ok: true };
 }
+
+export type SalaryChangeEmailData = {
+  to: string;
+  talentFirstName: string;
+  talentLastName: string;
+  organizationName: string;
+  effectiveDate: string;
+  newAnnualSalaryEur: number;
+  reason?: string;
+};
+
+export async function sendSalaryChangeEmail(data: SalaryChangeEmailData): Promise<{ ok: boolean; error?: string }> {
+  const subject = `Leaft – Mise à jour de votre rémunération`;
+  const dateStr = new Date(data.effectiveDate).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+  const salaryStr = data.newAnnualSalaryEur.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(".", ",");
+  const htmlContent = `
+      <p style="margin:0 0 16px;font-size:15px;">Votre rémunération a été mise à jour suite à votre entretien.</p>
+      <div style="margin:20px 0;padding:16px 20px;background:${BRAND_LIGHT};border-radius:12px;border-left:4px solid ${BRAND_COLOR};">
+        <p style="margin:0 0 10px;font-weight:600;font-size:14px;color:${BRAND_COLOR};">Détail</p>
+        <ul style="margin:0;padding-left:20px;font-size:14px;">
+          <li style="margin:6px 0;">Date d'effet : <strong>${dateStr}</strong></li>
+          <li style="margin:6px 0;">Nouveau salaire annuel brut : <strong>${salaryStr} €</strong></li>
+          ${data.reason ? `<li style="margin:6px 0;">Motif : ${data.reason}</li>` : ""}
+        </ul>
+      </div>
+      <p style="margin:0;font-size:14px;color:#555;">Vous pouvez consulter l'historique de votre rémunération dans votre espace Talent.</p>
+  `;
+  const html = emailLayout(data.talentFirstName, htmlContent);
+  const text = `Bonjour ${data.talentFirstName} ${data.talentLastName},\n\nVotre rémunération a été mise à jour. Date d'effet : ${dateStr}. Nouveau salaire annuel brut : ${salaryStr} €.\n\nÀ bientôt, L'équipe Leaft`;
+
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const from = DEFAULT_FROM;
+
+  if (resendApiKey) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${resendApiKey}`,
+        },
+        body: JSON.stringify({ from, to: data.to, subject, html, text }),
+      });
+      const json = (await res.json()) as { id?: string; message?: string };
+      if (!res.ok) {
+        console.error("Resend error:", json);
+        return { ok: false, error: json.message || "Failed to send email" };
+      }
+      return { ok: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("Error sending salary-change email:", err);
+      return { ok: false, error: message };
+    }
+  }
+
+  console.log("[Email] Salary change (no RESEND_API_KEY, logging only):", { to: data.to, subject });
+  return { ok: true };
+}

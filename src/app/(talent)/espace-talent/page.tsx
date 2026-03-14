@@ -77,9 +77,9 @@ async function getData(userId: string, orgId: string | null) {
 
   const { data: positionHistory } = await supabase
     .from("employee_position_history")
-    .select("id, start_date, end_date, job_title, annual_salary_brut, level_id, department_id")
+    .select("id, start_date, end_date, job_title, annual_salary_brut, level_id, department_id, effective_date, annual_salary, reason")
     .eq("employee_id", employee.id)
-    .order("start_date", { ascending: true });
+    .order("effective_date", { ascending: true });
 
   const { data: benchmarks } = await supabase
     .from("salary_benchmarks")
@@ -112,15 +112,17 @@ async function getData(userId: string, orgId: string | null) {
     compaRatio,
     deptLevels: (deptLevels ?? []).map((l) => ({ id: l.id, name: l.name, montant_annuel: l.montant_annuel ? Number(l.montant_annuel) : 0, mid_salary: l.mid_salary ? Number(l.mid_salary) : null })),
     benchmark: benchmarks ? { p25: Number(benchmarks.p25), p50: Number(benchmarks.p50), p75: Number(benchmarks.p75), source: benchmarks.source, updated_at: benchmarks.updated_at } : null,
-    positionHistory: (positionHistory ?? []).map((p) => ({
-      id: p.id,
-      startDate: p.start_date,
-      endDate: p.end_date,
-      jobTitle: p.job_title,
-      salary: p.annual_salary_brut ? Number(p.annual_salary_brut) : null,
-      levelId: p.level_id,
-      departmentId: p.department_id,
-    })),
+    positionHistory: (positionHistory ?? [])
+      .map((p) => ({
+        id: p.id,
+        startDate: (p as { effective_date?: string }).effective_date ?? p.start_date,
+        endDate: p.end_date,
+        jobTitle: p.job_title,
+        salary: (p as { annual_salary?: number }).annual_salary != null ? Number((p as { annual_salary?: number }).annual_salary) : (p.annual_salary_brut ? Number(p.annual_salary_brut) : null),
+        levelId: p.level_id,
+        departmentId: p.department_id,
+      }))
+      .sort((a, b) => (a.startDate && b.startDate ? new Date(a.startDate).getTime() - new Date(b.startDate).getTime() : 0)),
   };
 }
 
