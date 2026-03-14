@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { Modal } from "@/components/ui/modal";
+import { LineChart } from "@/components/charts/line-chart";
 
 type Dept = { id: string; name: string };
 type Level = { id: string; name: string; department_id: string; montant_annuel: number | null };
@@ -437,7 +438,30 @@ export function TalentDetailClient({
           {salaryHistory.length > 0 && (
             <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
               <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Évolution de la rémunération</h2>
-              <div className="mt-4 space-y-3">
+              <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.5)]">Historique des changements de rémunération (entretiens, augmentations).</p>
+              {(() => {
+                const sorted = [...salaryHistory].filter((h) => h.effective_date && h.annual_salary != null).sort(
+                  (a, b) => new Date(a.effective_date!).getTime() - new Date(b.effective_date!).getTime()
+                );
+                const chartData = sorted.map((h) => ({
+                  label: new Date(h.effective_date!).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
+                  value: Number(h.annual_salary),
+                }));
+                if (chartData.length === 1 && employee.annual_salary_brut != null) {
+                  chartData.push({ label: "Aujourd'hui", value: Number(employee.annual_salary_brut) });
+                }
+                return chartData.length >= 2 ? (
+                  <div className="mt-4">
+                    <LineChart
+                      data={chartData}
+                      height={220}
+                      color="var(--brand)"
+                      formatValue={(v) => `${Math.round(v).toLocaleString("fr-FR")} €`}
+                    />
+                  </div>
+                ) : null;
+              })()}
+              <div className="mt-6 space-y-3">
                 {salaryHistory.map((h) => (
                   <div key={h.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] px-4 py-3">
                     <div>

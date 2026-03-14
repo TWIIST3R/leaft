@@ -33,8 +33,8 @@ async function getData() {
     supabase.from("levels").select("id, name, department_id, montant_annuel, mid_salary, min_salary, max_salary"),
     supabase
       .from("employee_position_history")
-      .select("employee_id, department_id, start_date, annual_salary_brut")
-      .order("start_date", { ascending: true }),
+      .select("employee_id, department_id, start_date, annual_salary_brut, effective_date, annual_salary")
+      .order("effective_date", { ascending: true }),
   ]);
 
   return {

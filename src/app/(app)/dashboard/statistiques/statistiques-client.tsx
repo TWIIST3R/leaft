@@ -30,8 +30,10 @@ type Level = {
 type PositionHistory = {
   employee_id: string;
   department_id: string | null;
-  start_date: string;
+  start_date: string | null;
   annual_salary_brut: number | null;
+  effective_date?: string | null;
+  annual_salary?: number | null;
 };
 
 const CARD = "rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]";
@@ -174,29 +176,47 @@ export function StatistiquesClient({
     return ratios.sort((a, b) => a.ratio - b.ratio);
   }, [employees, levelMap]);
 
-  const salaryEvolution = useMemo(() => {
-    if (positionHistory.length === 0) return [];
-    const filtered = salaryDeptFilter === "all"
-      ? positionHistory
-      : positionHistory.filter((p) => p.department_id === salaryDeptFilter);
+  const employeeIds = useMemo(() => new Set(employees.map((e) => e.id)), [employees]);
 
-    const byMonth = new Map<string, number[]>();
+  const salaryEvolution = useMemo(() => {
+    const orgHistory = positionHistory.filter((p) => employeeIds.has(p.employee_id));
+    const filtered = salaryDeptFilter === "all"
+      ? orgHistory
+      : orgHistory.filter((p) => p.department_id === salaryDeptFilter);
+
+    type Event = { date: string; employee_id: string; salary: number };
+    const events: Event[] = [];
     filtered.forEach((p) => {
-      if (!p.annual_salary_brut || !p.start_date) return;
-      const month = p.start_date.slice(0, 7);
-      if (!byMonth.has(month)) byMonth.set(month, []);
-      byMonth.get(month)!.push(Number(p.annual_salary_brut));
+      const date = (p as PositionHistory & { effective_date?: string }).effective_date || p.start_date;
+      const salary = (p as PositionHistory & { annual_salary?: number }).annual_salary ?? p.annual_salary_brut;
+      if (!date || salary == null) return;
+      events.push({ date, employee_id: p.employee_id, salary: Number(salary) });
+    });
+    events.sort((a, b) => a.date.localeCompare(b.date));
+
+    const salaryByEmployee = new Map<string, number>();
+    const series: { label: string; value: number }[] = [];
+    events.forEach((ev) => {
+      salaryByEmployee.set(ev.employee_id, ev.salary);
+      const total = [...salaryByEmployee.values()].reduce((a, b) => a + b, 0);
+      const d = new Date(ev.date);
+      series.push({
+        label: d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
+        value: total,
+      });
     });
 
-    let running = 0;
-    return [...byMonth.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([month, salaries]) => {
-        running = salaries.reduce((a, b) => a + b, 0);
-        const [y, m] = month.split("-");
-        return { label: `${m}/${y.slice(2)}`, value: running };
-      });
-  }, [positionHistory, salaryDeptFilter]);
+    const employeesForTotal = salaryDeptFilter === "all"
+      ? employees
+      : employees.filter((e) => e.current_department_id === salaryDeptFilter);
+    const currentTotal = employeesForTotal
+      .filter((e) => e.annual_salary_brut != null)
+      .reduce((a, e) => a + Number(e.annual_salary_brut), 0);
+    if (currentTotal > 0 && (series.length === 0 || series[series.length - 1]?.value !== currentTotal)) {
+      series.push({ label: "Aujourd'hui", value: currentTotal });
+    }
+    return series;
+  }, [positionHistory, salaryDeptFilter, employeeIds, employees]);
 
   if (total === 0) {
     return (
@@ -259,21 +279,26 @@ export function StatistiquesClient({
         </div>
       </div>
 
-      {salaryEvolution.length >= 2 && (
-        <div data-card className={CARD}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-[var(--text)]">Évolution de la masse salariale</h3>
-            <select
-              value={salaryDeptFilter}
-              onChange={(e) => setSalaryDeptFilter(e.target.value)}
-              className="rounded-xl border border-[#e2e7e2] bg-white px-3 py-1.5 text-xs text-[var(--text)] transition focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
-            >
-              <option value="all">Tous les départements</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
+      <div data-card className={CARD}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-[var(--text)]">Évolution de la masse salariale totale</h3>
+            <p className="mt-0.5 text-xs text-[color:rgba(11,11,11,0.5)]">
+              Total des rémunérations brutes annuelles (ajouts de talents, augmentations, départs).
+            </p>
           </div>
+          <select
+            value={salaryDeptFilter}
+            onChange={(e) => setSalaryDeptFilter(e.target.value)}
+            className="rounded-xl border border-[#e2e7e2] bg-white px-3 py-1.5 text-xs text-[var(--text)] transition focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
+          >
+            <option value="all">Tous les départements</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+        </div>
+        {salaryEvolution.length >= 2 ? (
           <div className="mt-4">
             <LineChart
               data={salaryEvolution}
@@ -282,8 +307,17 @@ export function StatistiquesClient({
               formatValue={(v) => `${Math.round(v / 1000).toLocaleString("fr-FR")}k €`}
             />
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="mt-4 rounded-xl border border-dashed border-[#e2e7e2] bg-[#f8faf8] px-4 py-6 text-center">
+            <p className="text-sm font-medium text-[var(--text)]">
+              Masse salariale actuelle : {totalSalaryMass > 0 ? `${Math.round(totalSalaryMass / 1000).toLocaleString("fr-FR")} k €` : "—"}
+            </p>
+            <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.5)]">
+              La courbe s&apos;affichera lorsque des changements (entretiens avec rémunération, ajouts ou départs) seront enregistrés.
+            </p>
+          </div>
+        )}
+      </div>
 
       {genderPayGap.length > 1 && (
         <div data-card className={CARD}>
