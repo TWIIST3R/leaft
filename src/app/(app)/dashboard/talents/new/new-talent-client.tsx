@@ -154,6 +154,8 @@ export function NewTalentClient({
           newSeats: data.billingInfo.newSeats,
           prorationCents: data.billingInfo.prorationCents,
           newMonthlyCents: data.billingInfo.newMonthlyCents,
+          newAnnualCents: data.billingInfo.newAnnualCents,
+          planType: data.billingInfo.planType,
         });
       }
       setPendingSuccessId(data.id);
