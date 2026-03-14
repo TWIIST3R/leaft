@@ -503,6 +503,8 @@ export type AddTalentsResult = {
   newSeatCount: number;
   prorationAmountCents: number;
   newMonthlyAmountCents: number;
+  newAnnualAmountCents: number;
+  planType: "monthly" | "annual";
 };
 
 export type PreviewAddSeatResult = {
@@ -510,6 +512,8 @@ export type PreviewAddSeatResult = {
   newSeatCount: number;
   prorationAmountCents: number;
   newMonthlyAmountCents: number;
+  newAnnualAmountCents: number;
+  planType: "monthly" | "annual";
   nextBillingDate: string | null;
 };
 
@@ -520,7 +524,7 @@ export async function previewAddSeat(organizationId: string): Promise<PreviewAdd
   const supabase = supabaseAdmin();
   const { data: subRow, error: subError } = await supabase
     .from("subscriptions")
-    .select("stripe_subscription_id, seat_count")
+    .select("stripe_subscription_id, seat_count, plan_type")
     .eq("organization_id", organizationId)
     .eq("status", "active")
     .single();
@@ -545,6 +549,18 @@ export async function previewAddSeat(organizationId: string): Promise<PreviewAdd
   const daysInPeriod = periodEnd > periodStart ? Math.ceil((periodEnd - periodStart) / 86400) : 365;
   const daysRemaining = Math.max(1, Math.ceil((periodEnd - now) / 86400));
 
+  const tier = getPricingTier(newSeatCount);
+  const planType = (subRow.plan_type ?? subscription.metadata?.plan_type ?? "monthly") as "monthly" | "annual";
+  const pricing = PRICING_TIERS[planType][tier];
+  const amountPerMonthEur = planType === "annual"
+    ? (pricing.perSeat * newSeatCount) / 12
+    : pricing.perSeat * newSeatCount;
+  const amountPerYearEur = planType === "annual"
+    ? pricing.perSeat * newSeatCount
+    : pricing.perSeat * newSeatCount * 12;
+  const newMonthlyAmountCents = Math.round(amountPerMonthEur * 100);
+  const newAnnualAmountCents = Math.round(amountPerYearEur * 100);
+
   let prorationAmountCents = 0;
   try {
     const preview = await stripe.invoices.createPreview({
@@ -555,26 +571,21 @@ export async function previewAddSeat(organizationId: string): Promise<PreviewAdd
         proration_behavior: "always_invoice",
       },
     });
-    const lines = (preview as { lines?: { data?: { amount: number; subscription_item_details?: { proration?: boolean } }[] } }).lines?.data ?? [];
-    const prorationSum = lines
-      .filter((line) => line.subscription_item_details?.proration === true)
-      .reduce((sum, line) => sum + (line.amount ?? 0), 0);
-    prorationAmountCents = prorationSum > 0 ? prorationSum : (preview.amount_due ?? 0);
+    const amountDue = (preview as { amount_due?: number }).amount_due ?? 0;
+    type LineItem = { amount?: number; subscription_item_details?: { proration?: boolean }; parent?: { subscription_item_details?: { proration?: boolean } } };
+    const lines: LineItem[] = (preview as { lines?: { data?: LineItem[] } }).lines?.data ?? [];
+    const prorationFromLines = lines
+      .filter((line) => line?.subscription_item_details?.proration === true || line?.parent?.subscription_item_details?.proration === true)
+      .reduce((sum, line) => sum + (line?.amount ?? 0), 0);
+    const totalLines = lines.reduce((sum, line) => sum + (line?.amount ?? 0), 0);
+    if (amountDue > 0) prorationAmountCents = amountDue;
+    else if (prorationFromLines > 0) prorationAmountCents = prorationFromLines;
+    else if (totalLines > 0) prorationAmountCents = totalLines;
+    else prorationAmountCents = Math.round((Math.round(pricing.perSeat * 100) * daysRemaining) / daysInPeriod);
   } catch {
-    const tier = getPricingTier(newSeatCount);
-    const planType = (subscription.metadata?.plan_type || "monthly") as "monthly" | "annual";
-    const pricing = PRICING_TIERS[planType][tier];
     const perSeatCents = Math.round(pricing.perSeat * 100);
     prorationAmountCents = Math.round((perSeatCents * daysRemaining) / daysInPeriod);
   }
-
-  const tier = getPricingTier(newSeatCount);
-  const planType = (subscription.metadata?.plan_type || "monthly") as "monthly" | "annual";
-  const pricing = PRICING_TIERS[planType][tier];
-  const amountPerMonthEur = planType === "annual"
-    ? (pricing.perSeat * newSeatCount) / 12
-    : pricing.perSeat * newSeatCount;
-  const newMonthlyAmountCents = Math.round(amountPerMonthEur * 100);
 
   const nextBillingDate = periodEnd
     ? new Date(periodEnd * 1000).toISOString().split("T")[0]
@@ -585,6 +596,8 @@ export async function previewAddSeat(organizationId: string): Promise<PreviewAdd
     newSeatCount,
     prorationAmountCents,
     newMonthlyAmountCents,
+    newAnnualAmountCents,
+    planType,
     nextBillingDate,
   };
 }
@@ -597,7 +610,7 @@ export async function previewAddSeats(organizationId: string, addCount: number):
   const supabase = supabaseAdmin();
   const { data: subRow, error: subError } = await supabase
     .from("subscriptions")
-    .select("stripe_subscription_id, seat_count")
+    .select("stripe_subscription_id, seat_count, plan_type")
     .eq("organization_id", organizationId)
     .eq("status", "active")
     .single();
@@ -622,6 +635,18 @@ export async function previewAddSeats(organizationId: string, addCount: number):
   const daysInPeriod = periodEnd > periodStart ? Math.ceil((periodEnd - periodStart) / 86400) : 365;
   const daysRemaining = Math.max(1, Math.ceil((periodEnd - now) / 86400));
 
+  const tier = getPricingTier(newSeatCount);
+  const planType = (subRow.plan_type ?? subscription.metadata?.plan_type ?? "monthly") as "monthly" | "annual";
+  const pricing = PRICING_TIERS[planType][tier];
+  const amountPerMonthEur = planType === "annual"
+    ? (pricing.perSeat * newSeatCount) / 12
+    : pricing.perSeat * newSeatCount;
+  const amountPerYearEur = planType === "annual"
+    ? pricing.perSeat * newSeatCount
+    : pricing.perSeat * newSeatCount * 12;
+  const newMonthlyAmountCents = Math.round(amountPerMonthEur * 100);
+  const newAnnualAmountCents = Math.round(amountPerYearEur * 100);
+
   let prorationAmountCents = 0;
   try {
     const preview = await stripe.invoices.createPreview({
@@ -632,26 +657,21 @@ export async function previewAddSeats(organizationId: string, addCount: number):
         proration_behavior: "always_invoice",
       },
     });
-    const lines = (preview as { lines?: { data?: { amount: number; subscription_item_details?: { proration?: boolean } }[] } }).lines?.data ?? [];
-    const prorationSum = lines
-      .filter((line) => line.subscription_item_details?.proration === true)
-      .reduce((sum, line) => sum + (line.amount ?? 0), 0);
-    prorationAmountCents = prorationSum > 0 ? prorationSum : (preview.amount_due ?? 0);
+    const amountDue = (preview as { amount_due?: number }).amount_due ?? 0;
+    type LineItemBulk = { amount?: number; subscription_item_details?: { proration?: boolean }; parent?: { subscription_item_details?: { proration?: boolean } } };
+    const linesBulk: LineItemBulk[] = (preview as { lines?: { data?: LineItemBulk[] } }).lines?.data ?? [];
+    const prorationFromLines = linesBulk
+      .filter((line) => line?.subscription_item_details?.proration === true || line?.parent?.subscription_item_details?.proration === true)
+      .reduce((sum, line) => sum + (line?.amount ?? 0), 0);
+    const totalLines = linesBulk.reduce((sum, line) => sum + (line?.amount ?? 0), 0);
+    if (amountDue > 0) prorationAmountCents = amountDue;
+    else if (prorationFromLines > 0) prorationAmountCents = prorationFromLines;
+    else if (totalLines > 0) prorationAmountCents = totalLines;
+    else prorationAmountCents = Math.round((Math.round(pricing.perSeat * 100) * daysRemaining * addCount) / daysInPeriod);
   } catch {
-    const tier = getPricingTier(newSeatCount);
-    const planType = (subscription.metadata?.plan_type || "monthly") as "monthly" | "annual";
-    const pricing = PRICING_TIERS[planType][tier];
     const perSeatCents = Math.round(pricing.perSeat * 100);
     prorationAmountCents = Math.round((perSeatCents * daysRemaining * addCount) / daysInPeriod);
   }
-
-  const tier = getPricingTier(newSeatCount);
-  const planType = (subscription.metadata?.plan_type || "monthly") as "monthly" | "annual";
-  const pricing = PRICING_TIERS[planType][tier];
-  const amountPerMonthEur = planType === "annual"
-    ? (pricing.perSeat * newSeatCount) / 12
-    : pricing.perSeat * newSeatCount;
-  const newMonthlyAmountCents = Math.round(amountPerMonthEur * 100);
 
   const nextBillingDate = periodEnd
     ? new Date(periodEnd * 1000).toISOString().split("T")[0]
@@ -662,6 +682,8 @@ export async function previewAddSeats(organizationId: string, addCount: number):
     newSeatCount,
     prorationAmountCents,
     newMonthlyAmountCents,
+    newAnnualAmountCents,
+    planType,
     nextBillingDate,
   };
 }
@@ -681,7 +703,7 @@ export async function updateSubscriptionSeats(
   const supabase = supabaseAdmin();
   const { data: subRow, error: subError } = await supabase
     .from("subscriptions")
-    .select("stripe_subscription_id, seat_count")
+    .select("stripe_subscription_id, seat_count, plan_type")
     .eq("organization_id", organizationId)
     .eq("status", "active")
     .single();
@@ -693,12 +715,19 @@ export async function updateSubscriptionSeats(
   const previousSeatCount = subRow.seat_count ?? 0;
   if (newSeatCount === previousSeatCount) {
     const subscription = await stripe.subscriptions.retrieve(subRow.stripe_subscription_id);
+    const pt = (subRow.plan_type ?? subscription.metadata?.plan_type ?? "monthly") as "monthly" | "annual";
+    const tier = getPricingTier(newSeatCount);
+    const pricing = PRICING_TIERS[pt][tier];
+    const am = pt === "annual" ? (pricing.perSeat * newSeatCount) / 12 : pricing.perSeat * newSeatCount;
+    const ay = pt === "annual" ? pricing.perSeat * newSeatCount : pricing.perSeat * newSeatCount * 12;
     return {
       subscription,
       previousSeatCount,
       newSeatCount,
       prorationAmountCents: 0,
-      newMonthlyAmountCents: 0,
+      newMonthlyAmountCents: Math.round(am * 100),
+      newAnnualAmountCents: Math.round(ay * 100),
+      planType: pt,
     };
   }
 
@@ -731,12 +760,16 @@ export async function updateSubscriptionSeats(
   await syncSubscriptionFromStripe(updated);
 
   const tier = getPricingTier(newSeatCount);
-  const planType = (subscription.metadata?.plan_type || "monthly") as "monthly" | "annual";
+  const planType = (subRow.plan_type ?? subscription.metadata?.plan_type ?? "monthly") as "monthly" | "annual";
   const pricing = PRICING_TIERS[planType][tier];
   const amountPerMonthEur = planType === "annual"
     ? (pricing.perSeat * newSeatCount) / 12
     : pricing.perSeat * newSeatCount;
+  const amountPerYearEur = planType === "annual"
+    ? pricing.perSeat * newSeatCount
+    : pricing.perSeat * newSeatCount * 12;
   const newMonthlyAmountCents = Math.round(amountPerMonthEur * 100);
+  const newAnnualAmountCents = Math.round(amountPerYearEur * 100);
 
   let prorationAmountCents = 0;
   try {
@@ -748,7 +781,7 @@ export async function updateSubscriptionSeats(
     }
   } catch {
     const preview = await stripe.invoices.createPreview({ subscription: updated.id }).catch(() => null);
-    if (preview) prorationAmountCents = preview.amount_due ?? 0;
+    if (preview) prorationAmountCents = (preview as { amount_due?: number }).amount_due ?? 0;
   }
 
   return {
@@ -757,6 +790,8 @@ export async function updateSubscriptionSeats(
     newSeatCount,
     prorationAmountCents,
     newMonthlyAmountCents,
+    newAnnualAmountCents,
+    planType,
   };
 }
 

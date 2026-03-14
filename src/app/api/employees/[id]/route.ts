@@ -189,7 +189,7 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    let billingInfo: { previousSeats: number; newSeats: number; creditCents: number; newMonthlyCents: number } | null = null;
+    let billingInfo: { previousSeats: number; newSeats: number; creditCents: number; newMonthlyCents: number; newAnnualCents: number; planType: "monthly" | "annual" } | null = null;
     try {
       const { data: subRow } = await supabase
         .from("subscriptions")
@@ -208,6 +208,8 @@ export async function DELETE(
             newSeats: result.newSeatCount,
             creditCents: result.prorationAmountCents,
             newMonthlyCents: result.newMonthlyAmountCents,
+            newAnnualCents: result.newAnnualAmountCents,
+            planType: result.planType,
           };
 
           const user = await currentUser();
@@ -220,7 +222,8 @@ export async function DELETE(
               removedTalentName: empData ? `${empData.first_name} ${empData.last_name}` : "Talent",
               previousSeatCount: result.previousSeatCount,
               newSeatCount: result.newSeatCount,
-              newAmountPerMonthEur: (result.newMonthlyAmountCents / 100).toFixed(2).replace(".", ","),
+              planType: result.planType,
+              newAmountEur: (result.planType === "annual" ? result.newAnnualAmountCents : result.newMonthlyAmountCents) / 100,
               creditAmountEur: (Math.abs(result.prorationAmountCents) / 100).toFixed(2).replace(".", ","),
             });
           }

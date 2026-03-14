@@ -37,6 +37,8 @@ export async function GET() {
       newSeatCount: preview.newSeatCount,
       prorationAmountCents: preview.prorationAmountCents,
       newMonthlyAmountCents: preview.newMonthlyAmountCents,
+      newAnnualAmountCents: preview.newAnnualAmountCents,
+      planType: preview.planType,
       nextBillingDate: preview.nextBillingDate,
     });
   } catch (e) {

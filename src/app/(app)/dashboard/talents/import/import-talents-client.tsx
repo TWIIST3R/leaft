@@ -10,6 +10,8 @@ type BillingPreview = {
   newSeatCount: number;
   prorationAmountCents: number;
   newMonthlyAmountCents: number;
+  newAnnualAmountCents: number;
+  planType: "monthly" | "annual";
   nextBillingDate: string | null;
 };
 
@@ -30,7 +32,7 @@ export function ImportTalentsClient() {
   const [result, setResult] = useState<{
     created: number;
     errors: { row: number; message: string }[];
-    billingInfo?: { previousSeats: number; newSeats: number; prorationCents: number; newMonthlyCents: number };
+    billingInfo?: { previousSeats: number; newSeats: number; prorationCents: number; newMonthlyCents: number; newAnnualCents: number; planType: "monthly" | "annual" };
   } | null>(null);
   const bulkInputRef = useRef<HTMLInputElement>(null);
 
@@ -206,6 +208,7 @@ export function ImportTalentsClient() {
             <ul className="list-inside list-disc text-sm text-[color:rgba(11,11,11,0.8)]">
               <li>Abonnement : {result.billingInfo.previousSeats} → {result.billingInfo.newSeats} talents</li>
               <li>Montant au prorata facturé : {(result.billingInfo.prorationCents / 100).toFixed(2).replace(".", ",")} €</li>
+              <li>{result.billingInfo.planType === "annual" ? "Nouveau montant annuel" : "Nouveau montant mensuel"} : {((result.billingInfo.planType === "annual" ? result.billingInfo.newAnnualCents : result.billingInfo.newMonthlyCents) / 100).toFixed(2).replace(".", ",")} €</li>
             </ul>
           )}
           {result.errors.length > 0 && (
@@ -304,7 +307,7 @@ export function ImportTalentsClient() {
                 <ul className="mt-2 list-inside list-disc space-y-1 text-[color:rgba(11,11,11,0.8)]">
                   <li>Talents actuels : <strong>{previewData.billingPreview.previousSeatCount}</strong></li>
                   <li>Après import : <strong>{previewData.billingPreview.newSeatCount}</strong> talents</li>
-                  <li>Nouveau montant mensuel : <strong>{(previewData.billingPreview.newMonthlyAmountCents / 100).toFixed(2).replace(".", ",")} €</strong></li>
+                  <li>{previewData.billingPreview.planType === "annual" ? "Nouveau montant annuel" : "Nouveau montant mensuel"} : <strong>{((previewData.billingPreview.planType === "annual" ? previewData.billingPreview.newAnnualAmountCents : previewData.billingPreview.newMonthlyAmountCents) / 100).toFixed(2).replace(".", ",")} €</strong></li>
                   <li>Montant au prorata (facturé maintenant) : <strong>{(previewData.billingPreview.prorationAmountCents / 100).toFixed(2).replace(".", ",")} €</strong></li>
                 </ul>
                 <p className="mt-2 text-xs text-[color:rgba(11,11,11,0.6)]">Un email récapitulatif vous sera envoyé après validation.</p>

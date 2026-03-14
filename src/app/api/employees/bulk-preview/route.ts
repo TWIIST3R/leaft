@@ -144,6 +144,8 @@ export async function POST(request: NextRequest) {
       newSeatCount: number;
       prorationAmountCents: number;
       newMonthlyAmountCents: number;
+      newAnnualAmountCents: number;
+      planType: "monthly" | "annual";
       nextBillingDate: string | null;
     } | null = null;
     if (validCount > 0) {

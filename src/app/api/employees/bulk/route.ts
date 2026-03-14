@@ -276,7 +276,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let billingInfo: { previousSeats: number; newSeats: number; prorationCents: number; newMonthlyCents: number } | null = null;
+    let billingInfo: { previousSeats: number; newSeats: number; prorationCents: number; newMonthlyCents: number; newAnnualCents: number; planType: "monthly" | "annual" } | null = null;
     if (created.length > 0) {
       try {
         const { data: subRow } = await supabase
@@ -294,6 +294,8 @@ export async function POST(request: NextRequest) {
             newSeats: result.newSeatCount,
             prorationCents: result.prorationAmountCents,
             newMonthlyCents: result.newMonthlyAmountCents,
+            newAnnualCents: result.newAnnualAmountCents,
+            planType: result.planType,
           };
           const user = await currentUser();
           const adminEmail = user?.emailAddresses?.[0]?.emailAddress ?? "";
@@ -309,7 +311,8 @@ export async function POST(request: NextRequest) {
               previousSeatCount: result.previousSeatCount,
               newSeatCount: result.newSeatCount,
               addCount: created.length,
-              newAmountPerMonthEur: (result.newMonthlyAmountCents / 100).toFixed(2).replace(".", ","),
+              planType: result.planType,
+              newAmountEur: (result.planType === "annual" ? result.newAnnualAmountCents : result.newMonthlyAmountCents) / 100,
               prorationAmountEur: (result.prorationAmountCents / 100).toFixed(2).replace(".", ","),
               nextBillingDate,
             });

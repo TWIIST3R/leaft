@@ -81,8 +81,8 @@ export function NewTalentClient({
     return total;
   }, [selectedLevel, selectedMgmt, selectedAnc, adj]);
 
-  type BillingInfo = { previousSeats: number; newSeats: number; prorationCents: number; newMonthlyCents: number };
-  type BillingPreview = { previousSeatCount: number; newSeatCount: number; prorationAmountCents: number; newMonthlyAmountCents: number; nextBillingDate?: string | null };
+  type BillingInfo = { previousSeats: number; newSeats: number; prorationCents: number; newMonthlyCents: number; newAnnualCents: number; planType: "monthly" | "annual" };
+  type BillingPreview = { previousSeatCount: number; newSeatCount: number; prorationAmountCents: number; newMonthlyAmountCents: number; newAnnualAmountCents: number; planType: "monthly" | "annual"; nextBillingDate?: string | null };
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
@@ -373,7 +373,7 @@ export function NewTalentClient({
             <ul className="list-inside list-disc space-y-1 text-[color:rgba(11,11,11,0.8)]">
               <li>Nombre de talents actuel : <strong>{billingPreview.previousSeatCount}</strong></li>
               <li>Après ajout : <strong>{billingPreview.newSeatCount}</strong> talent{billingPreview.newSeatCount > 1 ? "s" : ""}</li>
-              <li>Nouveau montant mensuel de l'abonnement : <strong>{(billingPreview.newMonthlyAmountCents / 100).toFixed(2).replace(".", ",")} €</strong></li>
+              <li>{billingPreview.planType === "annual" ? "Nouveau montant annuel de l'abonnement" : "Nouveau montant mensuel de l'abonnement"} : <strong>{((billingPreview.planType === "annual" ? billingPreview.newAnnualAmountCents : billingPreview.newMonthlyAmountCents) / 100).toFixed(2).replace(".", ",")} €</strong></li>
               <li>Montant au prorata (facturé dès maintenant) : <strong>{(billingPreview.prorationAmountCents / 100).toFixed(2).replace(".", ",")} €</strong></li>
             </ul>
             <p className="mt-2 text-xs text-[color:rgba(11,11,11,0.6)]">
@@ -416,7 +416,7 @@ export function NewTalentClient({
             <ul className="list-inside list-disc space-y-1 text-[color:rgba(11,11,11,0.8)]">
               <li>Ancien nombre de talents : <strong>{billingResult.previousSeats}</strong></li>
               <li>Nouveau total : <strong>{billingResult.newSeats}</strong> talent{billingResult.newSeats > 1 ? "s" : ""}</li>
-              <li>Nouveau montant mensuel : <strong>{(billingResult.newMonthlyCents / 100).toFixed(2).replace(".", ",")} €</strong></li>
+              <li>{billingResult.planType === "annual" ? "Nouveau montant annuel" : "Nouveau montant mensuel"} : <strong>{((billingResult.planType === "annual" ? billingResult.newAnnualCents : billingResult.newMonthlyCents) / 100).toFixed(2).replace(".", ",")} €</strong></li>
               <li>Montant au prorata facturé : <strong>{(billingResult.prorationCents / 100).toFixed(2).replace(".", ",")} €</strong></li>
             </ul>
             <p className="mt-2 text-sm font-medium text-[var(--brand)]">Un email récapitulatif vous a été envoyé.</p>

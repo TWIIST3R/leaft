@@ -60,7 +60,6 @@ export async function POST(request: NextRequest) {
 
     const user = await currentUser();
     const email = user?.emailAddresses?.[0]?.emailAddress ?? "";
-    const newAmountPerMonthEur = (updateResult.newMonthlyAmountCents / 100).toFixed(2).replace(".", ",");
     const prorationEur = (updateResult.prorationAmountCents / 100).toFixed(2).replace(".", ",");
 
     await sendAddTalentsEmail({
@@ -69,7 +68,8 @@ export async function POST(request: NextRequest) {
       previousSeatCount: updateResult.previousSeatCount,
       newSeatCount: updateResult.newSeatCount,
       addCount,
-      newAmountPerMonthEur,
+      planType: updateResult.planType,
+      newAmountEur: (updateResult.planType === "annual" ? updateResult.newAnnualAmountCents : updateResult.newMonthlyAmountCents) / 100,
       prorationAmountEur: prorationEur,
     });
 
