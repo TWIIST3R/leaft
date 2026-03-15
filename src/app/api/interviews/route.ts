@@ -23,7 +23,7 @@ async function getOrganizationId(userId: string, orgId: string | null) {
 
 const INTERVIEW_SELECT = `
   id, employee_id, organization_id, interview_date, type,
-  notes, justification, salary_adjustment, created_by,
+  notes, justification, salary_adjustment, status, created_by,
   created_at, updated_at
 `;
 
@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
       notes: notes || null,
       justification: justification || null,
       salary_adjustment: salary_adjustment ? Number(salary_adjustment) : null,
+      status: "en_cours",
       created_by: userId,
     })
     .select(INTERVIEW_SELECT)

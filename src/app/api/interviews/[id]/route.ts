@@ -23,7 +23,7 @@ async function getOrganizationId(userId: string, orgId: string | null) {
 
 const INTERVIEW_SELECT = `
   id, employee_id, organization_id, interview_date, type,
-  notes, justification, salary_adjustment, created_by,
+  notes, justification, salary_adjustment, status, created_by,
   created_at, updated_at
 `;
 
@@ -61,7 +61,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (body.type !== undefined) updates.type = body.type;
   if (body.notes !== undefined) updates.notes = body.notes || null;
   if (body.justification !== undefined) updates.justification = body.justification || null;
-  if (body.salary_adjustment !== undefined) updates.salary_adjustment = body.salary_adjustment ? Number(body.salary_adjustment) : null;
+  if (body.status !== undefined) updates.status = body.status === "termine" ? "termine" : "en_cours";
+  if (body.salary_adjustment !== undefined) updates.salary_adjustment = body.salary_adjustment != null && body.salary_adjustment !== "" ? Number(body.salary_adjustment) : null;
 
   if (Object.keys(updates).length === 0 && !body.apply_salary_changes) {
     return NextResponse.json({ error: "Aucune donnée à mettre à jour" }, { status: 400 });
@@ -117,7 +118,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
         const effectiveDate = data.interview_date || new Date().toISOString().split("T")[0];
         const reason = `Suite à ${data.type || "entretien"}`;
-        await supabase.from("employee_position_history").insert({
+        const { error: histErr } = await supabase.from("employee_position_history").insert({
           employee_id: data.employee_id,
           organization_id: organizationId,
           level_id: levelId,
@@ -128,6 +129,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           effective_date: effectiveDate,
           reason,
         });
+        if (histErr) {
+          console.error("employee_position_history insert error:", histErr);
+          return NextResponse.json({ error: "Changement enregistré sur le talent mais l'historique n'a pas pu être sauvegardé. " + histErr.message }, { status: 500 });
+        }
+
+        const { data: updatedInterview } = await supabase
+          .from("interviews")
+          .update({ salary_adjustment: total })
+          .eq("id", id)
+          .eq("organization_id", organizationId)
+          .select(INTERVIEW_SELECT)
+          .single();
+        if (updatedInterview) Object.assign(data, updatedInterview);
 
         if (currentEmp.email) {
           const { data: org } = await supabase.from("organizations").select("name").eq("id", organizationId).single();

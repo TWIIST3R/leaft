@@ -420,9 +420,9 @@ export function TalentDetailClient({
                             {new Date(iv.interview_date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
                           </span>
                         </div>
-                        {iv.salary_adjustment != null && Number(iv.salary_adjustment) !== 0 && (
+                        {iv.salary_adjustment != null && (
                           <span className="text-sm font-medium text-[var(--text)]">
-                            {Number(iv.salary_adjustment) > 0 ? "+" : ""}{Number(iv.salary_adjustment).toLocaleString("fr-FR")} €
+                            {Number(iv.salary_adjustment).toLocaleString("fr-FR")} €
                           </span>
                         )}
                       </div>

@@ -28,6 +28,7 @@ type Interview = {
   notes: string | null;
   justification: string | null;
   salary_adjustment: number | null;
+  status: string | null;
   created_by: string;
   created_at: string;
 };
@@ -99,7 +100,7 @@ export function EntretiensClient({
     email_subject: "Entretien annuel",
     notes: "",
     justification: "",
-    salary_adjustment: "",
+    status: "en_cours",
   });
 
   const [salaryForm, setSalaryForm] = useState({
@@ -171,7 +172,7 @@ export function EntretiensClient({
   });
 
   const resetForm = useCallback(() => {
-    setForm({ employee_id: "", interview_date: new Date().toISOString().split("T")[0], type: "Entretien annuel", email_subject: "Entretien annuel", notes: "", justification: "", salary_adjustment: "" });
+    setForm({ employee_id: "", interview_date: new Date().toISOString().split("T")[0], type: "Entretien annuel", email_subject: "Entretien annuel", notes: "", justification: "", status: "en_cours" });
     setSalaryForm({ apply_salary_changes: false, new_level_id: "", new_management_id: "", new_anciennete_id: "", new_salary_adjustment: "" });
     setEditingId(null);
     setShowForm(false);
@@ -185,6 +186,7 @@ export function EntretiensClient({
       if (editingId) {
         const payload = {
           ...form,
+          status: form.status,
           ...(salaryForm.apply_salary_changes
             ? {
                 apply_salary_changes: true,
@@ -231,7 +233,7 @@ export function EntretiensClient({
       email_subject: interview.type,
       notes: interview.notes || "",
       justification: interview.justification || "",
-      salary_adjustment: interview.salary_adjustment?.toString() || "",
+      status: interview.status === "termine" ? "termine" : "en_cours",
     });
     setSalaryForm({
       apply_salary_changes: false,
@@ -352,7 +354,7 @@ export function EntretiensClient({
                 placeholder="Observations, points abordés..."
               />
             </div>
-            <div className="sm:col-span-2">
+            <div className="sm:col-span-2 lg:col-span-3">
               <label htmlFor="iv-justif" className={LABEL}>Justification</label>
               <textarea
                 id="iv-justif"
@@ -360,20 +362,23 @@ export function EntretiensClient({
                 value={form.justification}
                 onChange={(e) => setForm((f) => ({ ...f, justification: e.target.value }))}
                 className={INPUT}
-                placeholder="Justification de l'ajustement (si applicable)..."
+                placeholder="Justification (si applicable)..."
               />
             </div>
-            <div>
-              <label htmlFor="iv-adj" className={LABEL}>Ajustement salarial (€)</label>
-              <input
-                id="iv-adj"
-                type="number"
-                value={form.salary_adjustment}
-                onChange={(e) => setForm((f) => ({ ...f, salary_adjustment: e.target.value }))}
-                className={INPUT}
-                placeholder="0"
-              />
-            </div>
+            {editingId && (
+              <div>
+                <label htmlFor="iv-status" className={LABEL}>Statut de l&apos;entretien</label>
+                <select
+                  id="iv-status"
+                  value={form.status}
+                  onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+                  className={`${INPUT} cursor-pointer`}
+                >
+                  <option value="en_cours">En cours</option>
+                  <option value="termine">Terminé</option>
+                </select>
+              </div>
+            )}
           </div>
 
           {editingId && selectedEmp && (
@@ -547,8 +552,9 @@ export function EntretiensClient({
                   <th className="px-6 py-4 font-semibold text-[var(--text)]">Collaborateur</th>
                   <th className="px-6 py-4 font-semibold text-[var(--text)]">Date</th>
                   <th className="px-6 py-4 font-semibold text-[var(--text)]">Type</th>
+                  <th className="px-6 py-4 font-semibold text-[var(--text)]">Statut</th>
                   <th className="px-6 py-4 font-semibold text-[var(--text)]">Notes</th>
-                  <th className="px-6 py-4 font-semibold text-[var(--text)]">Ajustement</th>
+                  <th className="px-6 py-4 font-semibold text-[var(--text)]">Changement rémunération</th>
                   <th className="px-6 py-4"></th>
                 </tr>
               </thead>
@@ -572,12 +578,17 @@ export function EntretiensClient({
                           {TYPES.find((t) => t.value === iv.type)?.label || iv.type}
                         </span>
                       </td>
+                      <td className="px-6 py-4">
+                        <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${iv.status === "termine" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
+                          {iv.status === "termine" ? "Terminé" : "En cours"}
+                        </span>
+                      </td>
                       <td className="max-w-[240px] truncate px-6 py-4 text-[color:rgba(11,11,11,0.65)]">
                         {iv.notes || "—"}
                       </td>
                       <td className="px-6 py-4 text-[color:rgba(11,11,11,0.75)]">
-                        {iv.salary_adjustment != null && Number(iv.salary_adjustment) !== 0
-                          ? `${Number(iv.salary_adjustment) > 0 ? "+" : ""}${Number(iv.salary_adjustment).toLocaleString("fr-FR")} €`
+                        {iv.salary_adjustment != null
+                          ? `${Number(iv.salary_adjustment).toLocaleString("fr-FR")} €`
                           : "—"}
                       </td>
                       <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
