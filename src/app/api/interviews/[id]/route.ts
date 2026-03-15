@@ -96,7 +96,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (hasPending) {
         const { data: currentEmp } = await supabase
           .from("employees")
-          .select("current_level_id, current_management_id, current_anciennete_id, salary_adjustment, first_name, last_name, email")
+          .select("current_level_id, current_management_id, current_anciennete_id, current_department_id, current_job_title, salary_adjustment, first_name, last_name, email")
           .eq("id", currentRow.employee_id)
           .single();
 
@@ -134,10 +134,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           const { error: histErr } = await supabase.from("employee_position_history").insert({
             employee_id: currentRow.employee_id,
             organization_id: organizationId,
+            job_title: currentEmp.current_job_title ?? "",
+            department_id: currentEmp.current_department_id ?? null,
             level_id: levelId,
             management_id: mgmtId,
             anciennete_id: ancId,
             salary_adjustment: adj,
+            start_date: effectiveDate,
+            annual_salary_brut: total,
             annual_salary: total,
             effective_date: effectiveDate,
             reason,
