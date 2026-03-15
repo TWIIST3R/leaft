@@ -28,6 +28,7 @@ type Interview = {
   notes: string | null;
   justification: string | null;
   salary_adjustment: number | null;
+  previous_salary_applied?: number | null;
   status: string | null;
   created_by: string;
   created_at: string;
@@ -313,11 +314,17 @@ export function EntretiensClient({
         </button>
       </div>
 
-      {showForm && (
+      {showForm && (() => {
+        const editingInterview = editingId ? interviews.find((i) => i.id === editingId) : null;
+        const isReadOnly = editingInterview?.status === "termine";
+        return (
         <div ref={formRef} className={`${CARD} p-6`}>
           <h3 className="text-lg font-semibold text-[var(--text)]">
-            {editingId ? "Modifier l\u2019entretien" : "Nouvel entretien"}
+            {editingId ? (isReadOnly ? "Détail de l\u2019entretien" : "Modifier l\u2019entretien") : "Nouvel entretien"}
           </h3>
+          {isReadOnly && (
+            <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.5)]">Cet entretien est terminé. Consultation seule.</p>
+          )}
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
               <label htmlFor="iv-emp" className={LABEL}>Collaborateur</label>
@@ -325,6 +332,7 @@ export function EntretiensClient({
                 id="iv-emp"
                 value={form.employee_id}
                 onChange={(e) => setForm((f) => ({ ...f, employee_id: e.target.value }))}
+                disabled={isReadOnly}
                 className={`${INPUT} cursor-pointer`}
               >
                 <option value="">Sélectionner...</option>
@@ -340,6 +348,7 @@ export function EntretiensClient({
                 type="date"
                 value={form.interview_date}
                 onChange={(e) => setForm((f) => ({ ...f, interview_date: e.target.value }))}
+                disabled={isReadOnly}
                 className={INPUT}
               />
             </div>
@@ -349,6 +358,7 @@ export function EntretiensClient({
                 id="iv-type"
                 value={form.type}
                 onChange={(e) => setForm((f) => ({ ...f, type: e.target.value, email_subject: e.target.value }))}
+                disabled={isReadOnly}
                 className={`${INPUT} cursor-pointer`}
               >
                 {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -361,6 +371,7 @@ export function EntretiensClient({
                 type="text"
                 value={form.email_subject}
                 onChange={(e) => setForm((f) => ({ ...f, email_subject: e.target.value }))}
+                disabled={isReadOnly}
                 className={INPUT}
                 placeholder="Ex: Entretien annuel 2026"
               />
@@ -372,6 +383,7 @@ export function EntretiensClient({
                 rows={3}
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                disabled={isReadOnly}
                 className={INPUT}
                 placeholder="Observations, points abordés..."
               />
@@ -383,6 +395,7 @@ export function EntretiensClient({
                 rows={2}
                 value={form.justification}
                 onChange={(e) => setForm((f) => ({ ...f, justification: e.target.value }))}
+                disabled={isReadOnly}
                 className={INPUT}
                 placeholder="Justification (si applicable)..."
               />
@@ -407,6 +420,7 @@ export function EntretiensClient({
                 </p>
               </div>
 
+              {!isReadOnly && (
               <div className="mt-5 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-5">
                 <div className="flex items-center gap-3">
                   <button
@@ -483,25 +497,35 @@ export function EntretiensClient({
                   </div>
                 )}
               </div>
+              )}
             </>
           )}
           <div className="mt-5 flex flex-wrap items-center gap-3">
-            <button onClick={handleSubmit} disabled={loading || !form.employee_id} className={BTN_PRIMARY}>
-              {loading ? "Enregistrement..." : editingId ? "Mettre à jour" : "Créer l\u2019entretien"}
-            </button>
-            <button onClick={resetForm} className={BTN_SECONDARY}>Annuler</button>
-            {editingId && interviews.find((i) => i.id === editingId)?.status !== "termine" && (
-              <button
-                type="button"
-                onClick={handleFinishInterview}
-                disabled={loading}
-                className="inline-flex cursor-pointer items-center rounded-full border-2 border-[var(--brand)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--brand)] transition hover:bg-[var(--brand)]/5 disabled:opacity-50"
-              >
-                {loading ? "..." : "Terminer l\u2019entretien"}
-              </button>
+            {isReadOnly ? (
+              <button onClick={resetForm} className={BTN_SECONDARY}>Fermer</button>
+            ) : (
+              <>
+                <button onClick={handleSubmit} disabled={loading || !form.employee_id} className={BTN_PRIMARY}>
+                  {loading ? "Enregistrement..." : editingId ? "Mettre à jour" : "Créer l\u2019entretien"}
+                </button>
+                <button onClick={resetForm} className={BTN_SECONDARY}>Annuler</button>
+                {editingId && interviews.find((i) => i.id === editingId)?.status !== "termine" && (
+                  <button
+                    type="button"
+                    onClick={handleFinishInterview}
+                    disabled={loading}
+                    className="inline-flex cursor-pointer items-center rounded-full border-2 border-[var(--brand)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--brand)] transition hover:bg-[var(--brand)]/5 disabled:opacity-50"
+                  >
+                    {loading ? "..." : "Terminer l\u2019entretien"}
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
+        );
+      })()}
+
       )}
 
       {meetingRequests.length > 0 && (
@@ -610,19 +634,32 @@ export function EntretiensClient({
                         {iv.notes || "—"}
                       </td>
                       <td className="px-6 py-4 text-[color:rgba(11,11,11,0.75)]">
-                        {iv.salary_adjustment != null
-                          ? `${Number(iv.salary_adjustment).toLocaleString("fr-FR")} €`
-                          : "—"}
+                        {iv.salary_adjustment != null ? (
+                          <>
+                            {iv.previous_salary_applied != null && Number(iv.previous_salary_applied) > 0 && (
+                              <span className={`mr-2 text-xs font-semibold ${Number(iv.salary_adjustment) >= Number(iv.previous_salary_applied) ? "text-green-600" : "text-red-600"}`}>
+                                {Math.round(((Number(iv.salary_adjustment) - Number(iv.previous_salary_applied)) / Number(iv.previous_salary_applied) * 100) >= 0 ? "+" : ""}
+                                {Math.round(((Number(iv.salary_adjustment) - Number(iv.previous_salary_applied)) / Number(iv.previous_salary_applied) * 100)} %
+                              </span>
+                            )}
+                            {Number(iv.salary_adjustment).toLocaleString("fr-FR")} €
+                          </>
+                        ) : "—"}
                       </td>
                       <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-2">
-                          <button type="button" onClick={() => handleEdit(iv)} className="text-xs font-medium text-[var(--brand)] hover:underline cursor-pointer">
-                            Modifier
-                          </button>
-                          <button type="button" onClick={() => handleDelete(iv.id)} className="text-xs font-medium text-red-600 hover:underline cursor-pointer">
-                            Supprimer
-                          </button>
-                        </div>
+                        {iv.status !== "termine" && (
+                          <div className="flex items-center gap-2">
+                            <button type="button" onClick={() => handleEdit(iv)} className="text-xs font-medium text-[var(--brand)] hover:underline cursor-pointer">
+                              Modifier
+                            </button>
+                            <button type="button" onClick={() => handleDelete(iv.id)} className="text-xs font-medium text-red-600 hover:underline cursor-pointer">
+                              Supprimer
+                            </button>
+                          </div>
+                        )}
+                        {iv.status === "termine" && (
+                          <span className="text-xs text-[color:rgba(11,11,11,0.5)]">Consultation seule</span>
+                        )}
                       </td>
                     </tr>
                   );

@@ -23,7 +23,7 @@ async function getOrganizationId(userId: string, orgId: string | null) {
 
 const INTERVIEW_SELECT = `
   id, employee_id, organization_id, interview_date, type,
-  notes, justification, salary_adjustment, status, created_by,
+  notes, justification, salary_adjustment, previous_salary_applied, status, created_by,
   created_at, updated_at,
   pending_level_id, pending_management_id, pending_anciennete_id, pending_salary_adjustment
 `;

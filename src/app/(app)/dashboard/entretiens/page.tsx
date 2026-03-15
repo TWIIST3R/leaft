@@ -27,7 +27,7 @@ async function getData() {
   const [{ data: interviews }, { data: employees }, { data: departments }, { data: grilleExtra }] = await Promise.all([
     supabase
       .from("interviews")
-      .select("id, employee_id, interview_date, type, notes, justification, salary_adjustment, status, created_by, created_at, pending_level_id, pending_management_id, pending_anciennete_id, pending_salary_adjustment")
+      .select("id, employee_id, interview_date, type, notes, justification, salary_adjustment, previous_salary_applied, status, created_by, created_at, pending_level_id, pending_management_id, pending_anciennete_id, pending_salary_adjustment")
       .eq("organization_id", organizationId)
       .order("interview_date", { ascending: false }),
     supabase
