@@ -232,28 +232,39 @@ export type SalaryChangeEmailData = {
   talentLastName: string;
   organizationName: string;
   effectiveDate: string;
+  previousAnnualSalaryEur: number;
   newAnnualSalaryEur: number;
+  evolutionPercent: number;
   reason?: string;
 };
 
 export async function sendSalaryChangeEmail(data: SalaryChangeEmailData): Promise<{ ok: boolean; error?: string }> {
-  const subject = `Leaft – Mise à jour de votre rémunération`;
+  const subject = `Leaft – Mise à jour de votre rémunération${data.evolutionPercent !== 0 ? ` (+${data.evolutionPercent} %)` : ""}`;
   const dateStr = new Date(data.effectiveDate).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
-  const salaryStr = data.newAnnualSalaryEur.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(".", ",");
+  const newStr = data.newAnnualSalaryEur.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(".", ",");
+  const prevStr = data.previousAnnualSalaryEur.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(".", ",");
+  const evolutionLine = data.evolutionPercent > 0
+    ? `<p style="margin:0 0 16px;font-size:17px;font-weight:600;color:${BRAND_COLOR};">Votre rémunération a augmenté de <strong>+${data.evolutionPercent} %</strong>.</p>`
+    : data.evolutionPercent < 0
+      ? `<p style="margin:0 0 16px;font-size:17px;font-weight:600;color:#b91c1c;">Votre rémunération a évolué de ${data.evolutionPercent} %.</p>`
+      : `<p style="margin:0 0 16px;font-size:15px;">Votre rémunération a été mise à jour suite à votre entretien.</p>`;
   const htmlContent = `
-      <p style="margin:0 0 16px;font-size:15px;">Votre rémunération a été mise à jour suite à votre entretien.</p>
+      ${evolutionLine}
       <div style="margin:20px 0;padding:16px 20px;background:${BRAND_LIGHT};border-radius:12px;border-left:4px solid ${BRAND_COLOR};">
         <p style="margin:0 0 10px;font-weight:600;font-size:14px;color:${BRAND_COLOR};">Détail</p>
         <ul style="margin:0;padding-left:20px;font-size:14px;">
           <li style="margin:6px 0;">Date d'effet : <strong>${dateStr}</strong></li>
-          <li style="margin:6px 0;">Nouveau salaire annuel brut : <strong>${salaryStr} €</strong></li>
+          ${data.evolutionPercent !== 0 ? `<li style="margin:6px 0;">Évolution : <strong>+${data.evolutionPercent} %</strong></li>` : ""}
+          <li style="margin:6px 0;">Ancien salaire annuel brut : <strong>${prevStr} €</strong></li>
+          <li style="margin:6px 0;">Nouveau salaire annuel brut : <strong>${newStr} €</strong></li>
           ${data.reason ? `<li style="margin:6px 0;">Motif : ${data.reason}</li>` : ""}
         </ul>
       </div>
       <p style="margin:0;font-size:14px;color:#555;">Vous pouvez consulter l'historique de votre rémunération dans votre espace Talent.</p>
   `;
   const html = emailLayout(data.talentFirstName, htmlContent);
-  const text = `Bonjour ${data.talentFirstName} ${data.talentLastName},\n\nVotre rémunération a été mise à jour. Date d'effet : ${dateStr}. Nouveau salaire annuel brut : ${salaryStr} €.\n\nÀ bientôt, L'équipe Leaft`;
+  const percentLine = data.evolutionPercent !== 0 ? ` Votre rémunération a ${data.evolutionPercent > 0 ? "augmenté de +" : "évolué de "}${data.evolutionPercent} %.\n\n` : "";
+  const text = `Bonjour ${data.talentFirstName} ${data.talentLastName},\n\n${percentLine}Date d'effet : ${dateStr}. Ancien salaire : ${prevStr} €. Nouveau salaire annuel brut : ${newStr} €.\n\nÀ bientôt, L'équipe Leaft`;
 
   const resendApiKey = process.env.RESEND_API_KEY;
   const from = DEFAULT_FROM;

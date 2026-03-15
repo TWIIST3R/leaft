@@ -53,7 +53,7 @@ async function getData(id: string) {
       .order("interview_date", { ascending: false }),
     supabase
       .from("employee_position_history")
-      .select("id, effective_date, reason, annual_salary")
+      .select("id, effective_date, reason, annual_salary, previous_annual_salary")
       .eq("employee_id", id)
       .order("effective_date", { ascending: false }),
   ]);
@@ -74,6 +74,7 @@ async function getData(id: string) {
       effective_date: h.effective_date,
       reason: h.reason,
       annual_salary: h.annual_salary,
+      previous_annual_salary: (h as { previous_annual_salary?: number | null }).previous_annual_salary,
     })),
   };
 }

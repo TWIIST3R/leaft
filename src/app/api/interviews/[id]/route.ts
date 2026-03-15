@@ -96,7 +96,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (hasPending) {
         const { data: currentEmp } = await supabase
           .from("employees")
-          .select("current_level_id, current_management_id, current_anciennete_id, current_department_id, current_job_title, salary_adjustment, first_name, last_name, email")
+          .select("current_level_id, current_management_id, current_anciennete_id, current_department_id, current_job_title, salary_adjustment, annual_salary_brut, first_name, last_name, email")
           .eq("id", currentRow.employee_id)
           .single();
 
@@ -131,6 +131,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
           const effectiveDate = currentRow.interview_date || new Date().toISOString().split("T")[0];
           const reason = `Suite à ${currentRow.type || "entretien"}`;
+          const previousSalary = Number(currentEmp.annual_salary_brut) || 0;
           const { error: histErr } = await supabase.from("employee_position_history").insert({
             employee_id: currentRow.employee_id,
             organization_id: organizationId,
@@ -143,6 +144,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             start_date: effectiveDate,
             annual_salary_brut: total,
             annual_salary: total,
+            previous_annual_salary: previousSalary,
             effective_date: effectiveDate,
             reason,
           });
@@ -153,13 +155,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
           if (currentEmp.email) {
             const { data: org } = await supabase.from("organizations").select("name").eq("id", organizationId).single();
+            const evolutionPercent = previousSalary > 0 ? Math.round(((total - previousSalary) / previousSalary) * 100) : 0;
             await sendSalaryChangeEmail({
               to: currentEmp.email,
               talentFirstName: currentEmp.first_name ?? "",
               talentLastName: currentEmp.last_name ?? "",
               organizationName: org?.name ?? "",
               effectiveDate,
+              previousAnnualSalaryEur: previousSalary,
               newAnnualSalaryEur: total,
+              evolutionPercent,
               reason,
             });
           }

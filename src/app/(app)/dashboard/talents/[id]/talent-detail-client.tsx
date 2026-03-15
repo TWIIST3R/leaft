@@ -25,6 +25,7 @@ type SalaryHistoryEntry = {
   effective_date: string;
   reason: string | null;
   annual_salary: number | null;
+  previous_annual_salary?: number | null;
 };
 type Employee = {
   id: string;
@@ -443,10 +444,20 @@ export function TalentDetailClient({
                 const sorted = [...salaryHistory].filter((h) => h.effective_date && h.annual_salary != null).sort(
                   (a, b) => new Date(a.effective_date!).getTime() - new Date(b.effective_date!).getTime()
                 );
-                const chartData = sorted.map((h) => ({
-                  label: new Date(h.effective_date!).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
-                  value: Number(h.annual_salary),
-                }));
+                const chartData: { label: string; value: number }[] = [];
+                const firstPrev = sorted[0]?.previous_annual_salary != null ? Number(sorted[0].previous_annual_salary) : null;
+                if (firstPrev != null && employee.hire_date) {
+                  chartData.push({
+                    label: new Date(employee.hire_date).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
+                    value: firstPrev,
+                  });
+                }
+                sorted.forEach((h) => {
+                  chartData.push({
+                    label: new Date(h.effective_date!).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
+                    value: Number(h.annual_salary),
+                  });
+                });
                 if (chartData.length === 1 && employee.annual_salary_brut != null) {
                   chartData.push({ label: "Aujourd'hui", value: Number(employee.annual_salary_brut) });
                 }
@@ -462,19 +473,31 @@ export function TalentDetailClient({
                 ) : null;
               })()}
               <div className="mt-6 space-y-3">
-                {salaryHistory.map((h) => (
-                  <div key={h.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] px-4 py-3">
-                    <div>
-                      <span className="text-sm font-medium text-[var(--text)]">
-                        {h.effective_date ? new Date(h.effective_date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "—"}
-                      </span>
-                      {h.reason && <p className="mt-0.5 text-xs text-[color:rgba(11,11,11,0.6)]">{h.reason}</p>}
+                {salaryHistory.map((h) => {
+                  const prev = h.previous_annual_salary != null ? Number(h.previous_annual_salary) : null;
+                  const curr = h.annual_salary != null ? Number(h.annual_salary) : null;
+                  const evolutionPercent = prev != null && prev > 0 && curr != null ? Math.round(((curr - prev) / prev) * 100) : null;
+                  return (
+                    <div key={h.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] px-4 py-3">
+                      <div>
+                        <span className="text-sm font-medium text-[var(--text)]">
+                          {h.effective_date ? new Date(h.effective_date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "—"}
+                        </span>
+                        {h.reason && <p className="mt-0.5 text-xs text-[color:rgba(11,11,11,0.6)]">{h.reason}</p>}
+                      </div>
+                      <div className="text-right">
+                        {evolutionPercent != null && (
+                          <span className={`mr-2 text-sm font-semibold ${evolutionPercent >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {evolutionPercent >= 0 ? "+" : ""}{evolutionPercent} %
+                          </span>
+                        )}
+                        <span className="text-sm font-semibold text-[var(--brand)]">
+                          {curr != null ? `${curr.toLocaleString("fr-FR")} €` : "—"}
+                        </span>
+                      </div>
                     </div>
-                    <span className="text-sm font-semibold text-[var(--brand)]">
-                      {h.annual_salary != null ? `${Number(h.annual_salary).toLocaleString("fr-FR")} €` : "—"}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
           )}
