@@ -633,15 +633,21 @@ export function EntretiensClient({
                       </td>
                       <td className="px-6 py-4 text-[color:rgba(11,11,11,0.75)]">
                         {iv.salary_adjustment != null ? (
-                          <>
-                            {iv.previous_salary_applied != null && Number(iv.previous_salary_applied) > 0 && (
-                              <span className={`mr-2 text-xs font-semibold ${Number(iv.salary_adjustment) >= Number(iv.previous_salary_applied) ? "text-green-600" : "text-red-600"}`}>
-                                {Math.round(((Number(iv.salary_adjustment) - Number(iv.previous_salary_applied)) / Number(iv.previous_salary_applied) * 100) >= 0 ? "+" : ""}
-                                {Math.round(((Number(iv.salary_adjustment) - Number(iv.previous_salary_applied)) / Number(iv.previous_salary_applied) * 100)} %
-                              </span>
-                            )}
-                            {Number(iv.salary_adjustment).toLocaleString("fr-FR")} €
-                          </>
+                          (() => {
+                            const prev = Number(iv.previous_salary_applied);
+                            const curr = Number(iv.salary_adjustment);
+                            const pct = prev > 0 ? Math.round(((curr - prev) / prev) * 100) : null;
+                            return (
+                              <>
+                                {pct != null && (
+                                  <span className={`mr-2 text-xs font-semibold ${curr >= prev ? "text-green-600" : "text-red-600"}`}>
+                                    {pct >= 0 ? "\u002B" : ""}{pct} %
+                                  </span>
+                                )}
+                                {curr.toLocaleString("fr-FR")} €
+                              </>
+                            );
+                          })()
                         ) : "—"}
                       </td>
                       <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
