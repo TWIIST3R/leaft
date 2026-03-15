@@ -524,9 +524,7 @@ export function EntretiensClient({
           </div>
         </div>
         );
-      })()}
-
-      )}
+      })() }
 
       {meetingRequests.length > 0 && (
         <section className={CARD + " p-6"}>
