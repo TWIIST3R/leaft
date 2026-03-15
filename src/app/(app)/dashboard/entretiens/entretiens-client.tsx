@@ -31,6 +31,10 @@ type Interview = {
   status: string | null;
   created_by: string;
   created_at: string;
+  pending_level_id?: string | null;
+  pending_management_id?: string | null;
+  pending_anciennete_id?: string | null;
+  pending_salary_adjustment?: number | null;
 };
 
 const TYPES = [
@@ -100,7 +104,6 @@ export function EntretiensClient({
     email_subject: "Entretien annuel",
     notes: "",
     justification: "",
-    status: "en_cours",
   });
 
   const [salaryForm, setSalaryForm] = useState({
@@ -172,7 +175,7 @@ export function EntretiensClient({
   });
 
   const resetForm = useCallback(() => {
-    setForm({ employee_id: "", interview_date: new Date().toISOString().split("T")[0], type: "Entretien annuel", email_subject: "Entretien annuel", notes: "", justification: "", status: "en_cours" });
+    setForm({ employee_id: "", interview_date: new Date().toISOString().split("T")[0], type: "Entretien annuel", email_subject: "Entretien annuel", notes: "", justification: "" });
     setSalaryForm({ apply_salary_changes: false, new_level_id: "", new_management_id: "", new_anciennete_id: "", new_salary_adjustment: "" });
     setEditingId(null);
     setShowForm(false);
@@ -186,7 +189,6 @@ export function EntretiensClient({
       if (editingId) {
         const payload = {
           ...form,
-          status: form.status,
           ...(salaryForm.apply_salary_changes
             ? {
                 apply_salary_changes: true,
@@ -195,7 +197,7 @@ export function EntretiensClient({
                 new_anciennete_id: salaryForm.new_anciennete_id || undefined,
                 new_salary_adjustment: salaryForm.new_salary_adjustment !== "" ? Number(salaryForm.new_salary_adjustment) : undefined,
               }
-            : {}),
+            : { apply_salary_changes: false }),
         };
         const res = await fetch(`/api/interviews/${editingId}`, {
           method: "PATCH",
@@ -226,6 +228,7 @@ export function EntretiensClient({
 
   const handleEdit = (interview: Interview) => {
     const emp = empMap.get(interview.employee_id);
+    const hasPending = interview.pending_level_id != null || interview.pending_management_id != null || interview.pending_anciennete_id != null || (interview.pending_salary_adjustment != null && Number(interview.pending_salary_adjustment) !== 0);
     setForm({
       employee_id: interview.employee_id,
       interview_date: interview.interview_date,
@@ -233,14 +236,13 @@ export function EntretiensClient({
       email_subject: interview.type,
       notes: interview.notes || "",
       justification: interview.justification || "",
-      status: interview.status === "termine" ? "termine" : "en_cours",
     });
     setSalaryForm({
-      apply_salary_changes: false,
-      new_level_id: emp?.current_level_id ?? "",
-      new_management_id: emp?.current_management_id ?? "",
-      new_anciennete_id: emp?.current_anciennete_id ?? "",
-      new_salary_adjustment: emp?.salary_adjustment != null ? String(emp.salary_adjustment) : "",
+      apply_salary_changes: hasPending,
+      new_level_id: (hasPending ? interview.pending_level_id : emp?.current_level_id) ?? "",
+      new_management_id: (hasPending ? interview.pending_management_id : emp?.current_management_id) ?? "",
+      new_anciennete_id: (hasPending ? interview.pending_anciennete_id : emp?.current_anciennete_id) ?? "",
+      new_salary_adjustment: hasPending && interview.pending_salary_adjustment != null ? String(interview.pending_salary_adjustment) : (emp?.salary_adjustment != null ? String(emp.salary_adjustment) : ""),
     });
     setEditingId(interview.id);
     setShowForm(true);
@@ -251,6 +253,26 @@ export function EntretiensClient({
     const res = await fetch(`/api/interviews/${id}`, { method: "DELETE" });
     if (res.ok) {
       setInterviews((prev) => prev.filter((i) => i.id !== id));
+    }
+  };
+
+  const handleFinishInterview = async () => {
+    if (!editingId) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/interviews/${editingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "termine" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur");
+      setInterviews((prev) => prev.map((i) => (i.id === editingId ? { ...i, ...data } : i)));
+      resetForm();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Erreur lors de la clôture de l'entretien.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -365,20 +387,6 @@ export function EntretiensClient({
                 placeholder="Justification (si applicable)..."
               />
             </div>
-            {editingId && (
-              <div>
-                <label htmlFor="iv-status" className={LABEL}>Statut de l&apos;entretien</label>
-                <select
-                  id="iv-status"
-                  value={form.status}
-                  onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-                  className={`${INPUT} cursor-pointer`}
-                >
-                  <option value="en_cours">En cours</option>
-                  <option value="termine">Terminé</option>
-                </select>
-              </div>
-            )}
           </div>
 
           {editingId && selectedEmp && (
@@ -414,6 +422,11 @@ export function EntretiensClient({
                     Appliquer des changements de rémunération
                   </span>
                 </div>
+                {salaryForm.apply_salary_changes && (
+                  <p className="mt-2 text-xs text-[color:rgba(11,11,11,0.6)]">
+                    Les changements sont enregistrés en attente. Ils ne seront appliqués au talent qu&apos;au moment où vous cliquerez sur &quot;Terminer l&apos;entretien&quot;.
+                  </p>
+                )}
 
                 {salaryForm.apply_salary_changes && (
                   <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -472,11 +485,21 @@ export function EntretiensClient({
               </div>
             </>
           )}
-          <div className="mt-5 flex items-center gap-3">
+          <div className="mt-5 flex flex-wrap items-center gap-3">
             <button onClick={handleSubmit} disabled={loading || !form.employee_id} className={BTN_PRIMARY}>
               {loading ? "Enregistrement..." : editingId ? "Mettre à jour" : "Créer l\u2019entretien"}
             </button>
             <button onClick={resetForm} className={BTN_SECONDARY}>Annuler</button>
+            {editingId && interviews.find((i) => i.id === editingId)?.status !== "termine" && (
+              <button
+                type="button"
+                onClick={handleFinishInterview}
+                disabled={loading}
+                className="inline-flex cursor-pointer items-center rounded-full border-2 border-[var(--brand)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--brand)] transition hover:bg-[var(--brand)]/5 disabled:opacity-50"
+              >
+                {loading ? "..." : "Terminer l\u2019entretien"}
+              </button>
+            )}
           </div>
         </div>
       )}
