@@ -72,6 +72,7 @@ async function getOrganizationData() {
       .from("interviews")
       .select("id, interview_date, type, employee_id")
       .eq("organization_id", organization.id)
+      .neq("status", "termine")
       .gte("interview_date", new Date().toISOString().slice(0, 10))
       .order("interview_date", { ascending: true })
       .limit(5),

@@ -1,53 +1,69 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ReactNode } from "react";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { DashboardTopbar } from "@/components/dashboard/topbar";
 import { TalentNav } from "./talent-nav";
 
-async function getEmployeeInfo(userId: string, orgId: string | null) {
+async function getEmployeeInfo(userId: string, orgId: string | null, userEmail: string | null) {
   const supabase = supabaseAdmin();
   let organizationId: string | null = null;
+  let orgName = "";
+  let orgLogo: string | null = null;
 
   if (orgId) {
     const { data } = await supabase.from("organizations").select("id, name, logo_url").eq("clerk_organization_id", orgId).single();
     if (data) {
       organizationId = data.id;
-      const { data: emp } = await supabase
-        .from("employees")
-        .select("id, first_name, last_name, current_job_title, email, is_manager")
-        .eq("organization_id", organizationId)
-        .eq("clerk_user_id", userId)
-        .single();
-      return { orgName: data.name, orgLogo: data.logo_url, employee: emp };
+      orgName = data.name;
+      orgLogo = data.logo_url;
+    }
+  }
+  if (!organizationId) {
+    const { data: userOrg } = await supabase
+      .from("user_organizations")
+      .select("organization_id, organizations(name, logo_url)")
+      .eq("clerk_user_id", userId)
+      .maybeSingle();
+    if (userOrg?.organization_id) {
+      organizationId = userOrg.organization_id;
+      const org = userOrg.organizations as { name?: string; logo_url?: string } | null;
+      orgName = org?.name ?? "";
+      orgLogo = org?.logo_url ?? null;
     }
   }
 
-  const { data: userOrg } = await supabase
-    .from("user_organizations")
-    .select("organization_id, organizations(name, logo_url)")
-    .eq("clerk_user_id", userId)
-    .maybeSingle();
+  if (!organizationId) return { orgName: "", orgLogo: null, employee: null };
 
-  if (userOrg?.organization_id) {
-    organizationId = userOrg.organization_id;
-    const org = userOrg.organizations as { name?: string; logo_url?: string } | null;
-    const { data: emp } = await supabase
+  let { data: emp } = await supabase
+    .from("employees")
+    .select("id, first_name, last_name, current_job_title, email, is_manager")
+    .eq("organization_id", organizationId)
+    .eq("clerk_user_id", userId)
+    .single();
+
+  if (!emp && userEmail) {
+    const { data: empByEmail } = await supabase
       .from("employees")
       .select("id, first_name, last_name, current_job_title, email, is_manager")
-        .eq("organization_id", organizationId)
-        .eq("clerk_user_id", userId)
-        .single();
-    return { orgName: org?.name ?? "", orgLogo: org?.logo_url ?? null, employee: emp };
+      .eq("organization_id", organizationId)
+      .ilike("email", userEmail.trim())
+      .maybeSingle();
+    if (empByEmail) {
+      await supabase.from("employees").update({ clerk_user_id: userId }).eq("id", empByEmail.id);
+      emp = empByEmail;
+    }
   }
 
-  return { orgName: "", orgLogo: null, employee: null };
+  return { orgName, orgLogo, employee: emp };
 }
 
 export default async function TalentSpaceLayout({ children }: { children: ReactNode }) {
   const { userId, orgId } = await auth();
-  const info = userId ? await getEmployeeInfo(userId, orgId ?? null) : { orgName: "", orgLogo: null, employee: null };
+  const user = await currentUser();
+  const userEmail = user?.emailAddresses?.[0]?.emailAddress ?? null;
+  const info = userId ? await getEmployeeInfo(userId, orgId ?? null, userEmail) : { orgName: "", orgLogo: null, employee: null };
 
   return (
     <div className="flex min-h-screen bg-[#f7f9f7] text-[var(--text)]">
@@ -85,10 +101,13 @@ export default async function TalentSpaceLayout({ children }: { children: ReactN
       </aside>
 
       <div className="flex flex-1 flex-col">
-        <header className="sticky top-0 z-10 border-b border-[#e2e7e2] bg-white/85 px-6 py-4 backdrop-blur">
-          <DashboardTopbar />
+        <header className="sticky top-0 z-10 border-b border-[#e2e7e2] bg-white/85 px-4 py-4 backdrop-blur sm:px-6">
+          <DashboardTopbar mode="talent" />
+          <div className="mt-3 border-t border-[#e2e7e2] pt-3 lg:hidden">
+            <TalentNav isManager={info.employee?.is_manager ?? false} />
+          </div>
         </header>
-        <main className="flex-1 px-4 py-8 sm:px-6 lg:px-10">{children}</main>
+        <main className="flex-1 px-3 py-6 sm:px-6 sm:py-8 lg:px-10">{children}</main>
       </div>
     </div>
   );

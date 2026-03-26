@@ -18,6 +18,7 @@ type Interview = {
   notes: string | null;
   justification: string | null;
   salary_adjustment: number | null;
+  previous_salary_applied?: number | null;
   created_at: string;
 };
 type SalaryHistoryEntry = {
@@ -423,7 +424,21 @@ export function TalentDetailClient({
                         </div>
                         {iv.salary_adjustment != null && (
                           <span className="text-sm font-medium text-[var(--text)]">
-                            {Number(iv.salary_adjustment).toLocaleString("fr-FR")} €
+                            {(() => {
+                              const prev = Number(iv.previous_salary_applied);
+                              const curr = Number(iv.salary_adjustment);
+                              const pct = prev > 0 ? Math.round(((curr - prev) / prev) * 100) : null;
+                              return (
+                                <>
+                                  {pct != null && (
+                                    <span className={`mr-2 text-xs font-semibold ${curr >= prev ? "text-green-600" : "text-red-600"}`}>
+                                      {pct >= 0 ? "+" : ""}{pct} %
+                                    </span>
+                                  )}
+                                  {curr.toLocaleString("fr-FR")} €
+                                </>
+                              );
+                            })()}
                           </span>
                         )}
                       </div>

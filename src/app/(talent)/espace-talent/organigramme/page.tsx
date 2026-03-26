@@ -6,16 +6,32 @@ import { TalentOrganigrammeClient } from "./talent-organigramme-client";
 async function getData(userId: string, orgId: string | null) {
   const supabase = supabaseAdmin();
   let organizationId: string | null = null;
+  let salaryVisible = false;
 
   if (orgId) {
-    const { data } = await supabase.from("organizations").select("id").eq("clerk_organization_id", orgId).single();
-    if (data) organizationId = data.id;
+    const { data } = await supabase
+      .from("organizations")
+      .select("id, salary_transparency_enabled")
+      .eq("clerk_organization_id", orgId)
+      .single();
+    if (data) {
+      organizationId = data.id;
+      salaryVisible = data.salary_transparency_enabled ?? false;
+    }
   }
   if (!organizationId) {
     const { data: userOrg } = await supabase.from("user_organizations").select("organization_id").eq("clerk_user_id", userId).maybeSingle();
     organizationId = userOrg?.organization_id ?? null;
   }
   if (!organizationId) return null;
+  if (!orgId) {
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("salary_transparency_enabled")
+      .eq("id", organizationId)
+      .single();
+    salaryVisible = org?.salary_transparency_enabled ?? false;
+  }
 
   const { data: employee } = await supabase
     .from("employees")
@@ -27,7 +43,7 @@ async function getData(userId: string, orgId: string | null) {
   const [{ data: employees }, { data: departments }] = await Promise.all([
     supabase
       .from("employees")
-      .select("id, first_name, last_name, current_job_title, current_department_id, manager_id, avatar_url")
+      .select("id, first_name, last_name, current_job_title, current_department_id, manager_id, avatar_url, annual_salary_brut")
       .eq("organization_id", organizationId)
       .order("last_name"),
     supabase.from("departments").select("id, name").eq("organization_id", organizationId),
@@ -37,6 +53,7 @@ async function getData(userId: string, orgId: string | null) {
     employees: employees ?? [],
     departments: departments ?? [],
     currentEmployeeId: employee?.id ?? null,
+    salaryVisible,
   };
 }
 
@@ -65,6 +82,7 @@ export default async function TalentOrganigrammePage() {
         employees={data.employees}
         departments={data.departments}
         currentEmployeeId={data.currentEmployeeId}
+        salaryVisible={data.salaryVisible}
       />
     </div>
   );

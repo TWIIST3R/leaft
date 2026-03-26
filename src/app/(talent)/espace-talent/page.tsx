@@ -1,9 +1,9 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { EspaceTalentClient } from "./espace-talent-client";
 
-async function getData(userId: string, orgId: string | null) {
+async function getData(userId: string, orgId: string | null, userEmail: string | null) {
   const supabase = supabaseAdmin();
   let organizationId: string | null = null;
 
@@ -23,7 +23,7 @@ async function getData(userId: string, orgId: string | null) {
     .eq("id", organizationId)
     .single();
 
-  const { data: employee } = await supabase
+  let { data: employee } = await supabase
     .from("employees")
     .select(`
       id, first_name, last_name, email, gender, birth_date, hire_date,
@@ -34,6 +34,27 @@ async function getData(userId: string, orgId: string | null) {
     .eq("organization_id", organizationId)
     .eq("clerk_user_id", userId)
     .single();
+
+  if (!employee && userEmail) {
+    const { data: employeeByEmail } = await supabase
+      .from("employees")
+      .select(`
+        id, first_name, last_name, email, gender, birth_date, hire_date,
+        current_job_title, current_level_id, current_department_id,
+        current_management_id, current_anciennete_id, salary_adjustment,
+        location, annual_salary_brut, avatar_url, manager_id
+      `)
+      .eq("organization_id", organizationId)
+      .ilike("email", userEmail.trim())
+      .maybeSingle();
+    if (employeeByEmail) {
+      await supabase
+        .from("employees")
+        .update({ clerk_user_id: userId })
+        .eq("id", employeeByEmail.id);
+      employee = employeeByEmail;
+    }
+  }
 
   if (!employee) return { orgName: org?.name ?? "", employee: null, department: null, level: null, manager: null, salaryVisible: false };
 
@@ -130,7 +151,10 @@ export default async function TalentSpacePage() {
   const { userId, orgId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const data = await getData(userId, orgId ?? null);
+  const user = await currentUser();
+  const userEmail = user?.emailAddresses?.[0]?.emailAddress ?? null;
+
+  const data = await getData(userId, orgId ?? null, userEmail);
   if (!data) redirect("/sign-in");
 
   if (!data.employee) {

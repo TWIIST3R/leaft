@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { clerkClient } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { optionalEnv } from "@/env";
 import crypto from "crypto";
@@ -101,18 +102,40 @@ export async function POST(request: NextRequest) {
       console.error("Error upserting user_organizations:", uoError);
     }
 
-    if (userEmail) {
+    async function linkEmployeeToClerk(emailToMatch: string | null): Promise<boolean> {
+      if (!emailToMatch || !emailToMatch.trim()) return false;
+      const trimmed = emailToMatch.trim();
+      const { data: emp } = await supabase
+        .from("employees")
+        .select("id")
+        .eq("organization_id", org.id)
+        .ilike("email", trimmed)
+        .is("clerk_user_id", null)
+        .maybeSingle();
+      if (!emp) return false;
       const { error: empError } = await supabase
         .from("employees")
         .update({ clerk_user_id: clerkUserId })
-        .eq("organization_id", org.id)
-        .eq("email", userEmail)
-        .is("clerk_user_id", null);
-
+        .eq("id", emp.id);
       if (empError) {
         console.error("Error linking clerk_user_id to employee:", empError);
-      } else {
-        console.log("Linked clerk_user_id to employee:", { clerkUserId, userEmail });
+        return false;
+      }
+      console.log("Linked clerk_user_id to employee:", { clerkUserId, email: trimmed });
+      return true;
+    }
+
+    const identifierTrimmed = typeof userEmail === "string" ? userEmail.trim() : "";
+    let linked = identifierTrimmed ? await linkEmployeeToClerk(identifierTrimmed) : false;
+
+    if (!linked && clerkUserId) {
+      try {
+        const user = await clerkClient().users.getUser(clerkUserId);
+        const primaryEmail = user.emailAddresses?.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress
+          ?? user.emailAddresses?.[0]?.emailAddress;
+        if (primaryEmail) linked = await linkEmployeeToClerk(primaryEmail);
+      } catch (e) {
+        console.error("Clerk API fallback for employee link:", e);
       }
     }
   }

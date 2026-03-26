@@ -61,7 +61,7 @@ type TalentData = {
   positionHistory: PositionEntry[];
 };
 
-const CARD = "rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]";
+const CARD = "rounded-3xl border border-[#e2e7e2] bg-white p-4 shadow-[0_24px_60px_rgba(17,27,24,0.06)] sm:p-6";
 const LABEL = "text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]";
 
 export function EspaceTalentClient({ data }: { data: TalentData }) {
@@ -176,9 +176,9 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
   const tenureRemaining = tenureMonths % 12;
 
   return (
-    <div ref={mainRef} className="space-y-8">
-      <section data-section className={`${CARD} !p-8`}>
-        <div className="flex items-center justify-between">
+    <div ref={mainRef} className="space-y-6 sm:space-y-8">
+      <section data-section className={`${CARD} !p-5 sm:!p-8`}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-[var(--text)]">
               Bonjour, {employee.first_name} 👋
@@ -202,9 +202,10 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
         </div>
       </section>
 
-      <section data-section className={CARD}>
-        <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Mon profil</h2>
-        <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <section data-section className="grid gap-4 sm:gap-6 xl:grid-cols-5">
+        <div className={`${CARD} xl:col-span-3`}>
+          <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Mon profil</h2>
+          <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div><dt className={LABEL}>Nom complet</dt><dd className="mt-1 text-sm text-[var(--text)]">{employee.first_name} {employee.last_name}</dd></div>
           <div><dt className={LABEL}>Email</dt><dd className="mt-1 text-sm text-[var(--text)]">{employee.email}</dd></div>
           <div><dt className={LABEL}>Poste</dt><dd className="mt-1 text-sm text-[var(--text)]">{employee.current_job_title || "—"}</dd></div>
@@ -243,13 +244,64 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
             </dd>
           </div>
           <div><dt className={LABEL}>Localisation</dt><dd className="mt-1 text-sm text-[var(--text)]">{employee.location || "—"}</dd></div>
-        </dl>
+          </dl>
+        </div>
+
+        <div className={`${CARD} xl:col-span-2`}>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Mes entretiens</h2>
+            <span className="rounded-full bg-[var(--brand)]/10 px-2.5 py-0.5 text-xs font-semibold text-[var(--brand)]">
+              {data.interviews.length}
+            </span>
+          </div>
+          {data.interviews.length === 0 ? (
+            <div className="mt-4 rounded-xl border border-dashed border-[#e2e7e2] bg-[#f8faf8] p-6 text-center text-sm text-[color:rgba(11,11,11,0.6)]">
+              Aucun entretien enregistré pour le moment.
+            </div>
+          ) : (
+            <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
+              {data.interviews.map((iv) => (
+                <div key={iv.id} className="rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-3 sm:p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${typeBadge(iv.type)}`}>
+                        {iv.type.charAt(0).toUpperCase() + iv.type.slice(1)}
+                      </span>
+                      <span className="text-sm text-[color:rgba(11,11,11,0.65)]">
+                        {new Date(iv.interview_date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                      </span>
+                    </div>
+                    {iv.salary_adjustment != null && Number(iv.salary_adjustment) !== 0 && (
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        Number(iv.salary_adjustment) > 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                      }`}>
+                        {Number(iv.salary_adjustment) > 0 ? "+" : ""}{Number(iv.salary_adjustment).toLocaleString("fr-FR")} €
+                      </span>
+                    )}
+                  </div>
+                  {iv.notes && (
+                    <div className="mt-3 rounded-lg bg-white/80 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.4)]">Notes</p>
+                      <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.7)]">{iv.notes}</p>
+                    </div>
+                  )}
+                  {iv.justification && (
+                    <div className="mt-2 rounded-lg bg-white/80 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.4)]">Justification</p>
+                      <p className="mt-1 text-sm italic text-[color:rgba(11,11,11,0.6)]">{iv.justification}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
 
       {data.salaryVisible && (
-        <section data-section className="rounded-3xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-6">
+        <section data-section className="rounded-3xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-4 sm:p-6">
           <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Rémunération</h2>
-          <div className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
             <div>
               <p className={LABEL}>Salaire annuel brut</p>
               <p className="mt-1 text-3xl font-semibold text-[var(--text)]">
@@ -292,7 +344,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
 
       {progressionData.length >= 2 && (
         <section data-section className={CARD}>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Ma progression</h2>
             <span className="rounded-full bg-[var(--brand)]/10 px-2.5 py-0.5 text-xs font-semibold text-[var(--brand)]">
               {progressionData.length} étapes
@@ -335,15 +387,15 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
       {augmentations.length > 0 && (
         <section data-section className={CARD}>
           <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Historique d&apos;augmentations</h2>
-          <div className="mt-5 relative">
+          <div className="relative mt-5">
             <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-[#e2e7e2]" />
             <div className="space-y-5">
               {augmentations.map((aug) => (
-                <div key={aug.id} className="relative pl-10">
+                <div key={aug.id} className="relative pl-8 sm:pl-10">
                   <div className={`absolute left-2.5 top-1.5 h-3 w-3 rounded-full border-2 ${
                     aug.diff > 0 ? "border-[var(--brand)] bg-[var(--brand)]/20" : aug.diff < 0 ? "border-red-400 bg-red-100" : "border-gray-300 bg-gray-100"
                   }`} />
-                  <div className="rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-4">
+                  <div className="rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-3 sm:p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-sm font-medium text-[var(--text)]">{aug.title}</p>
                       <span className="text-xs text-[color:rgba(11,11,11,0.5)]">
@@ -367,51 +419,6 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
           </div>
         </section>
       )}
-
-      <section data-section className={CARD}>
-        <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Mes entretiens</h2>
-        {data.interviews.length === 0 ? (
-          <div className="mt-4 rounded-xl border border-dashed border-[#e2e7e2] bg-[#f8faf8] p-6 text-center text-sm text-[color:rgba(11,11,11,0.6)]">
-            Aucun entretien enregistré pour le moment.
-          </div>
-        ) : (
-          <div className="mt-4 space-y-3">
-            {data.interviews.map((iv) => (
-              <div key={iv.id} className="rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${typeBadge(iv.type)}`}>
-                      {iv.type.charAt(0).toUpperCase() + iv.type.slice(1)}
-                    </span>
-                    <span className="text-sm text-[color:rgba(11,11,11,0.65)]">
-                      {new Date(iv.interview_date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
-                    </span>
-                  </div>
-                  {iv.salary_adjustment != null && Number(iv.salary_adjustment) !== 0 && (
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                      Number(iv.salary_adjustment) > 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                    }`}>
-                      {Number(iv.salary_adjustment) > 0 ? "+" : ""}{Number(iv.salary_adjustment).toLocaleString("fr-FR")} €
-                    </span>
-                  )}
-                </div>
-                {iv.notes && (
-                  <div className="mt-3 rounded-lg bg-white/80 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.4)]">Notes</p>
-                    <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.7)]">{iv.notes}</p>
-                  </div>
-                )}
-                {iv.justification && (
-                  <div className="mt-2 rounded-lg bg-white/80 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.4)]">Justification</p>
-                    <p className="mt-1 text-sm italic text-[color:rgba(11,11,11,0.6)]">{iv.justification}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
 
       {data.salaryVisible && data.benchmark && (
         <section data-section className={CARD}>
@@ -440,11 +447,11 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
       )}
 
       <section data-section className={CARD}>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Demander un rendez-vous</h2>
           <button
             onClick={() => setShowRdvModal(true)}
-            className="cursor-pointer rounded-full bg-[var(--brand)] px-5 py-2 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.98]"
+            className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.98] sm:px-5"
           >
             Nouveau RDV
           </button>
@@ -459,7 +466,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
             <div className="space-y-4">
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-[var(--text)]">Destinataire</label>
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
                     onClick={() => setRdvTo("manager")}
@@ -494,7 +501,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
                   placeholder="Précisez le motif de votre demande..."
                 />
               </div>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 <button
                   onClick={handleRdvSubmit}
                   disabled={rdvLoading}
@@ -517,7 +524,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
           <div className="mt-4 space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Mes demandes</p>
             {rdvRequests.map((req) => (
-              <div key={req.id} className="flex items-center justify-between rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-4">
+              <div key={req.id} className="flex flex-col gap-2 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="rounded-lg bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">

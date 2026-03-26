@@ -12,6 +12,7 @@ type Employee = {
   current_department_id: string | null;
   manager_id: string | null;
   avatar_url: string | null;
+  annual_salary_brut?: number | null;
 };
 type Dept = { id: string; name: string };
 type TreeNode = Employee & { children: TreeNode[] };
@@ -37,6 +38,7 @@ function OrgNode({
   expandedSet,
   toggleExpand,
   currentEmployeeId,
+  salaryVisible,
 }: {
   node: TreeNode;
   deptMap: Map<string, string>;
@@ -44,6 +46,7 @@ function OrgNode({
   expandedSet: Set<string>;
   toggleExpand: (id: string) => void;
   currentEmployeeId: string | null;
+  salaryVisible: boolean;
 }) {
   const nodeRef = useRef<HTMLDivElement>(null);
   const hasChildren = node.children.length > 0;
@@ -88,6 +91,11 @@ function OrgNode({
               {deptName}
             </span>
           )}
+          {salaryVisible && node.annual_salary_brut != null && (
+            <p className="mt-1 text-xs font-semibold text-[color:rgba(11,11,11,0.7)]">
+              {Number(node.annual_salary_brut).toLocaleString("fr-FR")} €
+            </p>
+          )}
         </div>
       </div>
 
@@ -104,6 +112,7 @@ function OrgNode({
                 expandedSet={expandedSet}
                 toggleExpand={toggleExpand}
                 currentEmployeeId={currentEmployeeId}
+                salaryVisible={salaryVisible}
               />
             ))}
         </div>
@@ -116,10 +125,12 @@ export function TalentOrganigrammeClient({
   employees,
   departments,
   currentEmployeeId,
+  salaryVisible,
 }: {
   employees: Employee[];
   departments: Dept[];
   currentEmployeeId: string | null;
+  salaryVisible: boolean;
 }) {
   const deptMap = useMemo(() => new Map(departments.map((d) => [d.id, d.name])), [departments]);
   const tree = useMemo(() => buildTree(employees), [employees]);
@@ -176,7 +187,7 @@ export function TalentOrganigrammeClient({
         </button>
       </div>
 
-      <div className="rounded-3xl border border-[#e2e7e2] bg-[#f8faf8] p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+      <div className="rounded-3xl border border-[#e2e7e2] bg-[#f8faf8] p-4 shadow-[0_24px_60px_rgba(17,27,24,0.06)] sm:p-6">
         <div className="space-y-3">
           {tree
             .sort((a, b) => a.last_name.localeCompare(b.last_name))
@@ -189,6 +200,7 @@ export function TalentOrganigrammeClient({
                   expandedSet={expandedSet}
                   toggleExpand={toggleExpand}
                   currentEmployeeId={currentEmployeeId}
+                  salaryVisible={salaryVisible}
                 />
               </div>
             ))}
