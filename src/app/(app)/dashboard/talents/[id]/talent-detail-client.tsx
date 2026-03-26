@@ -125,6 +125,54 @@ export function TalentDetailClient({
     return total;
   }, [editLevel, editMgmt, editAnc, adj]);
 
+  const progressionData = useMemo(() => {
+    const sorted = [...salaryHistory]
+      .filter((h) => h.effective_date && h.annual_salary != null)
+      .sort((a, b) => new Date(a.effective_date).getTime() - new Date(b.effective_date).getTime());
+    const points: { label: string; value: number }[] = [];
+    const firstPrev = sorted[0]?.previous_annual_salary != null ? Number(sorted[0].previous_annual_salary) : null;
+    if (firstPrev != null && employee.hire_date) {
+      points.push({
+        label: new Date(employee.hire_date).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
+        value: firstPrev,
+      });
+    }
+    sorted.forEach((h) => {
+      points.push({
+        label: new Date(h.effective_date).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
+        value: Number(h.annual_salary),
+      });
+    });
+    if (points.length === 1 && employee.annual_salary_brut != null) {
+      points.push({ label: "Aujourd'hui", value: Number(employee.annual_salary_brut) });
+    }
+    return points;
+  }, [salaryHistory, employee.hire_date, employee.annual_salary_brut]);
+
+  const augmentations = useMemo(() => {
+    const sorted = [...salaryHistory]
+      .filter((h) => h.effective_date && h.annual_salary != null)
+      .sort((a, b) => new Date(a.effective_date).getTime() - new Date(b.effective_date).getTime());
+    return sorted
+      .map((h) => {
+        const prev = h.previous_annual_salary != null ? Number(h.previous_annual_salary) : null;
+        const curr = h.annual_salary != null ? Number(h.annual_salary) : null;
+        if (curr == null) return null;
+        const diff = prev != null ? curr - prev : 0;
+        const pct = prev != null && prev > 0 ? Math.round((diff / prev) * 100) : 0;
+        return {
+          id: h.id,
+          date: h.effective_date,
+          title: h.reason || "Changement de rémunération",
+          newSalary: curr,
+          diff,
+          pct,
+        };
+      })
+      .filter((a): a is { id: string; date: string; title: string; newSalary: number; diff: number; pct: number } => a != null)
+      .reverse();
+  }, [salaryHistory]);
+
   function resetForm() {
     setFirstName(employee.first_name);
     setLastName(employee.last_name);
@@ -453,67 +501,77 @@ export function TalentDetailClient({
 
           {salaryHistory.length > 0 && (
             <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
-              <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Évolution de la rémunération</h2>
-              <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.5)]">Historique des changements de rémunération (entretiens, augmentations).</p>
-              {(() => {
-                const sorted = [...salaryHistory].filter((h) => h.effective_date && h.annual_salary != null).sort(
-                  (a, b) => new Date(a.effective_date!).getTime() - new Date(b.effective_date!).getTime()
-                );
-                const chartData: { label: string; value: number }[] = [];
-                const firstPrev = sorted[0]?.previous_annual_salary != null ? Number(sorted[0].previous_annual_salary) : null;
-                if (firstPrev != null && employee.hire_date) {
-                  chartData.push({
-                    label: new Date(employee.hire_date).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
-                    value: firstPrev,
-                  });
-                }
-                sorted.forEach((h) => {
-                  chartData.push({
-                    label: new Date(h.effective_date!).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
-                    value: Number(h.annual_salary),
-                  });
-                });
-                if (chartData.length === 1 && employee.annual_salary_brut != null) {
-                  chartData.push({ label: "Aujourd'hui", value: Number(employee.annual_salary_brut) });
-                }
-                return chartData.length >= 2 ? (
-                  <div className="mt-4">
-                    <LineChart
-                      data={chartData}
-                      height={220}
-                      color="var(--brand)"
-                      formatValue={(v) => `${Math.round(v).toLocaleString("fr-FR")} €`}
-                    />
-                  </div>
-                ) : null;
-              })()}
-              <div className="mt-6 space-y-3">
-                {salaryHistory.map((h) => {
-                  const prev = h.previous_annual_salary != null ? Number(h.previous_annual_salary) : null;
-                  const curr = h.annual_salary != null ? Number(h.annual_salary) : null;
-                  const evolutionPercent = prev != null && prev > 0 && curr != null ? Math.round(((curr - prev) / prev) * 100) : null;
-                  return (
-                    <div key={h.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] px-4 py-3">
-                      <div>
-                        <span className="text-sm font-medium text-[var(--text)]">
-                          {h.effective_date ? new Date(h.effective_date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "—"}
-                        </span>
-                        {h.reason && <p className="mt-0.5 text-xs text-[color:rgba(11,11,11,0.6)]">{h.reason}</p>}
-                      </div>
-                      <div className="text-right">
-                        {evolutionPercent != null && (
-                          <span className={`mr-2 text-sm font-semibold ${evolutionPercent >= 0 ? "text-green-600" : "text-red-600"}`}>
-                            {evolutionPercent >= 0 ? "+" : ""}{evolutionPercent} %
-                          </span>
-                        )}
-                        <span className="text-sm font-semibold text-[var(--brand)]">
-                          {curr != null ? `${curr.toLocaleString("fr-FR")} €` : "—"}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="flex items-center gap-3">
+                <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Ma progression</h2>
+                <span className="rounded-full bg-[var(--brand)]/10 px-2.5 py-0.5 text-xs font-semibold text-[var(--brand)]">
+                  {progressionData.length} étapes
+                </span>
               </div>
+              <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">Évolution de la rémunération dans le temps.</p>
+              {progressionData.length >= 2 && (
+                <div className="mt-4">
+                  <LineChart
+                    data={progressionData}
+                    height={200}
+                    color="var(--brand)"
+                    formatValue={(v) => `${Math.round(v).toLocaleString("fr-FR")} €`}
+                  />
+                </div>
+              )}
+              {employee.annual_salary_brut != null && progressionData.length > 0 && (
+                <div className="mt-4 flex flex-wrap items-center gap-4">
+                  <div className="rounded-xl bg-[var(--brand)]/5 px-4 py-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.4)]">Départ</p>
+                    <p className="text-sm font-semibold text-[var(--text)]">{progressionData[0].value.toLocaleString("fr-FR")} €</p>
+                  </div>
+                  <svg className="h-4 w-6 text-[var(--brand)]" fill="none" viewBox="0 0 24 16" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2 8h20m-6-5 5 5-5 5" />
+                  </svg>
+                  <div className="rounded-xl bg-[var(--brand)]/10 px-4 py-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.4)]">Actuel</p>
+                    <p className="text-sm font-semibold text-[var(--brand)]">{Number(employee.annual_salary_brut).toLocaleString("fr-FR")} €</p>
+                  </div>
+                  {progressionData[0].value > 0 && (
+                    <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
+                      +{Math.round(((Number(employee.annual_salary_brut) - progressionData[0].value) / progressionData[0].value) * 100)}% total
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {augmentations.length > 0 && (
+                <>
+                  <h3 className="mt-7 border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Historique d&apos;augmentations</h3>
+                  <div className="relative mt-5">
+                    <div className="absolute bottom-0 left-4 top-0 w-0.5 bg-[#e2e7e2]" />
+                    <div className="space-y-5">
+                      {augmentations.map((aug) => (
+                        <div key={aug.id} className="relative pl-10">
+                          <div className={`absolute left-2.5 top-1.5 h-3 w-3 rounded-full border-2 ${
+                            aug.diff > 0 ? "border-[var(--brand)] bg-[var(--brand)]/20" : aug.diff < 0 ? "border-red-400 bg-red-100" : "border-gray-300 bg-gray-100"
+                          }`} />
+                          <div className="rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-sm font-medium text-[var(--text)]">{aug.title}</p>
+                              <span className="text-xs text-[color:rgba(11,11,11,0.5)]">
+                                {new Date(aug.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                              </span>
+                            </div>
+                            <div className="mt-2 flex flex-wrap items-center gap-3">
+                              <span className="text-sm font-semibold text-[var(--text)]">{aug.newSalary.toLocaleString("fr-FR")} €</span>
+                              {aug.diff !== 0 && (
+                                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${aug.diff > 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                                  {aug.diff > 0 ? "+" : ""}{aug.diff.toLocaleString("fr-FR")} € ({aug.pct > 0 ? "+" : ""}{aug.pct}%)
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </section>
           )}
         </>

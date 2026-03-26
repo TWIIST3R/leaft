@@ -35,7 +35,7 @@ export function SimulateurClient({ data }: { data: SimData }) {
   const mainRef = useRef<HTMLDivElement>(null);
 
   const [deptId, setDeptId] = useState(employee.current_department_id ?? "");
-  const [levelId, setLevelId] = useState("");
+  const [levelId, setLevelId] = useState(employee.current_level_id ?? "");
   const [mgmtId, setMgmtId] = useState(employee.current_management_id ?? "");
   const [ancId, setAncId] = useState(employee.current_anciennete_id ?? "");
 

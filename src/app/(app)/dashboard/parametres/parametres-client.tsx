@@ -18,6 +18,7 @@ export function ParametresClient({ initialSettings }: { initialSettings: Setting
   const [orgName, setOrgName] = useState(initialSettings.name);
   const [logoUrl, setLogoUrl] = useState(initialSettings.logo_url);
   const [loading, setLoading] = useState(false);
+  const [billingLoading, setBillingLoading] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
 
@@ -108,6 +109,20 @@ export function ParametresClient({ initialSettings }: { initialSettings: Setting
       setMessage({ type: "error", text: err instanceof Error ? err.message : "Erreur" });
     } finally {
       setUploadingLogo(false);
+    }
+  }
+
+  async function handleOpenBillingPortal() {
+    setBillingLoading(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/stripe/portal", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || !data?.url) throw new Error(data?.error || "Impossible d'ouvrir la facturation");
+      window.location.href = data.url as string;
+    } catch (err) {
+      setMessage({ type: "error", text: err instanceof Error ? err.message : "Erreur" });
+      setBillingLoading(false);
     }
   }
 
@@ -213,6 +228,23 @@ export function ParametresClient({ initialSettings }: { initialSettings: Setting
           <span className="text-sm font-medium text-[var(--text)]">
             {salaryTransparency ? "Transparence activée" : "Transparence désactivée"}
           </span>
+        </div>
+      </section>
+
+      <section id="facturation" className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+        <h2 className="text-lg font-semibold text-[var(--text)]">Facturation</h2>
+        <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
+          Gérez votre abonnement Leaft, vos moyens de paiement et consultez vos factures dans le portail Stripe.
+        </p>
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={handleOpenBillingPortal}
+            disabled={billingLoading}
+            className="cursor-pointer rounded-xl bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
+          >
+            {billingLoading ? "Ouverture..." : "Ouvrir la facturation"}
+          </button>
         </div>
       </section>
     </div>
