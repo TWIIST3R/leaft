@@ -131,7 +131,8 @@ export async function POST(request: NextRequest) {
 
     if (!linked && clerkUserId) {
       try {
-        const user = await clerkClient().users.getUser(clerkUserId);
+        const clerk = await clerkClient();
+        const user = await clerk.users.getUser(clerkUserId);
         const primaryEmail = user.emailAddresses?.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress
           ?? user.emailAddresses?.[0]?.emailAddress;
         if (primaryEmail) linked = await linkEmployeeToClerk(primaryEmail);
