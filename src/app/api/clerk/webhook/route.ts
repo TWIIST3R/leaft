@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
       console.error("Organization not found for clerk_organization_id:", clerkOrgId);
       return NextResponse.json({ received: true });
     }
+    const organizationId = org.id;
 
     const isAdmin = clerkRole === "org:admin";
     const dbRole = isAdmin ? "Owner" : "Talent";
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
       .upsert(
         {
           clerk_user_id: clerkUserId,
-          organization_id: org.id,
+          organization_id: organizationId,
           role: dbRole,
         },
         { onConflict: "clerk_user_id,organization_id" }
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest) {
       const { data: emp } = await supabase
         .from("employees")
         .select("id")
-        .eq("organization_id", org.id)
+        .eq("organization_id", organizationId)
         .ilike("email", trimmed)
         .is("clerk_user_id", null)
         .maybeSingle();
