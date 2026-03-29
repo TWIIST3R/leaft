@@ -1,24 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { createBillingPortalSession, getOrCreateStripeCustomer } from "@/lib/stripe/subscriptions";
-import { supabaseServer } from "@/lib/supabase/server";
+import { createBillingPortalSession } from "@/lib/stripe/subscriptions";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { clientEnv } from "@/env";
+
+async function getOrganizationId(userId: string, orgId: string | null) {
+  const supabase = supabaseAdmin();
+  if (orgId) {
+    const { data } = await supabase.from("organizations").select("id").eq("clerk_organization_id", orgId).single();
+    if (data) return data.id;
+  }
+  const { data: userOrg } = await supabase
+    .from("user_organizations")
+    .select("organization_id")
+    .eq("clerk_user_id", userId)
+    .maybeSingle();
+  return userOrg?.organization_id ?? null;
+}
 
 export async function POST(request: NextRequest) {
   try {
     const { userId, orgId } = await auth();
 
-    if (!userId || !orgId) {
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const supabase = await supabaseServer();
+    const organizationId = await getOrganizationId(userId, orgId ?? null);
+    if (!organizationId) {
+      return NextResponse.json({ error: "Organization not found" }, { status: 404 });
+    }
 
-    // Get organization from database
+    const supabase = supabaseAdmin();
+
     const { data: organization, error: orgError } = await supabase
       .from("organizations")
       .select("id, name, stripe_customer_id")
-      .eq("clerk_organization_id", orgId)
+      .eq("id", organizationId)
       .single();
 
     if (orgError || !organization) {
