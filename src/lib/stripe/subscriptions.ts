@@ -258,7 +258,23 @@ export async function hasActiveSubscription(organizationId: string): Promise<boo
 
   if (error) {
     console.error("Error checking subscription:", error);
-    return false;
+    // Fallback: if RPC is missing/misconfigured, check subscriptions table directly.
+    // This prevents locking admins into onboarding due to an RPC error.
+    const { data: subRow, error: subErr } = await supabase
+      .from("subscriptions")
+      .select("id, status")
+      .eq("organization_id", organizationId)
+      .in("status", ["active", "trialing"])
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (subErr) {
+      console.error("Fallback subscriptions lookup failed:", subErr);
+      return false;
+    }
+
+    return !!subRow;
   }
 
   const result = data ?? false;
