@@ -662,13 +662,19 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
                             const end = new Date(s.ends_at);
                             const label = `${start.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })} · ${start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}–${end.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
                             const groupId = (req.group_id || req.id) as string;
-                            const canAct = req.state === "awaiting_talent_confirmation";
+                            const canAct = req.state === "awaiting_talent_confirmation"
+                              && (s.status === "chosen" || (s.proposed_by === "admin" && s.status === "proposed"));
                             return (
                               <div key={s.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-[#e2e7e2] bg-white px-3 py-2">
                                 <span className="text-sm text-[color:rgba(11,11,11,0.75)]">{label}</span>
                                 <span className="ml-auto text-xs font-medium text-[color:rgba(11,11,11,0.55)]">
                                   {s.proposed_by === "talent" ? "proposé par vous" : "proposé par votre interlocuteur"}
                                 </span>
+                                {s.status === "chosen" && (
+                                  <span className="rounded-full bg-[var(--brand)]/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--brand)]">
+                                    Créneau retenu
+                                  </span>
+                                )}
                                 {canAct && (
                                   <button
                                     type="button"

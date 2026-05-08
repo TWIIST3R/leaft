@@ -529,20 +529,120 @@ export async function PATCH(request: NextRequest) {
         .eq("organization_id", organizationId)
         .eq("id", slot_id);
 
+      const { data: chosenSlot, error: chosenSlotErr } = await supabase
+        .from("meeting_request_slots")
+        .select("starts_at, ends_at, proposed_by")
+        .eq("organization_id", organizationId)
+        .eq("id", slot_id)
+        .maybeSingle();
+
+      if (chosenSlotErr) return NextResponse.json({ error: chosenSlotErr.message }, { status: 500 });
+      if (!chosenSlot) return NextResponse.json({ error: "Créneau introuvable" }, { status: 404 });
+
+      // If RH chooses among talent-proposed slots, it is considered confirmed immediately (no Talent action required).
+      if (chosenSlot.proposed_by === "talent") {
+        await supabase
+          .from("meeting_requests")
+          .update({
+            state: "confirmed",
+            status: "accepted",
+            confirmed_slot_id: slot_id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("organization_id", organizationId)
+          .eq("group_id", group_id);
+
+        const startsAt = new Date(chosenSlot.starts_at);
+        const endsAt = new Date(chosenSlot.ends_at);
+        const interviewDate = startsAt.toISOString().slice(0, 10);
+        const type = interviewType?.trim() || "Entretien";
+        const note = (reqRows[0] as any).note as string | null;
+        const timeLabel = `${startsAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}–${endsAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+        const dateLabel = startsAt.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+        const { data: createdInterview, error: interviewErr } = await supabase
+          .from("interviews")
+          .insert({
+            organization_id: organizationId,
+            employee_id: employeeId,
+            interview_date: interviewDate,
+            type,
+            notes: note ? `Créneau validé: ${dateLabel} • ${timeLabel}\n\n${note}` : `Créneau validé: ${dateLabel} • ${timeLabel}`,
+            status: "en_cours",
+            created_by: userId,
+          })
+          .select("id, interview_date, type")
+          .single();
+
+        if (interviewErr) return NextResponse.json({ error: interviewErr.message }, { status: 500 });
+
+        await supabase
+          .from("meeting_requests")
+          .update({ state: "closed", updated_at: new Date().toISOString() })
+          .eq("organization_id", organizationId)
+          .eq("group_id", group_id);
+
+        const attendees = new Set<string>();
+        if (talentEmail) attendees.add(talentEmail);
+        recipientEmails.forEach((e) => attendees.add(e));
+
+        const subject = `${type} – ${dateLabel} ${timeLabel}`;
+        const description = `${type} - ${talentName}${note ? `\n\n${note}` : ""}`;
+
+        await Promise.all(
+          Array.from(attendees).map(async (to) => {
+            const icsContent = generateICS({
+              summary: type,
+              description,
+              dtStart: startsAt,
+              dtEnd: endsAt,
+              organizerEmail: "info@leaft.io",
+              attendeeEmail: to,
+            });
+
+            const ctaTalent = `${clientEnv.NEXT_PUBLIC_APP_URL}/espace-talent`;
+            const ctaRh = `${clientEnv.NEXT_PUBLIC_APP_URL}/dashboard`;
+
+            return sendEmail({
+              to,
+              subject,
+              html: emailLayout("", `
+                <h2 style="margin:0 0 12px;font-size:18px;color:#0B0B0B;">Rendez-vous confirmé</h2>
+                <p style="margin:0 0 10px;font-size:14px;color:rgba(11,11,11,0.75);">
+                  Un rendez-vous a été confirmé.
+                </p>
+                <ul style="margin:0 0 14px;padding-left:18px;font-size:14px;">
+                  <li><strong>Type :</strong> ${type}</li>
+                  <li><strong>Date :</strong> ${dateLabel}</li>
+                  <li><strong>Heure :</strong> ${timeLabel}</li>
+                  <li><strong>Talent :</strong> ${talentName}</li>
+                </ul>
+                <p style="margin:0 0 10px;font-size:14px;">Invitation calendrier en pièce jointe.</p>
+                <div style="margin:18px 0 0;">
+                  <a href="${ctaRh}" style="display:inline-block;padding:10px 14px;border-radius:999px;background:#095228;color:#ffffff;text-decoration:none;font-weight:600;margin-right:8px;">
+                    Ouvrir Leaft (RH)
+                  </a>
+                  <a href="${ctaTalent}" style="display:inline-block;padding:10px 14px;border-radius:999px;border:1px solid rgba(9,82,40,0.25);color:#095228;text-decoration:none;font-weight:600;">
+                    Ouvrir Leaft (Talent)
+                  </a>
+                </div>
+              `),
+              attachments: [{ filename: "invite.ics", content: icsContent }],
+            });
+          })
+        );
+
+        return NextResponse.json({ ok: true, state: "closed", interview: createdInterview });
+      }
+
+      // Otherwise (admin-proposed slots), this is a proposal that requires Talent confirmation.
       await supabase
         .from("meeting_requests")
         .update({ state: "awaiting_talent_confirmation", confirmed_slot_id: slot_id, updated_at: new Date().toISOString() })
         .eq("organization_id", organizationId)
         .eq("group_id", group_id);
 
-      const { data: chosenSlot } = await supabase
-        .from("meeting_request_slots")
-        .select("starts_at, ends_at")
-        .eq("organization_id", organizationId)
-        .eq("id", slot_id)
-        .maybeSingle();
-
-      if (talentEmail && chosenSlot) {
+      if (talentEmail) {
         await sendEmail({
           to: talentEmail,
           subject: `Créneau proposé pour votre entretien${interviewType ? ` (${interviewType})` : ""}`,

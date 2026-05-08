@@ -187,12 +187,25 @@ export function EntretiensClient({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ group_id: groupId, action: "choose_slot", slot_id: slotId }),
     });
-    if (res.ok) {
-      fetch("/api/meeting-requests?admin=true")
-        .then((r) => r.json())
-        .then((d) => { if (Array.isArray(d)) setMeetingRequests(d); })
-        .catch(() => {});
+    if (!res.ok) {
+      try {
+        const err = await res.json();
+        console.error("choose_slot failed:", err);
+      } catch {}
+      return;
     }
+    // Optimistic: mark slot as chosen locally right away
+    setMeetingRequests((prev) =>
+      prev.map((r) => {
+        if ((r.group_id || r.id) !== groupId) return r;
+        const slots = (r.slots ?? []).map((s) => ({ ...s, status: s.id === slotId ? "chosen" : "superseded" }));
+        return { ...r, state: "awaiting_talent_confirmation", confirmed_slot_id: slotId, slots };
+      })
+    );
+    fetch("/api/meeting-requests?admin=true")
+      .then((r) => r.json())
+      .then((d) => { if (Array.isArray(d)) setMeetingRequests(d); })
+      .catch(() => {});
   }
 
   async function handleCounterPropose(groupId: string) {
