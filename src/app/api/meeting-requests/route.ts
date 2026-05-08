@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/resend";
+import crypto from "crypto";
 
 async function getOrganizationId(userId: string, orgId: string | null) {
   const supabase = supabaseAdmin();
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from("meeting_requests")
-      .select("id, employee_id, requested_to, note, status, created_at, updated_at")
+      .select("id, employee_id, requested_to, note, status, created_at, updated_at, group_id")
       .eq("organization_id", organizationId)
       .order("created_at", { ascending: false });
 
@@ -64,6 +65,63 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Talent view: group multi-recipient requests (manager+rh) into one entry
+    if (!forAdmin && employeeId) {
+      const rows = (data ?? []) as {
+        id: string;
+        employee_id: string;
+        requested_to: string;
+        note: string | null;
+        status: string;
+        created_at: string;
+        updated_at: string | null;
+        group_id: string | null;
+      }[];
+
+      const grouped = new Map<string, typeof rows>();
+      const singles: typeof rows = [];
+
+      rows.forEach((r) => {
+        if (r.group_id) {
+          const key = r.group_id;
+          grouped.set(key, [...(grouped.get(key) ?? []), r]);
+        } else {
+          singles.push(r);
+        }
+      });
+
+      const result = [
+        ...Array.from(grouped.entries()).map(([groupId, items]) => {
+          const statuses = items.map((i) => i.status);
+          const requestedTos = items.map((i) => i.requested_to);
+          const combinedStatus = statuses.includes("declined")
+            ? "declined"
+            : statuses.every((s) => s === "accepted")
+              ? "accepted"
+              : "pending";
+          return {
+            id: groupId,
+            group_id: groupId,
+            employee_id: items[0]!.employee_id,
+            requested_to: "both",
+            requested_tos: requestedTos,
+            note: items[0]!.note,
+            status: combinedStatus,
+            created_at: items[0]!.created_at,
+            updated_at: items.reduce<string | null>((acc, it) => (it.updated_at && (!acc || it.updated_at > acc) ? it.updated_at : acc), null),
+            parts: items.map((i) => ({ id: i.id, requested_to: i.requested_to, status: i.status })),
+          };
+        }),
+        ...singles.map((r) => ({
+          ...r,
+          parts: [{ id: r.id, requested_to: r.requested_to, status: r.status }],
+          requested_tos: [r.requested_to],
+        })),
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      return NextResponse.json(result);
+    }
+
     return NextResponse.json(data ?? []);
   } catch (e) {
     console.error("MeetingRequests GET:", e);
@@ -82,8 +140,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { requested_to, note } = body;
 
-    if (!requested_to || !["manager", "rh"].includes(requested_to)) {
-      return NextResponse.json({ error: "requested_to doit être 'manager' ou 'rh'" }, { status: 400 });
+    const requestedList: string[] = Array.isArray(requested_to) ? requested_to : [requested_to];
+    const cleaned = requestedList.filter(Boolean).map((s) => String(s).trim()).filter((s) => s.length > 0);
+    const unique = Array.from(new Set(cleaned));
+    const allowed = new Set(["manager", "rh"]);
+    if (unique.length === 0 || unique.some((x) => !allowed.has(x))) {
+      return NextResponse.json({ error: "requested_to doit être 'manager', 'rh' ou ['manager','rh']" }, { status: 400 });
     }
 
     const supabase = supabaseAdmin();
@@ -97,59 +159,67 @@ export async function POST(request: NextRequest) {
 
     if (!employee) return NextResponse.json({ error: "Profil introuvable" }, { status: 404 });
 
-    const { data: created, error } = await supabase
+    const groupId = unique.length > 1 ? crypto.randomUUID() : null;
+    const inserts = unique.map((to) => ({
+      employee_id: employee.id,
+      organization_id: organizationId,
+      requested_to: to,
+      note: note || null,
+      group_id: groupId,
+    }));
+
+    const { data: createdRows, error } = await supabase
       .from("meeting_requests")
-      .insert({
-        employee_id: employee.id,
-        organization_id: organizationId,
-        requested_to,
-        note: note || null,
-      })
-      .select("id, employee_id, requested_to, note, status, created_at, updated_at")
-      .single();
+      .insert(inserts)
+      .select("id, employee_id, requested_to, note, status, created_at, updated_at, group_id");
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    let recipientEmail: string | null = null;
-    if (requested_to === "manager" && employee.manager_id) {
+    const recipientEmails = new Set<string>();
+
+    if (unique.includes("manager") && employee.manager_id) {
       const { data: manager } = await supabase.from("employees").select("email").eq("id", employee.manager_id).single();
-      recipientEmail = manager?.email ?? null;
+      if (manager?.email) recipientEmails.add(manager.email);
     }
 
-    if (requested_to === "rh" || !recipientEmail) {
+    if (unique.includes("rh")) {
       const { data: adminUsers } = await supabase
         .from("user_organizations")
         .select("clerk_user_id")
         .eq("organization_id", organizationId)
         .in("role", ["Owner", "admin", "RH"])
-        .limit(1);
+        .limit(10);
 
-      if (adminUsers?.[0]) {
-        const { data: adminEmp } = await supabase
+      if (adminUsers && adminUsers.length > 0) {
+        const { data: adminEmps } = await supabase
           .from("employees")
           .select("email")
-          .eq("clerk_user_id", adminUsers[0].clerk_user_id)
-          .limit(1)
-          .maybeSingle();
-        recipientEmail = adminEmp?.email ?? null;
+          .in("clerk_user_id", adminUsers.map((u) => u.clerk_user_id).filter(Boolean));
+        (adminEmps ?? []).forEach((e) => { if (e.email) recipientEmails.add(e.email); });
       }
     }
 
-    if (recipientEmail) {
+    if (recipientEmails.size > 0) {
       const talentName = `${employee.first_name} ${employee.last_name}`;
-      await sendEmail({
-        to: recipientEmail,
-        subject: `Demande de RDV de ${talentName}`,
-        html: `
-          <h2>Nouvelle demande de rendez-vous</h2>
-          <p><strong>${talentName}</strong> souhaite un rendez-vous avec ${requested_to === "manager" ? "son manager" : "les RH"}.</p>
-          ${note ? `<p><strong>Note :</strong> ${note}</p>` : ""}
-          <p>Connectez-vous à Leaft pour répondre à cette demande.</p>
-        `,
-      });
+      const targetLabel =
+        unique.length > 1 ? "son manager et les RH" : unique[0] === "manager" ? "son manager" : "les RH";
+      await Promise.all(
+        Array.from(recipientEmails).map((to) =>
+          sendEmail({
+            to,
+            subject: `Demande de RDV de ${talentName}`,
+            html: `
+              <h2>Nouvelle demande de rendez-vous</h2>
+              <p><strong>${talentName}</strong> souhaite un rendez-vous avec ${targetLabel}.</p>
+              ${note ? `<p><strong>Note :</strong> ${note}</p>` : ""}
+              <p>Connectez-vous à Leaft pour répondre à cette demande.</p>
+            `,
+          })
+        )
+      );
     }
 
-    return NextResponse.json(created, { status: 201 });
+    return NextResponse.json({ created: createdRows ?? [], group_id: groupId }, { status: 201 });
   } catch (e) {
     console.error("MeetingRequests POST:", e);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
@@ -177,7 +247,7 @@ export async function PATCH(request: NextRequest) {
       .update({ status, updated_at: new Date().toISOString() })
       .eq("id", id)
       .eq("organization_id", organizationId)
-      .select("id, employee_id, requested_to, note, status, created_at, updated_at")
+      .select("id, employee_id, requested_to, note, status, created_at, updated_at, group_id")
       .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });

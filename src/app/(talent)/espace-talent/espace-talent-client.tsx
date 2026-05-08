@@ -72,11 +72,19 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [showRdvModal, setShowRdvModal] = useState(false);
-  const [rdvTo, setRdvTo] = useState<"manager" | "rh">("manager");
+  const [rdvTo, setRdvTo] = useState<{ manager: boolean; rh: boolean }>({ manager: true, rh: false });
   const [rdvNote, setRdvNote] = useState("");
   const [rdvLoading, setRdvLoading] = useState(false);
   const [rdvSuccess, setRdvSuccess] = useState<string | null>(null);
-  const [rdvRequests, setRdvRequests] = useState<{ id: string; requested_to: string; note: string | null; status: string; created_at: string }[]>([]);
+  const [rdvRequests, setRdvRequests] = useState<{
+    id: string;
+    requested_to: string;
+    requested_tos?: string[];
+    note: string | null;
+    status: string;
+    created_at: string;
+    parts?: { id: string; requested_to: string; status: string }[];
+  }[]>([]);
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -110,14 +118,23 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
     setRdvLoading(true);
     setRdvSuccess(null);
     try {
+      const targets = Object.entries(rdvTo).filter(([, v]) => v).map(([k]) => k);
+      if (targets.length === 0) {
+        setRdvLoading(false);
+        return;
+      }
       const res = await fetch("/api/meeting-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requested_to: rdvTo, note: rdvNote }),
+        body: JSON.stringify({ requested_to: targets, note: rdvNote }),
       });
       if (res.ok) {
-        const created = await res.json();
-        setRdvRequests((prev) => [created, ...prev]);
+        await res.json();
+        // Re-fetch to get grouped status for "both"
+        fetch(`/api/meeting-requests?employee_id=${employee.id}`)
+          .then((r) => r.json())
+          .then((d) => { if (Array.isArray(d)) setRdvRequests(d); })
+          .catch(() => {});
         setRdvSuccess("Votre demande de rendez-vous a été envoyée.");
         setShowRdvModal(false);
         setRdvNote("");
@@ -169,23 +186,69 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
     }).reverse();
   }, [data.positionHistory]);
 
-  const hireDate = new Date(employee.hire_date);
-  const now = new Date();
-  const tenureMonths = Math.max(0, (now.getFullYear() - hireDate.getFullYear()) * 12 + now.getMonth() - hireDate.getMonth());
-  const tenureYears = Math.floor(tenureMonths / 12);
-  const tenureRemaining = tenureMonths % 12;
+  // Tenure kept for potential future UX, but no longer surfaced prominently.
+
+  const interviewRecap = useMemo(() => {
+    const today = new Date();
+    const past = data.interviews
+      .map((iv) => ({ ...iv, d: new Date(iv.interview_date) }))
+      .filter((iv) => !Number.isNaN(iv.d.getTime()))
+      .filter((iv) => iv.d.getTime() <= today.getTime())
+      .sort((a, b) => b.d.getTime() - a.d.getTime());
+    const future = data.interviews
+      .map((iv) => ({ ...iv, d: new Date(iv.interview_date) }))
+      .filter((iv) => !Number.isNaN(iv.d.getTime()))
+      .filter((iv) => iv.d.getTime() > today.getTime())
+      .sort((a, b) => a.d.getTime() - b.d.getTime());
+
+    const last = past[0] ?? null;
+    const next = future[0] ?? null;
+
+    const diffDays = (a: Date, b: Date) => Math.ceil((a.getTime() - b.getTime()) / (1000 * 60 * 60 * 24));
+    const lastDays = last ? Math.abs(diffDays(today, last.d)) : null;
+    const nextDays = next ? diffDays(next.d, today) : null;
+
+    return { last, next, lastDays, nextDays };
+  }, [data.interviews]);
 
   return (
     <div ref={mainRef} className="space-y-6 sm:space-y-8">
       <section data-section className={`${CARD} !p-5 sm:!p-8`}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+          <div className="min-w-0">
             <h1 className="text-2xl font-semibold text-[var(--text)]">
               Bonjour, {employee.first_name} 👋
             </h1>
             <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
               Bienvenue dans votre espace personnel au sein de {orgName}.
             </p>
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+              {employee.current_job_title && (
+                <span className="rounded-full border border-[#e2e7e2] bg-white px-3 py-1 font-medium text-[color:rgba(11,11,11,0.65)]">
+                  {employee.current_job_title}
+                </span>
+              )}
+              {data.department && (
+                <span className="rounded-full bg-[var(--brand)]/10 px-3 py-1 font-semibold text-[var(--brand)]">
+                  {data.department}
+                </span>
+              )}
+              {data.level && (
+                <span className="rounded-full bg-[var(--brand)]/15 px-3 py-1 font-semibold text-[var(--brand)]">
+                  {data.level}
+                </span>
+              )}
+              {data.manager && (
+                <span className="rounded-full border border-[#e2e7e2] bg-[#f8faf8] px-3 py-1 font-medium text-[color:rgba(11,11,11,0.65)]">
+                  Manager : {data.manager}
+                </span>
+              )}
+              {employee.location && (
+                <span className="rounded-full border border-[#e2e7e2] bg-[#f8faf8] px-3 py-1 font-medium text-[color:rgba(11,11,11,0.65)]">
+                  {employee.location}
+                </span>
+              )}
+            </div>
           </div>
           <button
             type="button"
@@ -194,66 +257,161 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
             className="group relative cursor-pointer"
           >
             <Avatar firstName={employee.first_name} lastName={employee.last_name} avatarUrl={avatarUrl} size="xl" />
-            <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-xs font-medium text-white opacity-0 transition group-hover:opacity-100">
-              {uploadingAvatar ? "..." : "Photo"}
+            <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition group-hover:opacity-100">
+              {uploadingAvatar ? (
+                <span className="text-xs font-medium">...</span>
+              ) : (
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 3.487a2.25 2.25 0 013.182 3.182L8.25 18.463 3 21l2.537-5.25L16.862 3.487z" />
+                </svg>
+              )}
             </span>
           </button>
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleAvatarUpload} />
         </div>
       </section>
 
-      <section data-section className="grid gap-4 sm:gap-6 xl:grid-cols-5">
-        <div className={`${CARD} xl:col-span-3`}>
-          <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Mon profil</h2>
-          <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div><dt className={LABEL}>Nom complet</dt><dd className="mt-1 text-sm text-[var(--text)]">{employee.first_name} {employee.last_name}</dd></div>
-          <div><dt className={LABEL}>Email</dt><dd className="mt-1 text-sm text-[var(--text)]">{employee.email}</dd></div>
-          <div><dt className={LABEL}>Poste</dt><dd className="mt-1 text-sm text-[var(--text)]">{employee.current_job_title || "—"}</dd></div>
-          <div>
-            <dt className={LABEL}>Département</dt>
-            <dd className="mt-1 text-sm text-[var(--text)]">
-              {data.department ? <span className="rounded-lg bg-[var(--brand)]/10 px-2 py-0.5 text-xs font-medium text-[var(--brand)]">{data.department}</span> : "—"}
-            </dd>
+      <section data-section className="grid gap-4 sm:gap-6 lg:grid-cols-5">
+        {data.salaryVisible && (
+          <div className="rounded-3xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-4 shadow-[0_24px_60px_rgba(17,27,24,0.06)] sm:p-6 lg:col-span-3">
+            <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Rémunération</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
+              <div>
+                <p className={LABEL}>Salaire annuel brut</p>
+                <p className="mt-1 text-3xl font-semibold text-[var(--text)]">
+                  {salary != null ? `${salary.toLocaleString("fr-FR")} €` : "—"}
+                </p>
+              </div>
+              {data.compaRatio != null && (
+                <div>
+                  <p className={LABEL}>Compa-ratio</p>
+                  <p className="mt-1 text-3xl font-semibold text-[var(--text)]">{data.compaRatio}%</p>
+                  <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-white/60">
+                    <div className="relative h-full">
+                      <div className="absolute left-1/2 top-0 h-full w-px bg-[color:rgba(11,11,11,0.2)]" title="100%" />
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${Math.min(data.compaRatio, 150) / 1.5}%`,
+                          backgroundColor: data.compaRatio < 90 ? "#ef4444" : data.compaRatio > 110 ? "#f59e0b" : "var(--brand)",
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.5)]">100% = aligné au midpoint du niveau</p>
+                </div>
+              )}
+              {data.levelRange && data.levelRange.min != null && data.levelRange.max != null && (
+                <div>
+                  <p className={LABEL}>Fourchette du niveau</p>
+                  <p className="mt-1 text-sm text-[var(--text)]">
+                    {data.levelRange.min.toLocaleString("fr-FR")} € — {data.levelRange.max.toLocaleString("fr-FR")} €
+                  </p>
+                  {data.levelRange.mid != null && (
+                    <p className="mt-0.5 text-xs text-[color:rgba(11,11,11,0.5)]">Midpoint : {data.levelRange.mid.toLocaleString("fr-FR")} €</p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-          <div>
-            <dt className={LABEL}>Niveau</dt>
-            <dd className="mt-1 text-sm text-[var(--text)]">
-              {data.level ? <span className="rounded-lg bg-[var(--brand)]/15 px-2 py-0.5 text-xs font-semibold text-[var(--brand)]">{data.level}</span> : "—"}
-            </dd>
-          </div>
-          {data.managementLevel && (
-            <div><dt className={LABEL}>Niveau Management</dt><dd className="mt-1 text-sm"><span className="rounded-lg bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">{data.managementLevel}</span></dd></div>
-          )}
-          {data.ancienneteLevel && (
-            <div><dt className={LABEL}>Ancienneté</dt><dd className="mt-1 text-sm"><span className="rounded-lg bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">{data.ancienneteLevel}</span></dd></div>
-          )}
-          <div><dt className={LABEL}>Manager</dt><dd className="mt-1 text-sm text-[var(--text)]">{data.manager || "—"}</dd></div>
-          <div>
-            <dt className={LABEL}>Date d&apos;entrée</dt>
-            <dd className="mt-1 text-sm text-[var(--text)]">
-              {employee.hire_date ? new Date(employee.hire_date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "—"}
-            </dd>
-          </div>
-          <div>
-            <dt className={LABEL}>Ancienneté dans l&apos;entreprise</dt>
-            <dd className="mt-1 text-sm text-[var(--text)]">
-              {tenureYears > 0 ? `${tenureYears} an${tenureYears > 1 ? "s" : ""}` : ""}
-              {tenureYears > 0 && tenureRemaining > 0 ? " et " : ""}
-              {tenureRemaining > 0 ? `${tenureRemaining} mois` : ""}
-              {tenureYears === 0 && tenureRemaining === 0 ? "< 1 mois" : ""}
-            </dd>
-          </div>
-          <div><dt className={LABEL}>Localisation</dt><dd className="mt-1 text-sm text-[var(--text)]">{employee.location || "—"}</dd></div>
-          </dl>
-        </div>
+        )}
 
-        <div className={`${CARD} xl:col-span-2`}>
+        <div className={`${CARD} ${data.salaryVisible ? "lg:col-span-2" : "lg:col-span-5"}`}>
           <div className="flex items-center justify-between gap-2">
             <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Mes entretiens</h2>
             <span className="rounded-full bg-[var(--brand)]/10 px-2.5 py-0.5 text-xs font-semibold text-[var(--brand)]">
               {data.interviews.length}
             </span>
           </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {interviewRecap.lastDays != null && (
+              <span className="rounded-full border border-[#e2e7e2] bg-[#f8faf8] px-3 py-1 text-xs font-medium text-[color:rgba(11,11,11,0.65)]">
+                Dernier entretien : il y a {interviewRecap.lastDays} jour{interviewRecap.lastDays > 1 ? "s" : ""}
+              </span>
+            )}
+            {interviewRecap.nextDays != null && (
+              <span className="rounded-full border border-[#e2e7e2] bg-[#f8faf8] px-3 py-1 text-xs font-medium text-[color:rgba(11,11,11,0.65)]">
+                Prochain entretien : dans {interviewRecap.nextDays} jour{interviewRecap.nextDays > 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <button
+              onClick={() => setShowRdvModal(true)}
+              className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.98]"
+            >
+              Demander un RDV
+            </button>
+            {rdvSuccess && (
+              <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
+                Envoyé
+              </span>
+            )}
+          </div>
+
+          {showRdvModal && (
+            <div className="mt-4 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-5">
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-[var(--text)]">Destinataire(s)</label>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setRdvTo((s) => ({ ...s, manager: !s.manager }))}
+                      className={`cursor-pointer rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
+                        rdvTo.manager
+                          ? "border-[var(--brand)] bg-[var(--brand)]/10 text-[var(--brand)]"
+                          : "border-[#e2e7e2] bg-white text-[var(--text)] hover:border-[var(--brand)]/30"
+                      }`}
+                    >
+                      Mon manager
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRdvTo((s) => ({ ...s, rh: !s.rh }))}
+                      className={`cursor-pointer rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
+                        rdvTo.rh
+                          ? "border-[var(--brand)] bg-[var(--brand)]/10 text-[var(--brand)]"
+                          : "border-[#e2e7e2] bg-white text-[var(--text)] hover:border-[var(--brand)]/30"
+                      }`}
+                    >
+                      Ressources Humaines
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-[color:rgba(11,11,11,0.55)]">
+                    Si vous sélectionnez les deux, la demande sera acceptée uniquement lorsque <strong>les deux</strong> auront validé.
+                  </p>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-[var(--text)]">Note (optionnel)</label>
+                  <textarea
+                    rows={3}
+                    value={rdvNote}
+                    onChange={(e) => setRdvNote(e.target.value)}
+                    className="w-full cursor-text rounded-xl border border-[#e2e7e2] bg-white px-4 py-2.5 text-sm text-[var(--text)] transition hover:border-[var(--brand)]/40 focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
+                    placeholder="Précisez le motif de votre demande..."
+                  />
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={handleRdvSubmit}
+                    disabled={rdvLoading}
+                    className="cursor-pointer rounded-full bg-[var(--brand)] px-5 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
+                  >
+                    {rdvLoading ? "Envoi..." : "Envoyer la demande"}
+                  </button>
+                  <button
+                    onClick={() => { setShowRdvModal(false); setRdvNote(""); }}
+                    className="cursor-pointer rounded-full border border-[#e2e7e2] px-4 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-[#f8faf8]"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {data.interviews.length === 0 ? (
             <div className="mt-4 rounded-xl border border-dashed border-[#e2e7e2] bg-[#f8faf8] p-6 text-center text-sm text-[color:rgba(11,11,11,0.6)]">
               Aucun entretien enregistré pour le moment.
@@ -295,52 +453,45 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
               ))}
             </div>
           )}
+
+          {rdvRequests.length > 0 && (
+            <div className="mt-5 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Mes demandes de RDV</p>
+              {rdvRequests.map((req) => (
+                <div key={req.id} className="flex flex-col gap-2 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-lg bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                        {req.requested_to === "both"
+                          ? "Manager + RH"
+                          : req.requested_to === "manager"
+                            ? "Manager"
+                            : "RH"}
+                      </span>
+                      <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${
+                        req.status === "pending" ? "bg-amber-100 text-amber-800" :
+                        req.status === "accepted" ? "bg-green-100 text-green-800" :
+                        "bg-red-100 text-red-800"
+                      }`}>
+                        {req.status === "pending" ? "En attente" : req.status === "accepted" ? "Accepté" : "Décliné"}
+                      </span>
+                      {req.requested_to === "both" && req.parts && (
+                        <span className="text-xs text-[color:rgba(11,11,11,0.55)]">
+                          ({req.parts.map((p) => `${p.requested_to === "manager" ? "Manager" : "RH"}: ${p.status === "pending" ? "⏳" : p.status === "accepted" ? "✅" : "❌"}`).join(" · ")})
+                        </span>
+                      )}
+                    </div>
+                    {req.note && <p className="mt-1 truncate text-sm text-[color:rgba(11,11,11,0.65)]">{req.note}</p>}
+                  </div>
+                  <span className="text-xs text-[color:rgba(11,11,11,0.5)]">
+                    {new Date(req.created_at).toLocaleDateString("fr-FR")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
-
-      {data.salaryVisible && (
-        <section data-section className="rounded-3xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-4 sm:p-6">
-          <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Rémunération</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-            <div>
-              <p className={LABEL}>Salaire annuel brut</p>
-              <p className="mt-1 text-3xl font-semibold text-[var(--text)]">
-                {salary != null ? `${salary.toLocaleString("fr-FR")} €` : "—"}
-              </p>
-            </div>
-            {data.compaRatio != null && (
-              <div>
-                <p className={LABEL}>Compa-ratio</p>
-                <p className="mt-1 text-3xl font-semibold text-[var(--text)]">{data.compaRatio}%</p>
-                <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-white/60">
-                  <div className="relative h-full">
-                    <div className="absolute left-1/2 top-0 h-full w-px bg-[color:rgba(11,11,11,0.2)]" title="100%" />
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${Math.min(data.compaRatio, 150) / 1.5}%`,
-                        backgroundColor: data.compaRatio < 90 ? "#ef4444" : data.compaRatio > 110 ? "#f59e0b" : "var(--brand)",
-                      }}
-                    />
-                  </div>
-                </div>
-                <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.5)]">100% = aligné au midpoint du niveau</p>
-              </div>
-            )}
-            {data.levelRange && data.levelRange.min != null && data.levelRange.max != null && (
-              <div>
-                <p className={LABEL}>Fourchette du niveau</p>
-                <p className="mt-1 text-sm text-[var(--text)]">
-                  {data.levelRange.min.toLocaleString("fr-FR")} € — {data.levelRange.max.toLocaleString("fr-FR")} €
-                </p>
-                {data.levelRange.mid != null && (
-                  <p className="mt-0.5 text-xs text-[color:rgba(11,11,11,0.5)]">Midpoint : {data.levelRange.mid.toLocaleString("fr-FR")} €</p>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-      )}
 
       {progressionData.length >= 2 && (
         <section data-section className={CARD}>

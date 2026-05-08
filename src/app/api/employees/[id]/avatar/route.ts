@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import { clerkClient } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 async function getOrganizationId(userId: string, orgId: string | null) {
@@ -48,6 +49,21 @@ export async function POST(
 
     const supabase = supabaseAdmin();
 
+    // Ensure the caller can update this employee
+    const { data: targetEmp } = await supabase
+      .from("employees")
+      .select("id, clerk_user_id")
+      .eq("id", id)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (!targetEmp) return NextResponse.json({ error: "Talent introuvable" }, { status: 404 });
+
+    // Talents can only update their own avatar. Admin paths can be added later if needed.
+    if (targetEmp.clerk_user_id !== userId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
@@ -72,6 +88,14 @@ export async function POST(
     if (updateError) {
       console.error("Avatar URL update error:", updateError);
       return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+
+    // Sync profile picture to Clerk (best-effort)
+    try {
+      const clerk = await clerkClient();
+      await clerk.users.updateUserProfileImage(userId, { file });
+    } catch (e) {
+      console.warn("Clerk avatar sync failed (non-blocking):", e);
     }
 
     return NextResponse.json({ avatar_url });
