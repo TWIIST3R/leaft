@@ -616,13 +616,13 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
           <div className="mt-4 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-5">
             <div className="space-y-4">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-[var(--text)]">Destinataire</label>
+                <label className="mb-1.5 block text-sm font-medium text-[var(--text)]">Destinataire(s)</label>
                 <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
-                    onClick={() => setRdvTo("manager")}
+                    onClick={() => setRdvTo((s) => ({ ...s, manager: !s.manager }))}
                     className={`cursor-pointer rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
-                      rdvTo === "manager"
+                      rdvTo.manager
                         ? "border-[var(--brand)] bg-[var(--brand)]/10 text-[var(--brand)]"
                         : "border-[#e2e7e2] bg-white text-[var(--text)] hover:border-[var(--brand)]/30"
                     }`}
@@ -631,9 +631,9 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setRdvTo("rh")}
+                    onClick={() => setRdvTo((s) => ({ ...s, rh: !s.rh }))}
                     className={`cursor-pointer rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
-                      rdvTo === "rh"
+                      rdvTo.rh
                         ? "border-[var(--brand)] bg-[var(--brand)]/10 text-[var(--brand)]"
                         : "border-[#e2e7e2] bg-white text-[var(--text)] hover:border-[var(--brand)]/30"
                     }`}
@@ -641,6 +641,9 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
                     Ressources Humaines
                   </button>
                 </div>
+                <p className="mt-2 text-xs text-[color:rgba(11,11,11,0.55)]">
+                  Si vous sélectionnez les deux, la demande sera acceptée uniquement lorsque <strong>les deux</strong> auront validé.
+                </p>
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-[var(--text)]">Note (optionnel)</label>
