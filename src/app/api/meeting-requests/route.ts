@@ -303,6 +303,7 @@ export async function PATCH(request: NextRequest) {
         .single();
 
       let talentEmail = emp?.email ?? null;
+      const talentFirstName = emp?.first_name?.trim() || "";
       if (emp?.clerk_user_id) {
         try {
           const clerk = await clerkClient();
@@ -324,7 +325,7 @@ export async function PATCH(request: NextRequest) {
             "",
             `
               <h2 style="margin:0 0 14px;">Demande de rendez-vous ${status === "accepted" ? "acceptée" : "déclinée"}</h2>
-              <p style="margin:0 0 14px;">Bonjour ${emp.first_name},</p>
+              <p style="margin:0 0 14px;">Bonjour${talentFirstName ? ` ${talentFirstName}` : ""},</p>
               <p style="margin:0 0 14px;">Votre demande de rendez-vous a été <strong>${status === "accepted" ? "acceptée" : "déclinée"}</strong>.</p>
               ${status === "accepted" ? "<p style=\"margin:0 0 14px;\">Vous serez contacté(e) prochainement pour fixer une date.</p>" : ""}
             `,
