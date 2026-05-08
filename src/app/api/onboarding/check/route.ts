@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { hasActiveSubscription } from "@/lib/stripe/subscriptions";
+import { checkSubscriptionAccess } from "@/lib/subscription-check";
 
 export async function GET(request: NextRequest) {
   try {
@@ -47,12 +47,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ exists: false, hasSubscription: false });
     }
 
-    // Check if has active subscription
-    const isActive = await hasActiveSubscription(organization.id);
+    // Use the same robust check as middleware (includes Stripe fallback)
+    const { hasAccess } = await checkSubscriptionAccess(userId, orgId ?? undefined);
 
     return NextResponse.json({
       exists: true,
-      hasSubscription: isActive,
+      hasSubscription: hasAccess,
       organizationId: organization.id,
     });
   } catch (error) {

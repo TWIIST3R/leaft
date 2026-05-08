@@ -77,10 +77,16 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [deletingAvatar, setDeletingAvatar] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [subscriptionActive, setSubscriptionActive] = useState<boolean | null>(null);
 
   const [showRdvModal, setShowRdvModal] = useState(false);
   const [rdvTo, setRdvTo] = useState<{ manager: boolean; rh: boolean }>({ manager: true, rh: false });
   const [rdvInterviewType, setRdvInterviewType] = useState<(typeof INTERVIEW_TYPES)[number]["value"]>(INTERVIEW_TYPES[0].value);
+  const [rdvSlots, setRdvSlots] = useState<{ starts_at: string; ends_at: string }[]>([
+    { starts_at: "", ends_at: "" },
+    { starts_at: "", ends_at: "" },
+    { starts_at: "", ends_at: "" },
+  ]);
   const [rdvNote, setRdvNote] = useState("");
   const [rdvLoading, setRdvLoading] = useState(false);
   const [rdvSuccess, setRdvSuccess] = useState<string | null>(null);
@@ -90,9 +96,15 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
     requested_tos?: string[];
     note: string | null;
     status: string;
+    state?: string | null;
+    group_id?: string | null;
+    confirmed_slot_id?: string | null;
+    slots?: { id: string; starts_at: string; ends_at: string; proposed_by: string; status: string }[];
+    interview_type?: string | null;
     created_at: string;
     parts?: { id: string; requested_to: string; status: string }[];
   }[]>([]);
+  const [rdvActionLoading, setRdvActionLoading] = useState<string | null>(null);
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -137,7 +149,19 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
       .catch(() => {});
   }, [employee.id]);
 
+  useEffect(() => {
+    fetch("/api/onboarding/check")
+      .then((r) => r.json())
+      .then((d) => setSubscriptionActive(!!d?.hasSubscription))
+      .catch(() => setSubscriptionActive(null));
+  }, []);
+
   async function handleRdvSubmit() {
+    if (subscriptionActive === false) {
+      setRdvSuccess("Abonnement inactif : demande de RDV indisponible.");
+      setShowRdvModal(false);
+      return;
+    }
     setRdvLoading(true);
     setRdvSuccess(null);
     try {
@@ -149,7 +173,12 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
       const res = await fetch("/api/meeting-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requested_to: targets, note: rdvNote, interview_type: rdvInterviewType }),
+        body: JSON.stringify({
+          requested_to: targets,
+          note: rdvNote,
+          interview_type: rdvInterviewType,
+          slots: rdvSlots.filter((s) => s.starts_at && s.ends_at).slice(0, 3),
+        }),
       });
       if (res.ok) {
         await res.json();
@@ -161,9 +190,45 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
         setRdvSuccess("Votre demande de rendez-vous a été envoyée.");
         setShowRdvModal(false);
         setRdvNote("");
+        setRdvSlots([{ starts_at: "", ends_at: "" }, { starts_at: "", ends_at: "" }, { starts_at: "", ends_at: "" }]);
       }
     } catch { /* ignore */ }
     finally { setRdvLoading(false); }
+  }
+
+  async function refreshRdvRequests() {
+    fetch(`/api/meeting-requests?employee_id=${employee.id}`)
+      .then((r) => r.json())
+      .then((d) => { if (Array.isArray(d)) setRdvRequests(d); })
+      .catch(() => {});
+  }
+
+  async function handleTalentAccept(groupId: string, slotId?: string) {
+    setRdvActionLoading(groupId);
+    try {
+      const res = await fetch("/api/meeting-requests", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ group_id: groupId, action: "talent_accept", slot_id: slotId }),
+      });
+      if (res.ok) await refreshRdvRequests();
+    } finally {
+      setRdvActionLoading(null);
+    }
+  }
+
+  async function handleTalentDecline(groupId: string) {
+    setRdvActionLoading(groupId);
+    try {
+      const res = await fetch("/api/meeting-requests", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ group_id: groupId, action: "talent_decline" }),
+      });
+      if (res.ok) await refreshRdvRequests();
+    } finally {
+      setRdvActionLoading(null);
+    }
   }
 
   const salary = employee.annual_salary_brut != null ? Number(employee.annual_salary_brut) : null;
@@ -313,7 +378,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
         </div>
       </section>
 
-      <section data-section className="grid gap-4 sm:gap-6 lg:grid-cols-5">
+      <section data-section className="grid items-start gap-4 sm:gap-6 lg:grid-cols-5">
         {data.salaryVisible && (
           <div className="rounded-3xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-4 shadow-[0_24px_60px_rgba(17,27,24,0.06)] sm:p-6 lg:col-span-2">
             <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Rémunération</h2>
@@ -346,7 +411,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
           </div>
         )}
 
-        <div className={`${CARD} ${data.salaryVisible ? "lg:col-span-3" : "lg:col-span-5"}`}>
+        <div className={`${CARD} flex flex-col ${data.salaryVisible ? "lg:col-span-3" : "lg:col-span-5"}`}>
           <div className="flex items-center justify-between gap-2">
             <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Mes entretiens</h2>
             <span className="rounded-full bg-[var(--brand)]/10 px-2.5 py-0.5 text-xs font-semibold text-[var(--brand)]">
@@ -369,7 +434,8 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <button
               onClick={() => setShowRdvModal(true)}
-              className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.98]"
+              disabled={subscriptionActive === false}
+              className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Demander un RDV
             </button>
@@ -379,6 +445,11 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
               </span>
             )}
           </div>
+          {subscriptionActive === false && (
+            <p className="mt-2 text-xs text-[color:rgba(11,11,11,0.55)]">
+              Votre entreprise n’a pas d’abonnement actif. Contactez votre administrateur pour réactiver l’accès.
+            </p>
+          )}
 
           {showRdvModal && (
             <div className="mt-4 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-5">
@@ -394,6 +465,30 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
                       <option key={t.value} value={t.value}>{t.label}</option>
                     ))}
                   </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-[var(--text)]">Proposer des créneaux (2–3)</label>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {rdvSlots.map((s, idx) => (
+                      <div key={idx} className="space-y-2">
+                        <input
+                          type="datetime-local"
+                          value={s.starts_at}
+                          onChange={(e) => setRdvSlots((prev) => prev.map((p, i) => i === idx ? { ...p, starts_at: e.target.value } : p))}
+                          className="w-full rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
+                        />
+                        <input
+                          type="datetime-local"
+                          value={s.ends_at}
+                          onChange={(e) => setRdvSlots((prev) => prev.map((p, i) => i === idx ? { ...p, ends_at: e.target.value } : p))}
+                          className="w-full rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs text-[color:rgba(11,11,11,0.55)]">
+                    Astuce: tu peux mettre une durée de 45 minutes (ex: 10:00 → 10:45).
+                  </p>
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-[var(--text)]">Destinataire(s)</label>
@@ -444,7 +539,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
                     {rdvLoading ? "Envoi..." : "Envoyer la demande"}
                   </button>
                   <button
-                    onClick={() => { setShowRdvModal(false); setRdvNote(""); }}
+                    onClick={() => { setShowRdvModal(false); setRdvNote(""); setRdvSlots([{ starts_at: "", ends_at: "" }, { starts_at: "", ends_at: "" }, { starts_at: "", ends_at: "" }]); }}
                     className="cursor-pointer rounded-full border border-[#e2e7e2] px-4 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-[#f8faf8]"
                   >
                     Annuler
@@ -523,12 +618,60 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
                         </span>
                       )}
                     </div>
-                    {(req as { interview_type?: string | null }).interview_type && (
+                    {req.interview_type && (
                       <p className="mt-1 text-xs font-medium text-[color:rgba(11,11,11,0.55)]">
-                        Type : {(req as { interview_type?: string | null }).interview_type}
+                        Type : {req.interview_type}
                       </p>
                     )}
                     {req.note && <p className="mt-1 truncate text-sm text-[color:rgba(11,11,11,0.65)]">{req.note}</p>}
+
+                    {(req.slots?.length ?? 0) > 0 && (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.45)]">
+                          Créneaux proposés
+                        </p>
+                        <div className="space-y-2">
+                          {(req.slots ?? []).map((s) => {
+                            const start = new Date(s.starts_at);
+                            const end = new Date(s.ends_at);
+                            const label = `${start.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })} · ${start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}–${end.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+                            const groupId = (req.group_id || req.id) as string;
+                            const canAct = req.state === "awaiting_talent_confirmation";
+                            return (
+                              <div key={s.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-[#e2e7e2] bg-white px-3 py-2">
+                                <span className="text-sm text-[color:rgba(11,11,11,0.75)]">{label}</span>
+                                <span className="ml-auto text-xs font-medium text-[color:rgba(11,11,11,0.55)]">
+                                  {s.proposed_by === "talent" ? "proposé par vous" : "proposé par votre interlocuteur"}
+                                </span>
+                                {canAct && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleTalentAccept(groupId, s.id)}
+                                    disabled={rdvActionLoading === groupId}
+                                    className="cursor-pointer rounded-full bg-[var(--brand)] px-3 py-1 text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
+                                  >
+                                    {rdvActionLoading === groupId ? "..." : "Accepter"}
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {(req.state === "awaiting_talent_confirmation") && (
+                          <div className="pt-1">
+                            <button
+                              type="button"
+                              onClick={() => handleTalentDecline((req.group_id || req.id) as string)}
+                              disabled={rdvActionLoading === (req.group_id || req.id)}
+                              className="cursor-pointer rounded-full border border-red-200 bg-white px-3 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                            >
+                              Refuser
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <span className="text-xs text-[color:rgba(11,11,11,0.5)]">
                     {new Date(req.created_at).toLocaleDateString("fr-FR")}

@@ -88,6 +88,37 @@ export async function checkSubscriptionAccess(userId?: string, orgId?: string) {
     return { hasAccess: false, organizationId: null, reason: "organization_not_found" as const };
   }
 
+  // If org.stripe_customer_id is missing, try to recover it from subscriptions table.
+  // This prevents false onboarding redirects when the org row wasn't backfilled yet.
+  if (!organization.stripe_customer_id) {
+    try {
+      const { data: subRow } = await supabase
+        .from("subscriptions")
+        .select("stripe_customer_id, stripe_subscription_id, updated_at")
+        .eq("organization_id", organization.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let recoveredCustomerId: string | null = subRow?.stripe_customer_id ?? null;
+      if (!recoveredCustomerId && subRow?.stripe_subscription_id) {
+        const stripeSub = await stripe.subscriptions.retrieve(subRow.stripe_subscription_id);
+        recoveredCustomerId = typeof stripeSub.customer === "string" ? stripeSub.customer : stripeSub.customer?.id ?? null;
+      }
+
+      if (recoveredCustomerId) {
+        organization.stripe_customer_id = recoveredCustomerId;
+        // Best-effort backfill (non-blocking)
+        await supabase
+          .from("organizations")
+          .update({ stripe_customer_id: recoveredCustomerId })
+          .eq("id", organization.id);
+      }
+    } catch (e) {
+      console.error("checkSubscriptionAccess: failed to recover stripe_customer_id:", e);
+    }
+  }
+
   // First check in database
   const isActive = await hasActiveSubscription(organization.id);
 

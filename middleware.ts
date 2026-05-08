@@ -85,6 +85,11 @@ export default clerkMiddleware(async (auth, request) => {
     const sessionId = url.searchParams.get("session_id");
     if (sessionId) return;
 
+    // Allow access to the subscription paywall page even without an active subscription.
+    if (url.pathname.startsWith("/dashboard/abonnement")) {
+      return;
+    }
+
     if (effectiveRole === "member") {
       return NextResponse.redirect(new URL("/espace-talent", request.url));
     }
@@ -92,7 +97,10 @@ export default clerkMiddleware(async (auth, request) => {
     if (effectiveRole === "admin" || !effectiveRole) {
       const { hasAccess, reason } = await checkSubscriptionAccess(userId ?? undefined, orgId ?? undefined);
       if (!hasAccess) {
-        if (reason === "no_subscription" || reason === "organization_not_found") {
+        if (reason === "no_subscription") {
+          return NextResponse.redirect(new URL("/dashboard/abonnement", request.url));
+        }
+        if (reason === "organization_not_found") {
           return NextResponse.redirect(new URL("/onboarding", request.url));
         }
         if (reason === "not_authenticated") {

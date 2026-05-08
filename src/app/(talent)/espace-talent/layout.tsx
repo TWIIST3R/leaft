@@ -3,6 +3,7 @@ import Image from "next/image";
 import { ReactNode } from "react";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { checkSubscriptionAccess } from "@/lib/subscription-check";
 import { DashboardTopbar } from "@/components/dashboard/topbar";
 import { TalentNav } from "./talent-nav";
 
@@ -64,6 +65,7 @@ export default async function TalentSpaceLayout({ children }: { children: ReactN
   const user = await currentUser();
   const userEmail = user?.emailAddresses?.[0]?.emailAddress ?? null;
   const info = userId ? await getEmployeeInfo(userId, orgId ?? null, userEmail) : { orgName: "", orgLogo: null, employee: null };
+  const subscription = userId ? await checkSubscriptionAccess(userId, orgId ?? undefined) : { hasAccess: false };
 
   return (
     <div className="flex min-h-screen bg-[#f7f9f7] text-[var(--text)]">
@@ -103,6 +105,14 @@ export default async function TalentSpaceLayout({ children }: { children: ReactN
       <div className="flex flex-1 flex-col">
         <header className="sticky top-0 z-10 border-b border-[#e2e7e2] bg-white/85 px-4 py-4 backdrop-blur sm:px-6">
           <DashboardTopbar mode="talent" />
+          {!subscription.hasAccess && (
+            <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p className="font-semibold">Accès limité</p>
+              <p className="mt-0.5 text-[color:rgba(120,53,15,0.85)]">
+                L’abonnement de votre entreprise n’est pas actif. Certaines fonctionnalités peuvent être indisponibles. Contactez votre administrateur pour réactiver l’abonnement.
+              </p>
+            </div>
+          )}
           <div className="mt-3 border-t border-[#e2e7e2] pt-3 lg:hidden">
             <TalentNav isManager={info.employee?.is_manager ?? false} />
           </div>

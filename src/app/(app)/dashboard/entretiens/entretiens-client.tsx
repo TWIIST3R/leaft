@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import gsap from "gsap";
 
@@ -89,14 +89,25 @@ export function EntretiensClient({
 
   type MeetingRequest = {
     id: string;
+    group_id?: string | null;
     employee_id: string;
     requested_to: string;
+    interview_type?: string | null;
     note: string | null;
     status: string;
+    state?: string | null;
+    confirmed_slot_id?: string | null;
     created_at: string;
     employee?: { id: string; first_name: string; last_name: string; email: string } | null;
+    slots?: { id: string; starts_at: string; ends_at: string; proposed_by: string; status: string }[];
   };
   const [meetingRequests, setMeetingRequests] = useState<MeetingRequest[]>([]);
+  const [counterForGroup, setCounterForGroup] = useState<string | null>(null);
+  const [counterSlots, setCounterSlots] = useState<{ starts_at: string; ends_at: string }[]>([
+    { starts_at: "", ends_at: "" },
+    { starts_at: "", ends_at: "" },
+    { starts_at: "", ends_at: "" },
+  ]);
 
   const [form, setForm] = useState({
     employee_id: "",
@@ -146,14 +157,62 @@ export function EntretiensClient({
       .catch(() => {});
   }, []);
 
-  async function handleMeetingRequestAction(id: string, status: "accepted" | "declined") {
+  const groupedMeetingRequests = useMemo<Array<MeetingRequest & { requested_tos: string[] }>>(() => {
+    const map = new Map<string, MeetingRequest & { requested_tos: string[] }>();
+    meetingRequests.forEach((r) => {
+      const gid = r.group_id || r.id;
+      const existing = map.get(gid);
+      if (!existing) {
+        map.set(gid, {
+          ...r,
+          id: gid,
+          group_id: r.group_id ?? gid,
+          requested_tos: [r.requested_to].filter(Boolean),
+          slots: r.slots ?? [],
+        });
+      } else {
+        existing.requested_tos = Array.from(new Set([...(existing.requested_tos ?? []), r.requested_to].filter(Boolean)));
+        if ((r.slots?.length ?? 0) > (existing.slots?.length ?? 0)) existing.slots = r.slots;
+        if (!existing.note && r.note) existing.note = r.note;
+        if (!existing.interview_type && r.interview_type) existing.interview_type = r.interview_type;
+        if (!existing.employee && r.employee) existing.employee = r.employee;
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [meetingRequests]);
+
+  async function handleChooseSlot(groupId: string, slotId: string) {
     const res = await fetch("/api/meeting-requests", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status }),
+      body: JSON.stringify({ group_id: groupId, action: "choose_slot", slot_id: slotId }),
     });
     if (res.ok) {
-      setMeetingRequests((prev) => prev.map((r) => r.id === id ? { ...r, status } : r));
+      fetch("/api/meeting-requests?admin=true")
+        .then((r) => r.json())
+        .then((d) => { if (Array.isArray(d)) setMeetingRequests(d); })
+        .catch(() => {});
+    }
+  }
+
+  async function handleCounterPropose(groupId: string) {
+    const slots = counterSlots
+      .map((s) => ({ starts_at: s.starts_at, ends_at: s.ends_at }))
+      .filter((s) => s.starts_at && s.ends_at)
+      .slice(0, 3);
+    if (slots.length === 0) return;
+    const res = await fetch("/api/meeting-requests", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ group_id: groupId, action: "counter_propose", slots }),
+    });
+    if (res.ok) {
+      setCounterForGroup(null);
+      setCounterSlots([{ starts_at: "", ends_at: "" }, { starts_at: "", ends_at: "" }, { starts_at: "", ends_at: "" }]);
+      fetch("/api/meeting-requests?admin=true")
+        .then((r) => r.json())
+        .then((d) => { if (Array.isArray(d)) setMeetingRequests(d); })
+        .catch(() => {});
     }
   }
 
@@ -526,53 +585,129 @@ export function EntretiensClient({
         );
       })() }
 
-      {meetingRequests.length > 0 && (
+      {groupedMeetingRequests.length > 0 && (
         <section id="demandes-rdv" className={CARD + " p-6"}>
           <h3 className="border-l-4 border-purple-500 pl-4 text-lg font-semibold text-[var(--text)]">
-            Demandes de rendez-vous ({meetingRequests.filter((r) => r.status === "pending").length} en attente)
+            Demandes de rendez-vous ({groupedMeetingRequests.filter((r) => r.status === "pending").length} en attente)
           </h3>
-          <div className="mt-4 space-y-3">
-            {meetingRequests.map((req) => (
-              <div key={req.id} className="flex items-center justify-between rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm text-[var(--text)]">
-                      {req.employee ? `${req.employee.first_name} ${req.employee.last_name}` : "—"}
-                    </span>
-                    <span className="rounded-lg bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800">
-                      {req.requested_to === "manager" ? "Manager" : "RH"}
-                    </span>
-                    <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${
-                      req.status === "pending" ? "bg-amber-100 text-amber-800" :
-                      req.status === "accepted" ? "bg-green-100 text-green-800" :
-                      "bg-red-100 text-red-800"
-                    }`}>
-                      {req.status === "pending" ? "En attente" : req.status === "accepted" ? "Accepté" : "Décliné"}
-                    </span>
+          <div className="mt-4 grid gap-3">
+            {groupedMeetingRequests.map((req) => {
+              const requestedTos = req.requested_tos;
+              const slots = req.slots ?? [];
+              const groupId = (req.group_id || req.id) as string;
+              return (
+                <div key={req.id} className="rounded-2xl border border-[#e2e7e2] bg-[#f8faf8] p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-sm text-[var(--text)]">
+                          {req.employee ? `${req.employee.first_name} ${req.employee.last_name}` : "—"}
+                        </span>
+                        <span className="rounded-lg bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800">
+                          {(requestedTos?.includes("manager") ? "Manager" : "")}
+                          {requestedTos?.includes("manager") && requestedTos?.includes("rh") ? " + " : ""}
+                          {(requestedTos?.includes("rh") ? "RH" : (!requestedTos ? (req.requested_to === "manager" ? "Manager" : "RH") : ""))}
+                        </span>
+                        {req.interview_type && (
+                          <span className="rounded-lg border border-[#e2e7e2] bg-white px-2 py-0.5 text-xs font-medium text-[color:rgba(11,11,11,0.65)]">
+                            {req.interview_type}
+                          </span>
+                        )}
+                        <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${
+                          req.status === "pending" ? "bg-amber-100 text-amber-800" :
+                          req.status === "accepted" ? "bg-green-100 text-green-800" :
+                          "bg-red-100 text-red-800"
+                        }`}>
+                          {req.status === "pending" ? "En attente" : req.status === "accepted" ? "Accepté" : "Décliné"}
+                        </span>
+                      </div>
+                      {req.note && <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">{req.note}</p>}
+                      <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.45)]">
+                        {new Date(req.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                      </p>
+
+                      {slots.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.45)]">Créneaux proposés</p>
+                          <div className="space-y-2">
+                            {slots.map((s) => {
+                              const start = new Date(s.starts_at);
+                              const end = new Date(s.ends_at);
+                              const label = `${start.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })} · ${start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}–${end.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+                              return (
+                                <div key={s.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm">
+                                  <span className="text-[color:rgba(11,11,11,0.75)]">{label}</span>
+                                  <span className="ml-auto text-xs font-medium text-[color:rgba(11,11,11,0.55)]">
+                                    {s.proposed_by === "talent" ? "talent" : "vous"}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleChooseSlot(groupId, s.id)}
+                                    className="cursor-pointer rounded-full bg-[var(--brand)] px-3 py-1 text-xs font-semibold text-white transition hover:brightness-110"
+                                  >
+                                    Choisir
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col items-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCounterForGroup(groupId)}
+                        className="cursor-pointer rounded-full border border-[#e2e7e2] bg-white px-4 py-1.5 text-xs font-semibold text-[var(--text)] transition hover:bg-[#f2f5f2]"
+                      >
+                        Contre-proposer
+                      </button>
+                    </div>
                   </div>
-                  {req.note && <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">{req.note}</p>}
-                  <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.45)]">
-                    {new Date(req.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
-                  </p>
+
+                  {counterForGroup === groupId && (
+                    <div className="mt-4 rounded-2xl border border-[var(--brand)]/15 bg-[var(--brand)]/5 p-4">
+                      <p className="text-sm font-semibold text-[var(--text)]">Contre-proposer des créneaux (2–3)</p>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                        {counterSlots.map((s, idx) => (
+                          <div key={idx} className="space-y-2">
+                            <input
+                              type="datetime-local"
+                              value={s.starts_at}
+                              onChange={(e) => setCounterSlots((prev) => prev.map((p, i) => i === idx ? { ...p, starts_at: e.target.value } : p))}
+                              className="w-full rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
+                            />
+                            <input
+                              type="datetime-local"
+                              value={s.ends_at}
+                              onChange={(e) => setCounterSlots((prev) => prev.map((p, i) => i === idx ? { ...p, ends_at: e.target.value } : p))}
+                              className="w-full rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleCounterPropose(groupId)}
+                          className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2 text-xs font-semibold text-white transition hover:brightness-110"
+                        >
+                          Envoyer
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCounterForGroup(null)}
+                          className="cursor-pointer rounded-full border border-[#e2e7e2] px-4 py-2 text-xs font-semibold text-[var(--text)] transition hover:bg-[#f2f5f2]"
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                {req.status === "pending" && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleMeetingRequestAction(req.id, "accepted")}
-                      className="cursor-pointer rounded-full bg-green-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-green-700"
-                    >
-                      Accepter
-                    </button>
-                    <button
-                      onClick={() => handleMeetingRequestAction(req.id, "declined")}
-                      className="cursor-pointer rounded-full border border-red-200 px-4 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50"
-                    >
-                      Décliner
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
