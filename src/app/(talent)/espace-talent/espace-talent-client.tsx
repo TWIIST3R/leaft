@@ -82,10 +82,10 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
   const [showRdvModal, setShowRdvModal] = useState(false);
   const [rdvTo, setRdvTo] = useState<{ manager: boolean; rh: boolean }>({ manager: true, rh: false });
   const [rdvInterviewType, setRdvInterviewType] = useState<(typeof INTERVIEW_TYPES)[number]["value"]>(INTERVIEW_TYPES[0].value);
-  const [rdvSlots, setRdvSlots] = useState<{ starts_at: string; ends_at: string }[]>([
-    { starts_at: "", ends_at: "" },
-    { starts_at: "", ends_at: "" },
-    { starts_at: "", ends_at: "" },
+  const [rdvSlots, setRdvSlots] = useState<{ date: string; time: string; durationMin: number }[]>([
+    { date: "", time: "", durationMin: 45 },
+    { date: "", time: "", durationMin: 45 },
+    { date: "", time: "", durationMin: 45 },
   ]);
   const [rdvNote, setRdvNote] = useState("");
   const [rdvLoading, setRdvLoading] = useState(false);
@@ -170,6 +170,16 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
         setRdvLoading(false);
         return;
       }
+
+      const computedSlots = rdvSlots
+        .filter((s) => s.date && s.time)
+        .slice(0, 3)
+        .map((s) => {
+          const startLocal = new Date(`${s.date}T${s.time}:00`);
+          const endLocal = new Date(startLocal.getTime() + Math.max(15, Number(s.durationMin) || 45) * 60_000);
+          return { starts_at: startLocal.toISOString(), ends_at: endLocal.toISOString() };
+        });
+
       const res = await fetch("/api/meeting-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -177,7 +187,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
           requested_to: targets,
           note: rdvNote,
           interview_type: rdvInterviewType,
-          slots: rdvSlots.filter((s) => s.starts_at && s.ends_at).slice(0, 3),
+          slots: computedSlots,
         }),
       });
       if (res.ok) {
@@ -190,7 +200,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
         setRdvSuccess("Votre demande de rendez-vous a été envoyée.");
         setShowRdvModal(false);
         setRdvNote("");
-        setRdvSlots([{ starts_at: "", ends_at: "" }, { starts_at: "", ends_at: "" }, { starts_at: "", ends_at: "" }]);
+        setRdvSlots([{ date: "", time: "", durationMin: 45 }, { date: "", time: "", durationMin: 45 }, { date: "", time: "", durationMin: 45 }]);
       }
     } catch { /* ignore */ }
     finally { setRdvLoading(false); }
@@ -338,12 +348,12 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
               )}
             </div>
           </div>
-          <div className="relative shrink-0">
+          <div className="group relative shrink-0">
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={uploadingAvatar}
-              className="group relative cursor-pointer"
+              className="relative cursor-pointer"
               title="Modifier la photo"
             >
               <Avatar firstName={employee.first_name} lastName={employee.last_name} avatarUrl={avatarUrl} size="xl" />
@@ -363,7 +373,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
                 type="button"
                 onClick={handleAvatarDelete}
                 disabled={deletingAvatar}
-                className="absolute -bottom-1 -right-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-red-200 bg-white text-red-600 shadow-sm transition hover:bg-red-50 disabled:opacity-50"
+                className="absolute -bottom-1 -right-1 inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-red-200 bg-white text-red-600 opacity-0 shadow-sm transition hover:bg-red-50 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-50"
                 title="Supprimer la photo"
               >
                 {deletingAvatar ? "..." : (
@@ -470,24 +480,40 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
                   <label className="mb-1.5 block text-sm font-medium text-[var(--text)]">Proposer des créneaux (2–3)</label>
                   <div className="grid gap-3 sm:grid-cols-3">
                     {rdvSlots.map((s, idx) => (
-                      <div key={idx} className="space-y-2">
-                        <input
-                          type="datetime-local"
-                          value={s.starts_at}
-                          onChange={(e) => setRdvSlots((prev) => prev.map((p, i) => i === idx ? { ...p, starts_at: e.target.value } : p))}
-                          className="w-full rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
-                        />
-                        <input
-                          type="datetime-local"
-                          value={s.ends_at}
-                          onChange={(e) => setRdvSlots((prev) => prev.map((p, i) => i === idx ? { ...p, ends_at: e.target.value } : p))}
-                          className="w-full rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
-                        />
+                      <div key={idx} className="rounded-2xl border border-[#e2e7e2] bg-white p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.45)]">
+                          Créneau {idx + 1}
+                        </p>
+                        <div className="mt-2 grid gap-2">
+                          <input
+                            type="date"
+                            value={s.date}
+                            onChange={(e) => setRdvSlots((prev) => prev.map((p, i) => i === idx ? { ...p, date: e.target.value } : p))}
+                            className="w-full rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="time"
+                              value={s.time}
+                              onChange={(e) => setRdvSlots((prev) => prev.map((p, i) => i === idx ? { ...p, time: e.target.value } : p))}
+                              className="w-full rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
+                            />
+                            <select
+                              value={s.durationMin}
+                              onChange={(e) => setRdvSlots((prev) => prev.map((p, i) => i === idx ? { ...p, durationMin: Number(e.target.value) } : p))}
+                              className="w-full cursor-pointer rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
+                            >
+                              <option value={30}>30 min</option>
+                              <option value={45}>45 min</option>
+                              <option value={60}>60 min</option>
+                            </select>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
                   <p className="mt-2 text-xs text-[color:rgba(11,11,11,0.55)]">
-                    Astuce: tu peux mettre une durée de 45 minutes (ex: 10:00 → 10:45).
+                    Sélectionne une date, une heure de début, puis une durée. Tu peux laisser des créneaux vides.
                   </p>
                 </div>
                 <div>
@@ -539,7 +565,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
                     {rdvLoading ? "Envoi..." : "Envoyer la demande"}
                   </button>
                   <button
-                    onClick={() => { setShowRdvModal(false); setRdvNote(""); setRdvSlots([{ starts_at: "", ends_at: "" }, { starts_at: "", ends_at: "" }, { starts_at: "", ends_at: "" }]); }}
+                    onClick={() => { setShowRdvModal(false); setRdvNote(""); setRdvSlots([{ date: "", time: "", durationMin: 45 }, { date: "", time: "", durationMin: 45 }, { date: "", time: "", durationMin: 45 }]); }}
                     className="cursor-pointer rounded-full border border-[#e2e7e2] px-4 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-[#f8faf8]"
                   >
                     Annuler
