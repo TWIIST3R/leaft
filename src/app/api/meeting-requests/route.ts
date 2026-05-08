@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import { clerkClient } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/resend";
 import crypto from "crypto";
+import { clientEnv } from "@/env";
+import { emailLayout } from "@/lib/email";
 
 async function getOrganizationId(userId: string, orgId: string | null) {
   const supabase = supabaseAdmin();
@@ -37,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from("meeting_requests")
-      .select("id, employee_id, requested_to, note, status, created_at, updated_at, group_id")
+      .select("id, employee_id, requested_to, note, status, created_at, updated_at, group_id, interview_type")
       .eq("organization_id", organizationId)
       .order("created_at", { ascending: false });
 
@@ -76,6 +79,7 @@ export async function GET(request: NextRequest) {
         created_at: string;
         updated_at: string | null;
         group_id: string | null;
+        interview_type?: string | null;
       }[];
 
       const grouped = new Map<string, typeof rows>();
@@ -106,6 +110,7 @@ export async function GET(request: NextRequest) {
             requested_to: "both",
             requested_tos: requestedTos,
             note: items[0]!.note,
+            interview_type: items[0]!.interview_type ?? null,
             status: combinedStatus,
             created_at: items[0]!.created_at,
             updated_at: items.reduce<string | null>((acc, it) => (it.updated_at && (!acc || it.updated_at > acc) ? it.updated_at : acc), null),
@@ -138,7 +143,7 @@ export async function POST(request: NextRequest) {
     if (!organizationId) return NextResponse.json({ error: "Organisation introuvable" }, { status: 404 });
 
     const body = await request.json();
-    const { requested_to, note } = body;
+    const { requested_to, note, interview_type } = body;
 
     const requestedList: string[] = Array.isArray(requested_to) ? requested_to : [requested_to];
     const cleaned = requestedList.filter(Boolean).map((s) => String(s).trim()).filter((s) => s.length > 0);
@@ -166,20 +171,27 @@ export async function POST(request: NextRequest) {
       requested_to: to,
       note: note || null,
       group_id: groupId,
+      interview_type: typeof interview_type === "string" && interview_type.trim() ? interview_type.trim() : null,
     }));
 
     const { data: createdRows, error } = await supabase
       .from("meeting_requests")
       .insert(inserts)
-      .select("id, employee_id, requested_to, note, status, created_at, updated_at, group_id");
+      .select("id, employee_id, requested_to, note, status, created_at, updated_at, group_id, interview_type");
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     const recipientEmails = new Set<string>();
+    const recipientClerkUserIds = new Set<string>();
 
     if (unique.includes("manager") && employee.manager_id) {
-      const { data: manager } = await supabase.from("employees").select("email").eq("id", employee.manager_id).single();
-      if (manager?.email) recipientEmails.add(manager.email);
+      const { data: manager } = await supabase
+        .from("employees")
+        .select("email, clerk_user_id")
+        .eq("id", employee.manager_id)
+        .single();
+      if (manager?.clerk_user_id) recipientClerkUserIds.add(manager.clerk_user_id);
+      else if (manager?.email) recipientEmails.add(manager.email);
     }
 
     if (unique.includes("rh")) {
@@ -187,15 +199,36 @@ export async function POST(request: NextRequest) {
         .from("user_organizations")
         .select("clerk_user_id")
         .eq("organization_id", organizationId)
-        .in("role", ["Owner", "admin", "RH"])
+        .in("role", ["Owner", "RH", "Admin", "admin"])
         .limit(10);
 
       if (adminUsers && adminUsers.length > 0) {
-        const { data: adminEmps } = await supabase
-          .from("employees")
-          .select("email")
-          .in("clerk_user_id", adminUsers.map((u) => u.clerk_user_id).filter(Boolean));
-        (adminEmps ?? []).forEach((e) => { if (e.email) recipientEmails.add(e.email); });
+        adminUsers.map((u) => u.clerk_user_id).filter(Boolean).forEach((id) => recipientClerkUserIds.add(id));
+      }
+    }
+
+    if (recipientClerkUserIds.size > 0) {
+      try {
+        const clerk = await clerkClient();
+        const users = await Promise.all(
+          Array.from(recipientClerkUserIds).map(async (id) => {
+            try {
+              return await clerk.users.getUser(id);
+            } catch {
+              return null;
+            }
+          })
+        );
+        users
+          .filter((u): u is NonNullable<typeof u> => !!u)
+          .forEach((u) => {
+            const email =
+              u.emailAddresses?.find((e) => e.id === u.primaryEmailAddressId)?.emailAddress
+              ?? u.emailAddresses?.[0]?.emailAddress;
+            if (email) recipientEmails.add(email);
+          });
+      } catch (e) {
+        console.warn("Clerk email resolution failed (non-blocking):", e);
       }
     }
 
@@ -203,17 +236,27 @@ export async function POST(request: NextRequest) {
       const talentName = `${employee.first_name} ${employee.last_name}`;
       const targetLabel =
         unique.length > 1 ? "son manager et les RH" : unique[0] === "manager" ? "son manager" : "les RH";
+      const typeLabel = typeof interview_type === "string" && interview_type.trim() ? interview_type.trim() : null;
+      const ctaUrl = `${clientEnv.NEXT_PUBLIC_APP_URL}/dashboard/entretiens#demandes-rdv`;
       await Promise.all(
         Array.from(recipientEmails).map((to) =>
           sendEmail({
             to,
-            subject: `Demande de RDV de ${talentName}`,
-            html: `
-              <h2>Nouvelle demande de rendez-vous</h2>
-              <p><strong>${talentName}</strong> souhaite un rendez-vous avec ${targetLabel}.</p>
-              ${note ? `<p><strong>Note :</strong> ${note}</p>` : ""}
-              <p>Connectez-vous à Leaft pour répondre à cette demande.</p>
-            `,
+            subject: `Demande d'entretien${typeLabel ? ` (${typeLabel})` : ""} de ${talentName}`,
+            html: emailLayout("", `
+              <h2 style="margin:0 0 12px;font-size:18px;color:#0B0B0B;">Nouvelle demande de rendez-vous</h2>
+              <p style="margin:0 0 10px;font-size:14px;color:rgba(11,11,11,0.75);">
+                <strong>${talentName}</strong> souhaite un rendez-vous avec ${targetLabel}.
+              </p>
+              ${typeLabel ? `<p style="margin:0 0 10px;font-size:14px;"><strong>Type d'entretien :</strong> ${typeLabel}</p>` : ""}
+              ${note ? `<p style="margin:0 0 10px;font-size:14px;"><strong>Note :</strong> ${note}</p>` : ""}
+              <div style="margin:18px 0 0;">
+                <a href="${ctaUrl}" style="display:inline-block;padding:10px 14px;border-radius:999px;background:#095228;color:#ffffff;text-decoration:none;font-weight:600;">
+                  Voir la demande dans Leaft
+                </a>
+              </div>
+              <p style="margin:10px 0 0;color:rgba(11,11,11,0.6);font-size:12px;">Ou copiez-collez : ${ctaUrl}</p>
+            `),
           })
         )
       );
@@ -253,17 +296,39 @@ export async function PATCH(request: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     if (data) {
-      const { data: emp } = await supabase.from("employees").select("email, first_name, last_name").eq("id", data.employee_id).single();
-      if (emp?.email) {
+      const { data: emp } = await supabase
+        .from("employees")
+        .select("email, first_name, last_name, clerk_user_id")
+        .eq("id", data.employee_id)
+        .single();
+
+      let talentEmail = emp?.email ?? null;
+      if (emp?.clerk_user_id) {
+        try {
+          const clerk = await clerkClient();
+          const u = await clerk.users.getUser(emp.clerk_user_id);
+          talentEmail =
+            u.emailAddresses?.find((e) => e.id === u.primaryEmailAddressId)?.emailAddress
+            ?? u.emailAddresses?.[0]?.emailAddress
+            ?? talentEmail;
+        } catch {
+          // keep fallback
+        }
+      }
+
+      if (talentEmail) {
         await sendEmail({
-          to: emp.email,
+          to: talentEmail,
           subject: `Votre demande de RDV a été ${status === "accepted" ? "acceptée" : "déclinée"}`,
-          html: `
-            <h2>Demande de rendez-vous ${status === "accepted" ? "acceptée" : "déclinée"}</h2>
-            <p>Bonjour ${emp.first_name},</p>
-            <p>Votre demande de rendez-vous a été <strong>${status === "accepted" ? "acceptée" : "déclinée"}</strong>.</p>
-            ${status === "accepted" ? "<p>Vous serez contacté(e) prochainement pour fixer une date.</p>" : ""}
-          `,
+          html: emailLayout(
+            "",
+            `
+              <h2 style="margin:0 0 14px;">Demande de rendez-vous ${status === "accepted" ? "acceptée" : "déclinée"}</h2>
+              <p style="margin:0 0 14px;">Bonjour ${emp.first_name},</p>
+              <p style="margin:0 0 14px;">Votre demande de rendez-vous a été <strong>${status === "accepted" ? "acceptée" : "déclinée"}</strong>.</p>
+              ${status === "accepted" ? "<p style=\"margin:0 0 14px;\">Vous serez contacté(e) prochainement pour fixer une date.</p>" : ""}
+            `,
+          ),
         });
       }
     }

@@ -8,22 +8,22 @@ const LOGO_URL = `${BASE_URL}/brand/logo-dark.png`;
 const BRAND_COLOR = "#0d5c2e";
 const BRAND_LIGHT = "#e8f5ec";
 
-function emailLayout(organizationName: string, htmlContent: string): string {
+export function emailLayout(organizationName: string, htmlContent: string): string {
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="margin:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f5f5f5;padding:24px;">
   <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-    <div style="background:${BRAND_COLOR};padding:24px 28px;text-align:center;">
-      <img src="${LOGO_URL}" alt="Leaft" width="120" height="48" style="display:inline-block;height:40px;width:auto;" />
+    <div style="background:#ffffff;padding:18px 28px;text-align:center;border-bottom:1px solid rgba(13,92,46,0.12);">
+      <img src="${LOGO_URL}" alt="Leaft" width="120" height="48" style="display:inline-block;height:34px;width:auto;" />
     </div>
     <div style="padding:28px 32px;color:#1a1a1a;line-height:1.6;">
       <p style="margin:0 0 20px;font-size:15px;">Bonjour${organizationName ? ` <strong>${organizationName}</strong>` : ""},</p>
       ${htmlContent}
       <p style="margin:24px 0 0;font-size:15px;">À bientôt,<br><strong>L'équipe Leaft</strong></p>
     </div>
-    <div style="padding:16px 32px;background:${BRAND_LIGHT};text-align:center;border-top:1px solid rgba(13,92,46,0.15);">
-      <img src="${LOGO_URL}" alt="Leaft" width="80" height="32" style="height:28px;width:auto;opacity:0.9;" />
+    <div style="padding:14px 32px;background:${BRAND_LIGHT};text-align:center;border-top:1px solid rgba(13,92,46,0.12);color:rgba(11,11,11,0.55);font-size:12px;">
+      Leaft · <a href="${BASE_URL}" style="color:${BRAND_COLOR};text-decoration:none;font-weight:600;">${BASE_URL.replace(/^https?:\/\//, "")}</a>
     </div>
   </div>
 </body>

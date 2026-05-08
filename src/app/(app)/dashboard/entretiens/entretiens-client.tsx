@@ -527,7 +527,7 @@ export function EntretiensClient({
       })() }
 
       {meetingRequests.length > 0 && (
-        <section className={CARD + " p-6"}>
+        <section id="demandes-rdv" className={CARD + " p-6"}>
           <h3 className="border-l-4 border-purple-500 pl-4 text-lg font-semibold text-[var(--text)]">
             Demandes de rendez-vous ({meetingRequests.filter((r) => r.status === "pending").length} en attente)
           </h3>

@@ -14,6 +14,12 @@ type Interview = {
   salary_adjustment: number | null;
 };
 
+const INTERVIEW_TYPES = [
+  { value: "Entretien annuel", label: "Entretien annuel" },
+  { value: "Entretien semestriel", label: "Entretien semestriel" },
+  { value: "Entretien ponctuel", label: "Entretien ponctuel" },
+] as const;
+
 type DeptLevel = { id: string; name: string; montant_annuel: number; mid_salary: number | null };
 
 type PositionEntry = {
@@ -69,10 +75,12 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
   const mainRef = useRef<HTMLDivElement>(null);
   const [avatarUrl, setAvatarUrl] = useState(employee.avatar_url);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [deletingAvatar, setDeletingAvatar] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [showRdvModal, setShowRdvModal] = useState(false);
   const [rdvTo, setRdvTo] = useState<{ manager: boolean; rh: boolean }>({ manager: true, rh: false });
+  const [rdvInterviewType, setRdvInterviewType] = useState<(typeof INTERVIEW_TYPES)[number]["value"]>(INTERVIEW_TYPES[0].value);
   const [rdvNote, setRdvNote] = useState("");
   const [rdvLoading, setRdvLoading] = useState(false);
   const [rdvSuccess, setRdvSuccess] = useState<string | null>(null);
@@ -101,6 +109,21 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
     }
   }
 
+  async function handleAvatarDelete() {
+    if (!avatarUrl) return;
+    setDeletingAvatar(true);
+    try {
+      const res = await fetch(`/api/employees/${employee.id}/avatar`, { method: "DELETE" });
+      if (res.ok) {
+        setAvatarUrl(null);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setDeletingAvatar(false);
+    }
+  }
+
   useEffect(() => {
     if (!mainRef.current) return;
     const sections = mainRef.current.querySelectorAll("[data-section]");
@@ -126,7 +149,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
       const res = await fetch("/api/meeting-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requested_to: targets, note: rdvNote }),
+        body: JSON.stringify({ requested_to: targets, note: rdvNote, interview_type: rdvInterviewType }),
       });
       if (res.ok) {
         await res.json();
@@ -250,59 +273,66 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
               )}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            disabled={uploadingAvatar}
-            className="group relative cursor-pointer"
-          >
-            <Avatar firstName={employee.first_name} lastName={employee.last_name} avatarUrl={avatarUrl} size="xl" />
-            <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition group-hover:opacity-100">
-              {uploadingAvatar ? (
-                <span className="text-xs font-medium">...</span>
-              ) : (
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 3.487a2.25 2.25 0 013.182 3.182L8.25 18.463 3 21l2.537-5.25L16.862 3.487z" />
-                </svg>
-              )}
-            </span>
-          </button>
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploadingAvatar}
+              className="group relative cursor-pointer"
+              title="Modifier la photo"
+            >
+              <Avatar firstName={employee.first_name} lastName={employee.last_name} avatarUrl={avatarUrl} size="xl" />
+              <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition group-hover:opacity-100">
+                {uploadingAvatar ? (
+                  <span className="text-xs font-medium">...</span>
+                ) : (
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 3.487a2.25 2.25 0 013.182 3.182L8.25 18.463 3 21l2.537-5.25L16.862 3.487z" />
+                  </svg>
+                )}
+              </span>
+            </button>
+
+            {avatarUrl && (
+              <button
+                type="button"
+                onClick={handleAvatarDelete}
+                disabled={deletingAvatar}
+                className="absolute -bottom-1 -right-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-red-200 bg-white text-red-600 shadow-sm transition hover:bg-red-50 disabled:opacity-50"
+                title="Supprimer la photo"
+              >
+                {deletingAvatar ? "..." : (
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 7h12m-10 0v12a2 2 0 002 2h4a2 2 0 002-2V7m-6-3h4a1 1 0 011 1v2H9V5a1 1 0 011-1z" />
+                  </svg>
+                )}
+              </button>
+            )}
+          </div>
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleAvatarUpload} />
         </div>
       </section>
 
       <section data-section className="grid gap-4 sm:gap-6 lg:grid-cols-5">
         {data.salaryVisible && (
-          <div className="rounded-3xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-4 shadow-[0_24px_60px_rgba(17,27,24,0.06)] sm:p-6 lg:col-span-3">
+          <div className="rounded-3xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-4 shadow-[0_24px_60px_rgba(17,27,24,0.06)] sm:p-6 lg:col-span-2">
             <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Rémunération</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:gap-6">
               <div>
                 <p className={LABEL}>Salaire annuel brut</p>
                 <p className="mt-1 text-3xl font-semibold text-[var(--text)]">
                   {salary != null ? `${salary.toLocaleString("fr-FR")} €` : "—"}
                 </p>
               </div>
-              {data.compaRatio != null && (
-                <div>
-                  <p className={LABEL}>Compa-ratio</p>
-                  <p className="mt-1 text-3xl font-semibold text-[var(--text)]">{data.compaRatio}%</p>
-                  <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-white/60">
-                    <div className="relative h-full">
-                      <div className="absolute left-1/2 top-0 h-full w-px bg-[color:rgba(11,11,11,0.2)]" title="100%" />
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${Math.min(data.compaRatio, 150) / 1.5}%`,
-                          backgroundColor: data.compaRatio < 90 ? "#ef4444" : data.compaRatio > 110 ? "#f59e0b" : "var(--brand)",
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.5)]">100% = aligné au midpoint du niveau</p>
-                </div>
-              )}
+              <div>
+                <p className={LABEL}>Compa-ratio</p>
+                <p className="mt-1 text-sm font-medium text-[color:rgba(11,11,11,0.6)]">En cours de développement</p>
+                <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.5)]">
+                  Benchmark marché automatisé bientôt disponible.
+                </p>
+              </div>
               {data.levelRange && data.levelRange.min != null && data.levelRange.max != null && (
-                <div>
+                <div className="sm:col-span-2">
                   <p className={LABEL}>Fourchette du niveau</p>
                   <p className="mt-1 text-sm text-[var(--text)]">
                     {data.levelRange.min.toLocaleString("fr-FR")} € — {data.levelRange.max.toLocaleString("fr-FR")} €
@@ -316,7 +346,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
           </div>
         )}
 
-        <div className={`${CARD} ${data.salaryVisible ? "lg:col-span-2" : "lg:col-span-5"}`}>
+        <div className={`${CARD} ${data.salaryVisible ? "lg:col-span-3" : "lg:col-span-5"}`}>
           <div className="flex items-center justify-between gap-2">
             <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Mes entretiens</h2>
             <span className="rounded-full bg-[var(--brand)]/10 px-2.5 py-0.5 text-xs font-semibold text-[var(--brand)]">
@@ -353,6 +383,18 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
           {showRdvModal && (
             <div className="mt-4 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-5">
               <div className="space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-[var(--text)]">Type d&apos;entretien</label>
+                  <select
+                    value={rdvInterviewType}
+                    onChange={(e) => setRdvInterviewType(e.target.value as (typeof INTERVIEW_TYPES)[number]["value"])}
+                    className="w-full cursor-pointer rounded-xl border border-[#e2e7e2] bg-white px-4 py-2.5 text-sm text-[var(--text)] transition hover:border-[var(--brand)]/40 focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
+                  >
+                    {INTERVIEW_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-[var(--text)]">Destinataire(s)</label>
                   <div className="flex flex-wrap gap-3">
@@ -481,6 +523,11 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
                         </span>
                       )}
                     </div>
+                    {(req as { interview_type?: string | null }).interview_type && (
+                      <p className="mt-1 text-xs font-medium text-[color:rgba(11,11,11,0.55)]">
+                        Type : {(req as { interview_type?: string | null }).interview_type}
+                      </p>
+                    )}
                     {req.note && <p className="mt-1 truncate text-sm text-[color:rgba(11,11,11,0.65)]">{req.note}</p>}
                   </div>
                   <span className="text-xs text-[color:rgba(11,11,11,0.5)]">
@@ -597,111 +644,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
         </section>
       )}
 
-      <section data-section className={CARD}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Demander un rendez-vous</h2>
-          <button
-            onClick={() => setShowRdvModal(true)}
-            className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.98] sm:px-5"
-          >
-            Nouveau RDV
-          </button>
-        </div>
-
-        {rdvSuccess && (
-          <p className="mt-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{rdvSuccess}</p>
-        )}
-
-        {showRdvModal && (
-          <div className="mt-4 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-5">
-            <div className="space-y-4">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-[var(--text)]">Destinataire(s)</label>
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setRdvTo((s) => ({ ...s, manager: !s.manager }))}
-                    className={`cursor-pointer rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
-                      rdvTo.manager
-                        ? "border-[var(--brand)] bg-[var(--brand)]/10 text-[var(--brand)]"
-                        : "border-[#e2e7e2] bg-white text-[var(--text)] hover:border-[var(--brand)]/30"
-                    }`}
-                  >
-                    Mon manager
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRdvTo((s) => ({ ...s, rh: !s.rh }))}
-                    className={`cursor-pointer rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
-                      rdvTo.rh
-                        ? "border-[var(--brand)] bg-[var(--brand)]/10 text-[var(--brand)]"
-                        : "border-[#e2e7e2] bg-white text-[var(--text)] hover:border-[var(--brand)]/30"
-                    }`}
-                  >
-                    Ressources Humaines
-                  </button>
-                </div>
-                <p className="mt-2 text-xs text-[color:rgba(11,11,11,0.55)]">
-                  Si vous sélectionnez les deux, la demande sera acceptée uniquement lorsque <strong>les deux</strong> auront validé.
-                </p>
-              </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-[var(--text)]">Note (optionnel)</label>
-                <textarea
-                  rows={3}
-                  value={rdvNote}
-                  onChange={(e) => setRdvNote(e.target.value)}
-                  className="w-full cursor-text rounded-xl border border-[#e2e7e2] bg-white px-4 py-2.5 text-sm text-[var(--text)] transition hover:border-[var(--brand)]/40 focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
-                  placeholder="Précisez le motif de votre demande..."
-                />
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={handleRdvSubmit}
-                  disabled={rdvLoading}
-                  className="cursor-pointer rounded-full bg-[var(--brand)] px-5 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
-                >
-                  {rdvLoading ? "Envoi..." : "Envoyer la demande"}
-                </button>
-                <button
-                  onClick={() => { setShowRdvModal(false); setRdvNote(""); }}
-                  className="cursor-pointer rounded-full border border-[#e2e7e2] px-4 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-[#f8faf8]"
-                >
-                  Annuler
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {rdvRequests.length > 0 && (
-          <div className="mt-4 space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">Mes demandes</p>
-            {rdvRequests.map((req) => (
-              <div key={req.id} className="flex flex-col gap-2 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-lg bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
-                      {req.requested_to === "manager" ? "Manager" : "RH"}
-                    </span>
-                    <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${
-                      req.status === "pending" ? "bg-amber-100 text-amber-800" :
-                      req.status === "accepted" ? "bg-green-100 text-green-800" :
-                      "bg-red-100 text-red-800"
-                    }`}>
-                      {req.status === "pending" ? "En attente" : req.status === "accepted" ? "Accepté" : "Décliné"}
-                    </span>
-                  </div>
-                  {req.note && <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">{req.note}</p>}
-                </div>
-                <span className="text-xs text-[color:rgba(11,11,11,0.5)]">
-                  {new Date(req.created_at).toLocaleDateString("fr-FR")}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      {/* RDV card removed: RDV is handled inside "Mes entretiens" */}
     </div>
   );
 }

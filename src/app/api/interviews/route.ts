@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sendEmail, generateICS } from "@/lib/resend";
+import { emailLayout } from "@/lib/email";
 
 async function getOrganizationId(userId: string, orgId: string | null) {
   const supabase = supabaseAdmin();
@@ -119,21 +120,21 @@ export async function POST(request: NextRequest) {
       await sendEmail({
         to: emp.email,
         subject: `${subject} – ${orgName}`,
-        html: `
-          <div style="font-family:system-ui,sans-serif;max-width:520px;">
-            <h2 style="color:#095228;">${subject}</h2>
-            <p>Bonjour ${emp.first_name},</p>
-            <p>Un entretien a été programmé :</p>
-            <ul>
+        html: emailLayout(
+          orgName,
+          `
+            <h2 style="margin:0 0 14px;">${subject}</h2>
+            <p style="margin:0 0 14px;">Bonjour ${emp.first_name},</p>
+            <p style="margin:0 0 14px;">Un entretien a été programmé :</p>
+            <ul style="margin:0 0 14px;padding-left:18px;">
               <li><strong>Type :</strong> ${type}</li>
               <li><strong>Date :</strong> ${new Date(interview_date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</li>
               <li><strong>Organisation :</strong> ${orgName}</li>
             </ul>
-            ${notes ? `<p><strong>Notes :</strong> ${notes}</p>` : ""}
-            <p>Veuillez trouver ci-joint l'invitation calendrier.</p>
-            <p style="color:#666;font-size:12px;">— L'équipe Leaft</p>
-          </div>
-        `,
+            ${notes ? `<p style="margin:0 0 14px;"><strong>Notes :</strong> ${notes}</p>` : ""}
+            <p style="margin:0 0 14px;">Veuillez trouver ci-joint l'invitation calendrier.</p>
+          `,
+        ),
         attachments: [{ filename: "invite.ics", content: icsContent }],
       });
     }
