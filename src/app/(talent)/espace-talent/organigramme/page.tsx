@@ -1,22 +1,24 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { TalentOrganigrammeClient } from "./talent-organigramme-client";
+import { OrganigrammeFlow } from "@/components/organigramme/organigramme-flow";
 
 async function getData(userId: string, orgId: string | null) {
   const supabase = supabaseAdmin();
   let organizationId: string | null = null;
   let salaryVisible = false;
+  let companyLogoUrl: string | null = null;
 
   if (orgId) {
     const { data } = await supabase
       .from("organizations")
-      .select("id, salary_transparency_enabled")
+      .select("id, salary_transparency_enabled, logo_url")
       .eq("clerk_organization_id", orgId)
       .single();
     if (data) {
       organizationId = data.id;
       salaryVisible = data.salary_transparency_enabled ?? false;
+      companyLogoUrl = data.logo_url ?? null;
     }
   }
   if (!organizationId) {
@@ -27,10 +29,11 @@ async function getData(userId: string, orgId: string | null) {
   if (!orgId) {
     const { data: org } = await supabase
       .from("organizations")
-      .select("salary_transparency_enabled")
+      .select("salary_transparency_enabled, logo_url")
       .eq("id", organizationId)
       .single();
     salaryVisible = org?.salary_transparency_enabled ?? false;
+    companyLogoUrl = org?.logo_url ?? null;
   }
 
   const { data: employee } = await supabase
@@ -54,6 +57,7 @@ async function getData(userId: string, orgId: string | null) {
     departments: departments ?? [],
     currentEmployeeId: employee?.id ?? null,
     salaryVisible,
+    companyLogoUrl,
   };
 }
 
@@ -78,11 +82,12 @@ export default async function TalentOrganigrammePage() {
           Vue hiérarchique de votre organisation.
         </p>
       </div>
-      <TalentOrganigrammeClient
+      <OrganigrammeFlow
         employees={data.employees}
         departments={data.departments}
         currentEmployeeId={data.currentEmployeeId}
         salaryVisible={data.salaryVisible}
+        companyLogoUrl={data.companyLogoUrl}
       />
     </div>
   );

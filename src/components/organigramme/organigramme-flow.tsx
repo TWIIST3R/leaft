@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useCallback, useRef } from "react";
+import Image from "next/image";
 import {
   ReactFlow,
   Background,
@@ -17,12 +18,13 @@ import {
   useReactFlow,
   getNodesBounds,
   getViewportForBounds,
+  Panel,
 } from "@xyflow/react";
 import dagre from "@dagrejs/dagre";
 import { Avatar } from "@/components/ui/avatar";
 import "@xyflow/react/dist/style.css";
 
-type Employee = {
+export type OrgEmployee = {
   id: string;
   first_name: string;
   last_name: string;
@@ -32,7 +34,7 @@ type Employee = {
   avatar_url: string | null;
   annual_salary_brut?: number | null;
 };
-type Dept = { id: string; name: string };
+export type OrgDept = { id: string; name: string };
 
 const DEPT_COLORS = [
   { bg: "rgba(9,82,40,0.08)", border: "rgba(9,82,40,0.25)", text: "#095228" },
@@ -88,7 +90,7 @@ function OrgNodeCustom({ data }: NodeProps) {
         )}
         {d.salaryVisible && d.salary != null && (
           <p className="mt-1 text-xs font-semibold text-[color:rgba(11,11,11,0.65)]">
-            {Number(d.salary).toLocaleString("fr-FR")} €
+            {Number(d.salary).toLocaleString("fr-FR")} \u20AC
           </p>
         )}
       </div>
@@ -128,16 +130,18 @@ function getLayoutedElements(
   return { nodes: layoutedNodes, edges };
 }
 
-function OrganigrammeFlow({
+function OrganigrammeFlowInner({
   employees,
   departments,
-  currentEmployeeId,
-  salaryVisible,
+  currentEmployeeId = null,
+  salaryVisible = false,
+  companyLogoUrl = null,
 }: {
-  employees: Employee[];
-  departments: Dept[];
-  currentEmployeeId: string | null;
-  salaryVisible: boolean;
+  employees: OrgEmployee[];
+  departments: OrgDept[];
+  currentEmployeeId?: string | null;
+  salaryVisible?: boolean;
+  companyLogoUrl?: string | null;
 }) {
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
@@ -187,8 +191,8 @@ function OrganigrammeFlow({
     return { initialNodes: laid.nodes, initialEdges: laid.edges };
   }, [employees, deptMap, deptColorMap, salaryVisible, currentEmployeeId]);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, _setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, , onNodesChange] = useNodesState(initialNodes);
+  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
 
   const handleFitView = useCallback(() => fitView({ padding: 0.15, duration: 400 }), [fitView]);
 
@@ -196,38 +200,74 @@ function OrganigrammeFlow({
     if (!currentEmployeeId) return;
     const meNode = nodes.find((n) => n.id === currentEmployeeId);
     if (meNode) {
-      fitView({
-        nodes: [meNode],
-        padding: 0.5,
-        duration: 500,
-      });
+      fitView({ nodes: [meNode], padding: 0.5, duration: 500 });
     }
   }, [currentEmployeeId, nodes, fitView]);
 
   const handleExportPng = useCallback(async () => {
     if (!flowRef.current) return;
     const bounds = getNodesBounds(nodes);
-    const vp = getViewportForBounds(bounds, bounds.width + 80, bounds.height + 80, 0.5, 2, 0.1);
+    const pad = 120;
+    const w = bounds.width + pad * 2;
+    const h = bounds.height + pad * 2;
+    const vp = getViewportForBounds(bounds, w, h, 0.5, 2, 0.1);
 
     const { toPng } = await import("html-to-image");
     const flowEl = flowRef.current.querySelector(".react-flow__viewport") as HTMLElement;
     if (!flowEl) return;
 
     const dataUrl = await toPng(flowEl, {
-      width: bounds.width + 80,
-      height: bounds.height + 80,
+      width: w,
+      height: h,
       style: {
-        width: `${bounds.width + 80}px`,
-        height: `${bounds.height + 80}px`,
+        width: `${w}px`,
+        height: `${h}px`,
         transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})`,
       },
     });
 
-    const link = document.createElement("a");
-    link.download = "organigramme.png";
-    link.href = dataUrl;
-    link.click();
-  }, [nodes]);
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.onload = async () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d")!;
+
+      ctx.fillStyle = "#f8faf8";
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0);
+
+      const drawLogo = (src: string, x: number, y: number, maxW: number, maxH: number): Promise<void> =>
+        new Promise((resolve) => {
+          const logo = new window.Image();
+          logo.crossOrigin = "anonymous";
+          logo.onload = () => {
+            const ratio = Math.min(maxW / logo.width, maxH / logo.height, 1);
+            const lw = logo.width * ratio;
+            const lh = logo.height * ratio;
+            ctx.drawImage(logo, x, y, lw, lh);
+            resolve();
+          };
+          logo.onerror = () => resolve();
+          logo.src = src;
+        });
+
+      const promises: Promise<void>[] = [];
+      if (companyLogoUrl) {
+        promises.push(drawLogo(companyLogoUrl, 16, 16, 120, 48));
+      }
+      promises.push(drawLogo("/brand/logo-dark.png", w - 136, h - 40, 120, 28));
+
+      await Promise.all(promises);
+
+      const link = document.createElement("a");
+      link.download = "organigramme.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    };
+    img.src = dataUrl;
+  }, [nodes, companyLogoUrl]);
 
   const deptLegend = useMemo(() => {
     const seen = new Set<string>();
@@ -235,7 +275,7 @@ function OrganigrammeFlow({
       .map((e) => e.current_department_id)
       .filter((id): id is string => !!id && !seen.has(id) && (seen.add(id), true))
       .map((id) => ({
-        name: deptMap.get(id) ?? "—",
+        name: deptMap.get(id) ?? "\u2014",
         color: deptColorMap.get(id) ?? DEPT_COLORS[0],
       }));
   }, [employees, deptMap, deptColorMap]);
@@ -262,6 +302,9 @@ function OrganigrammeFlow({
         <button onClick={handleExportPng} className="cursor-pointer rounded-full border border-[#e2e7e2] bg-white px-3 py-1.5 text-xs font-medium text-[var(--text)] transition hover:bg-[#f8faf8]">
           Export PNG
         </button>
+        <span className="text-xs text-[color:rgba(11,11,11,0.5)]">
+          {employees.length} collaborateur{employees.length > 1 ? "s" : ""}
+        </span>
       </div>
 
       {deptLegend.length > 1 && (
@@ -307,30 +350,47 @@ function OrganigrammeFlow({
             className="!rounded-xl !border-[#e2e7e2]"
             maskColor="rgba(248,250,248,0.8)"
           />
+
+          {companyLogoUrl && (
+            <Panel position="top-left" className="!m-3">
+              <div className="relative h-10 w-24 overflow-hidden">
+                <Image src={companyLogoUrl} alt="Logo entreprise" fill className="object-contain object-left" unoptimized />
+              </div>
+            </Panel>
+          )}
+
+          <Panel position="bottom-right" className="!m-3">
+            <div className="flex items-center gap-1.5 rounded-lg bg-white/80 px-2 py-1 backdrop-blur">
+              <Image src="/brand/logo-dark.png" alt="Leaft" width={60} height={20} className="h-4 w-auto opacity-50" unoptimized />
+            </div>
+          </Panel>
         </ReactFlow>
       </div>
     </div>
   );
 }
 
-export function TalentOrganigrammeClient({
+export function OrganigrammeFlow({
   employees,
   departments,
   currentEmployeeId,
   salaryVisible,
+  companyLogoUrl,
 }: {
-  employees: Employee[];
-  departments: Dept[];
-  currentEmployeeId: string | null;
-  salaryVisible: boolean;
+  employees: OrgEmployee[];
+  departments: OrgDept[];
+  currentEmployeeId?: string | null;
+  salaryVisible?: boolean;
+  companyLogoUrl?: string | null;
 }) {
   return (
     <ReactFlowProvider>
-      <OrganigrammeFlow
+      <OrganigrammeFlowInner
         employees={employees}
         departments={departments}
         currentEmployeeId={currentEmployeeId}
         salaryVisible={salaryVisible}
+        companyLogoUrl={companyLogoUrl}
       />
     </ReactFlowProvider>
   );
