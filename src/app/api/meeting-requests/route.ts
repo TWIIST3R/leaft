@@ -177,13 +177,132 @@ export async function POST(request: NextRequest) {
     if (!organizationId) return NextResponse.json({ error: "Organisation introuvable" }, { status: 404 });
 
     const body = await request.json();
-    const { requested_to, note, interview_type, slots } = body as {
+    const { requested_to, note, interview_type, slots, target_employee_id } = body as {
       requested_to: string | string[];
       note?: string | null;
       interview_type?: string | null;
       slots?: { starts_at: string; ends_at: string }[];
+      target_employee_id?: string | null;
     };
 
+    const supabase = supabaseAdmin();
+
+    const { data: requester } = await supabase
+      .from("employees")
+      .select("id, first_name, last_name, manager_id, is_manager, email, clerk_user_id")
+      .eq("organization_id", organizationId)
+      .eq("clerk_user_id", userId)
+      .single();
+
+    if (!requester) return NextResponse.json({ error: "Profil introuvable" }, { status: 404 });
+
+    const isManagerRequest = !!target_employee_id;
+
+    if (isManagerRequest) {
+      if (!requester.is_manager) {
+        return NextResponse.json({ error: "Seuls les managers peuvent demander un RDV à un subordonné" }, { status: 403 });
+      }
+
+      const { data: targetEmp } = await supabase
+        .from("employees")
+        .select("id, first_name, last_name, email, clerk_user_id, manager_id")
+        .eq("organization_id", organizationId)
+        .eq("id", target_employee_id)
+        .single();
+
+      if (!targetEmp) return NextResponse.json({ error: "Talent cible introuvable" }, { status: 404 });
+      if (targetEmp.manager_id !== requester.id) {
+        return NextResponse.json({ error: "Vous n'êtes pas le manager de ce talent" }, { status: 403 });
+      }
+
+      const groupId = crypto.randomUUID();
+      const typeLabel = typeof interview_type === "string" && interview_type.trim() ? interview_type.trim() : null;
+
+      const { data: createdRows, error } = await supabase
+        .from("meeting_requests")
+        .insert({
+          employee_id: targetEmp.id,
+          organization_id: organizationId,
+          requested_to: "manager",
+          note: note || null,
+          group_id: groupId,
+          interview_type: typeLabel,
+          state: "awaiting_talent_confirmation",
+        })
+        .select("id, employee_id, requested_to, note, status, created_at, updated_at, group_id, interview_type");
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+      const normalizedSlots = Array.isArray(slots) ? slots : [];
+      if (normalizedSlots.length > 0) {
+        const cleanedSlots = normalizedSlots.slice(0, 3)
+          .map((s) => ({ starts_at: String(s.starts_at), ends_at: String(s.ends_at) }))
+          .filter((s) => s.starts_at && s.ends_at);
+
+        if (cleanedSlots.length > 0) {
+          await supabase.from("meeting_request_slots").insert(
+            cleanedSlots.map((s) => ({
+              organization_id: organizationId,
+              group_id: groupId,
+              proposed_by: "admin",
+              starts_at: s.starts_at,
+              ends_at: s.ends_at,
+              status: "proposed",
+            }))
+          );
+        }
+      }
+
+      let targetEmail = targetEmp.email;
+      if (targetEmp.clerk_user_id) {
+        try {
+          const clerk = await clerkClient();
+          const u = await clerk.users.getUser(targetEmp.clerk_user_id);
+          targetEmail =
+            u.emailAddresses?.find((e) => e.id === u.primaryEmailAddressId)?.emailAddress
+            ?? u.emailAddresses?.[0]?.emailAddress
+            ?? targetEmail;
+        } catch { /* keep fallback */ }
+      }
+
+      if (targetEmail) {
+        const managerName = `${requester.first_name} ${requester.last_name}`;
+        const slotRows = normalizedSlots.slice(0, 3);
+        const slotsHtml = slotRows.length > 0
+          ? `<ul style="margin:0 0 10px;font-size:14px;padding-left:18px;">
+              ${slotRows.map((s) => {
+                const start = new Date(s.starts_at);
+                const end = new Date(s.ends_at);
+                const label = `${start.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })} \u2022 ${start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}\u2013${end.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+                return `<li>${label}</li>`;
+              }).join("")}
+            </ul>`
+          : "";
+
+        await sendEmail({
+          to: targetEmail,
+          subject: `Demande d'entretien${typeLabel ? ` (${typeLabel})` : ""} de ${managerName}`,
+          html: emailLayout("", `
+            <h2 style="margin:0 0 12px;font-size:18px;color:#0B0B0B;">Demande de rendez-vous</h2>
+            <p style="margin:0 0 10px;font-size:14px;color:rgba(11,11,11,0.75);">
+              Votre manager <strong>${managerName}</strong> souhaite planifier un rendez-vous avec vous.
+            </p>
+            ${typeLabel ? `<p style="margin:0 0 10px;font-size:14px;"><strong>Type :</strong> ${typeLabel}</p>` : ""}
+            ${slotRows.length > 0 ? `<p style="margin:0 0 6px;font-size:14px;"><strong>Créneaux proposés :</strong></p>${slotsHtml}` : ""}
+            ${note ? `<p style="margin:0 0 10px;font-size:14px;"><strong>Note :</strong> ${note}</p>` : ""}
+            <div style="margin:18px 0 0;">
+              <a href="${clientEnv.NEXT_PUBLIC_APP_URL}/espace-talent" style="display:inline-block;padding:10px 14px;border-radius:999px;background:#095228;color:#ffffff;text-decoration:none;font-weight:600;">
+                Ouvrir Leaft
+              </a>
+            </div>
+          `),
+        });
+      }
+
+      return NextResponse.json({ created: createdRows ?? [], group_id: groupId }, { status: 201 });
+    }
+
+    // --- Standard talent → manager/rh request ---
     const requestedList: string[] = Array.isArray(requested_to) ? requested_to : [requested_to];
     const cleaned = requestedList.filter(Boolean).map((s) => String(s).trim()).filter((s) => s.length > 0);
     const unique = Array.from(new Set(cleaned));
@@ -192,20 +311,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "requested_to doit être 'manager', 'rh' ou ['manager','rh']" }, { status: 400 });
     }
 
-    const supabase = supabaseAdmin();
-
-    const { data: employee } = await supabase
-      .from("employees")
-      .select("id, first_name, last_name, manager_id")
-      .eq("organization_id", organizationId)
-      .eq("clerk_user_id", userId)
-      .single();
-
-    if (!employee) return NextResponse.json({ error: "Profil introuvable" }, { status: 404 });
-
     const groupId = crypto.randomUUID();
     const inserts = unique.map((to) => ({
-      employee_id: employee.id,
+      employee_id: requester.id,
       organization_id: organizationId,
       requested_to: to,
       note: note || null,
@@ -248,11 +356,11 @@ export async function POST(request: NextRequest) {
     const recipientEmails = new Set<string>();
     const recipientClerkUserIds = new Set<string>();
 
-    if (unique.includes("manager") && employee.manager_id) {
+    if (unique.includes("manager") && requester.manager_id) {
       const { data: manager } = await supabase
         .from("employees")
         .select("email, clerk_user_id")
-        .eq("id", employee.manager_id)
+        .eq("id", requester.manager_id)
         .single();
       if (manager?.clerk_user_id) recipientClerkUserIds.add(manager.clerk_user_id);
       else if (manager?.email) recipientEmails.add(manager.email);
@@ -297,7 +405,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (recipientEmails.size > 0) {
-      const talentName = `${employee.first_name} ${employee.last_name}`;
+      const talentName = `${requester.first_name} ${requester.last_name}`;
       const targetLabel =
         unique.length > 1 ? "son manager et les RH" : unique[0] === "manager" ? "son manager" : "les RH";
       const typeLabel = typeof interview_type === "string" && interview_type.trim() ? interview_type.trim() : null;
@@ -308,7 +416,7 @@ export async function POST(request: NextRequest) {
             ${slotRows.map((s) => {
               const start = new Date(s.starts_at);
               const end = new Date(s.ends_at);
-              const label = `${start.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })} • ${start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}–${end.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+              const label = `${start.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })} \u2022 ${start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}\u2013${end.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
               return `<li>${label}</li>`;
             }).join("")}
           </ul>`
@@ -600,8 +708,9 @@ export async function PATCH(request: NextRequest) {
               attendeeEmail: to,
             });
 
-            const ctaTalent = `${clientEnv.NEXT_PUBLIC_APP_URL}/espace-talent`;
-            const ctaRh = `${clientEnv.NEXT_PUBLIC_APP_URL}/dashboard`;
+            const ctaUrl = to === talentEmail
+              ? `${clientEnv.NEXT_PUBLIC_APP_URL}/espace-talent`
+              : `${clientEnv.NEXT_PUBLIC_APP_URL}/dashboard`;
 
             return sendEmail({
               to,
@@ -619,11 +728,8 @@ export async function PATCH(request: NextRequest) {
                 </ul>
                 <p style="margin:0 0 10px;font-size:14px;">Invitation calendrier en pièce jointe.</p>
                 <div style="margin:18px 0 0;">
-                  <a href="${ctaRh}" style="display:inline-block;padding:10px 14px;border-radius:999px;background:#095228;color:#ffffff;text-decoration:none;font-weight:600;margin-right:8px;">
-                    Ouvrir Leaft (RH)
-                  </a>
-                  <a href="${ctaTalent}" style="display:inline-block;padding:10px 14px;border-radius:999px;border:1px solid rgba(9,82,40,0.25);color:#095228;text-decoration:none;font-weight:600;">
-                    Ouvrir Leaft (Talent)
+                  <a href="${ctaUrl}" style="display:inline-block;padding:10px 14px;border-radius:999px;background:#095228;color:#ffffff;text-decoration:none;font-weight:600;">
+                    Ouvrir Leaft
                   </a>
                 </div>
               `),
@@ -654,6 +760,11 @@ export async function PATCH(request: NextRequest) {
             <p style="margin:0 0 6px;font-size:14px;"><strong>Créneau sélectionné :</strong></p>
             ${formatSlotsList([{ starts_at: chosenSlot.starts_at, ends_at: chosenSlot.ends_at }])}
             <p style="margin:0 0 10px;font-size:14px;">Merci de confirmer (ou refuser) depuis votre espace Talent.</p>
+            <div style="margin:18px 0 0;">
+              <a href="${clientEnv.NEXT_PUBLIC_APP_URL}/espace-talent" style="display:inline-block;padding:10px 14px;border-radius:999px;background:#095228;color:#ffffff;text-decoration:none;font-weight:600;">
+                Ouvrir Leaft
+              </a>
+            </div>
           `),
         });
       }
@@ -704,6 +815,11 @@ export async function PATCH(request: NextRequest) {
             <p style="margin:0 0 6px;font-size:14px;"><strong>Créneaux proposés :</strong></p>
             ${formatSlotsList(slotRows)}
             <p style="margin:0 0 10px;font-size:14px;">Choisissez un créneau depuis votre espace Talent.</p>
+            <div style="margin:18px 0 0;">
+              <a href="${clientEnv.NEXT_PUBLIC_APP_URL}/espace-talent" style="display:inline-block;padding:10px 14px;border-radius:999px;background:#095228;color:#ffffff;text-decoration:none;font-weight:600;">
+                Ouvrir Leaft
+              </a>
+            </div>
           `),
         });
       }
@@ -793,8 +909,9 @@ export async function PATCH(request: NextRequest) {
             attendeeEmail: to,
           });
 
-          const ctaTalent = `${clientEnv.NEXT_PUBLIC_APP_URL}/espace-talent`;
-          const ctaRh = `${clientEnv.NEXT_PUBLIC_APP_URL}/dashboard`;
+          const ctaUrl = to === talentEmail
+            ? `${clientEnv.NEXT_PUBLIC_APP_URL}/espace-talent`
+            : `${clientEnv.NEXT_PUBLIC_APP_URL}/dashboard`;
 
           return sendEmail({
             to,
@@ -812,11 +929,8 @@ export async function PATCH(request: NextRequest) {
               </ul>
               <p style="margin:0 0 10px;font-size:14px;">Invitation calendrier en pièce jointe.</p>
               <div style="margin:18px 0 0;">
-                <a href="${ctaRh}" style="display:inline-block;padding:10px 14px;border-radius:999px;background:#095228;color:#ffffff;text-decoration:none;font-weight:600;margin-right:8px;">
-                  Ouvrir Leaft (RH)
-                </a>
-                <a href="${ctaTalent}" style="display:inline-block;padding:10px 14px;border-radius:999px;border:1px solid rgba(9,82,40,0.25);color:#095228;text-decoration:none;font-weight:600;">
-                  Ouvrir Leaft (Talent)
+                <a href="${ctaUrl}" style="display:inline-block;padding:10px 14px;border-radius:999px;background:#095228;color:#ffffff;text-decoration:none;font-weight:600;">
+                  Ouvrir Leaft
                 </a>
               </div>
             `),
@@ -846,6 +960,11 @@ export async function PATCH(request: NextRequest) {
                 <p style="margin:0 0 10px;font-size:14px;color:rgba(11,11,11,0.75);">
                   <strong>${talentName}</strong> a refusé le créneau proposé. Vous pouvez contre-proposer de nouveaux créneaux.
                 </p>
+                <div style="margin:18px 0 0;">
+                  <a href="${clientEnv.NEXT_PUBLIC_APP_URL}/dashboard/entretiens#demandes-rdv" style="display:inline-block;padding:10px 14px;border-radius:999px;background:#095228;color:#ffffff;text-decoration:none;font-weight:600;">
+                    Ouvrir Leaft
+                  </a>
+                </div>
               `),
             })
           )

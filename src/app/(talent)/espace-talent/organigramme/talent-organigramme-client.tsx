@@ -1,8 +1,26 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import gsap from "gsap";
+import { useMemo, useCallback, useRef } from "react";
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  MiniMap,
+  useNodesState,
+  useEdgesState,
+  type Node,
+  type Edge,
+  type NodeProps,
+  Handle,
+  Position,
+  ReactFlowProvider,
+  useReactFlow,
+  getNodesBounds,
+  getViewportForBounds,
+} from "@xyflow/react";
+import dagre from "@dagrejs/dagre";
 import { Avatar } from "@/components/ui/avatar";
+import "@xyflow/react/dist/style.css";
 
 type Employee = {
   id: string;
@@ -15,108 +33,282 @@ type Employee = {
   annual_salary_brut?: number | null;
 };
 type Dept = { id: string; name: string };
-type TreeNode = Employee & { children: TreeNode[] };
 
-function buildTree(employees: Employee[]): TreeNode[] {
-  const map = new Map<string, TreeNode>();
-  employees.forEach((e) => map.set(e.id, { ...e, children: [] }));
-  const roots: TreeNode[] = [];
-  map.forEach((node) => {
-    if (node.manager_id && map.has(node.manager_id)) {
-      map.get(node.manager_id)!.children.push(node);
-    } else {
-      roots.push(node);
-    }
-  });
-  return roots;
+const DEPT_COLORS = [
+  { bg: "rgba(9,82,40,0.08)", border: "rgba(9,82,40,0.25)", text: "#095228" },
+  { bg: "rgba(59,130,246,0.08)", border: "rgba(59,130,246,0.3)", text: "#1d4ed8" },
+  { bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.3)", text: "#b45309" },
+  { bg: "rgba(139,92,246,0.08)", border: "rgba(139,92,246,0.3)", text: "#7c3aed" },
+  { bg: "rgba(239,68,68,0.08)", border: "rgba(239,68,68,0.3)", text: "#dc2626" },
+  { bg: "rgba(16,185,129,0.08)", border: "rgba(16,185,129,0.3)", text: "#059669" },
+  { bg: "rgba(236,72,153,0.08)", border: "rgba(236,72,153,0.3)", text: "#db2777" },
+  { bg: "rgba(107,114,128,0.08)", border: "rgba(107,114,128,0.3)", text: "#4b5563" },
+];
+
+const NODE_WIDTH = 200;
+const NODE_HEIGHT = 120;
+
+function OrgNodeCustom({ data }: NodeProps) {
+  const d = data as {
+    firstName: string;
+    lastName: string;
+    jobTitle: string;
+    avatarUrl: string | null;
+    deptName: string | null;
+    deptColor: (typeof DEPT_COLORS)[0] | null;
+    salary: number | null;
+    salaryVisible: boolean;
+    isMe: boolean;
+  };
+
+  return (
+    <>
+      <Handle type="target" position={Position.Top} className="!bg-transparent !border-0 !w-0 !h-0" />
+      <div
+        className={`flex flex-col items-center rounded-2xl border-2 bg-white px-3 py-3 shadow-sm transition-shadow hover:shadow-lg ${
+          d.isMe ? "border-[var(--brand)] ring-2 ring-[var(--brand)]/25" : "border-[#e2e7e2]"
+        }`}
+        style={{ width: NODE_WIDTH, minHeight: 90 }}
+      >
+        <Avatar firstName={d.firstName} lastName={d.lastName} avatarUrl={d.avatarUrl} size="lg" />
+        <p className={`mt-2 text-center text-sm font-semibold leading-tight ${d.isMe ? "text-[var(--brand)]" : "text-[var(--text)]"}`}>
+          {d.firstName} {d.lastName}
+          {d.isMe && <span className="ml-1 text-[10px] font-medium text-[var(--brand)]">(vous)</span>}
+        </p>
+        <p className="mt-0.5 text-center text-[11px] leading-tight text-[color:rgba(11,11,11,0.55)]">
+          {d.jobTitle || "\u2014"}
+        </p>
+        {d.deptName && d.deptColor && (
+          <span
+            className="mt-1.5 inline-block rounded-lg px-2 py-0.5 text-[10px] font-semibold"
+            style={{ background: d.deptColor.bg, color: d.deptColor.text }}
+          >
+            {d.deptName}
+          </span>
+        )}
+        {d.salaryVisible && d.salary != null && (
+          <p className="mt-1 text-xs font-semibold text-[color:rgba(11,11,11,0.65)]">
+            {Number(d.salary).toLocaleString("fr-FR")} €
+          </p>
+        )}
+      </div>
+      <Handle type="source" position={Position.Bottom} className="!bg-transparent !border-0 !w-0 !h-0" />
+    </>
+  );
 }
 
-function OrgNode({
-  node,
-  deptMap,
-  depth,
-  expandedSet,
-  toggleExpand,
+const nodeTypes = { orgNode: OrgNodeCustom };
+
+function getLayoutedElements(
+  nodes: Node[],
+  edges: Edge[],
+  direction: "TB" | "LR" = "TB",
+): { nodes: Node[]; edges: Edge[] } {
+  const g = new dagre.graphlib.Graph();
+  g.setDefaultEdgeLabel(() => ({}));
+  g.setGraph({ rankdir: direction, nodesep: 60, ranksep: 100, marginx: 40, marginy: 40 });
+
+  nodes.forEach((node) => {
+    g.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+  });
+  edges.forEach((edge) => {
+    g.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(g);
+
+  const layoutedNodes = nodes.map((node) => {
+    const pos = g.node(node.id);
+    return {
+      ...node,
+      position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 },
+    };
+  });
+
+  return { nodes: layoutedNodes, edges };
+}
+
+function OrganigrammeFlow({
+  employees,
+  departments,
   currentEmployeeId,
   salaryVisible,
 }: {
-  node: TreeNode;
-  deptMap: Map<string, string>;
-  depth: number;
-  expandedSet: Set<string>;
-  toggleExpand: (id: string) => void;
+  employees: Employee[];
+  departments: Dept[];
   currentEmployeeId: string | null;
   salaryVisible: boolean;
 }) {
-  const nodeRef = useRef<HTMLDivElement>(null);
-  const hasChildren = node.children.length > 0;
-  const isExpanded = expandedSet.has(node.id);
-  const deptName = node.current_department_id ? deptMap.get(node.current_department_id) : null;
-  const isMe = node.id === currentEmployeeId;
+  const { fitView } = useReactFlow();
+  const flowRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (nodeRef.current) {
-      gsap.fromTo(nodeRef.current, { opacity: 0, x: -8 }, { opacity: 1, x: 0, duration: 0.35, ease: "power2.out" });
+  const deptMap = useMemo(() => new Map(departments.map((d) => [d.id, d.name])), [departments]);
+  const deptColorMap = useMemo(() => {
+    const map = new Map<string, (typeof DEPT_COLORS)[0]>();
+    let idx = 0;
+    departments.forEach((d) => {
+      map.set(d.id, DEPT_COLORS[idx % DEPT_COLORS.length]);
+      idx++;
+    });
+    return map;
+  }, [departments]);
+
+  const { initialNodes, initialEdges } = useMemo(() => {
+    const nodes: Node[] = employees.map((emp) => ({
+      id: emp.id,
+      type: "orgNode",
+      position: { x: 0, y: 0 },
+      data: {
+        firstName: emp.first_name,
+        lastName: emp.last_name,
+        jobTitle: emp.current_job_title,
+        avatarUrl: emp.avatar_url,
+        deptName: emp.current_department_id ? deptMap.get(emp.current_department_id) ?? null : null,
+        deptColor: emp.current_department_id ? deptColorMap.get(emp.current_department_id) ?? null : null,
+        salary: emp.annual_salary_brut ?? null,
+        salaryVisible,
+        isMe: emp.id === currentEmployeeId,
+      },
+    }));
+
+    const employeeIdSet = new Set(employees.map((e) => e.id));
+    const edges: Edge[] = employees
+      .filter((emp) => emp.manager_id && employeeIdSet.has(emp.manager_id))
+      .map((emp) => ({
+        id: `${emp.manager_id}-${emp.id}`,
+        source: emp.manager_id!,
+        target: emp.id,
+        type: "smoothstep",
+        style: { stroke: "#CFCFCF", strokeWidth: 2 },
+        animated: false,
+      }));
+
+    const laid = getLayoutedElements(nodes, edges);
+    return { initialNodes: laid.nodes, initialEdges: laid.edges };
+  }, [employees, deptMap, deptColorMap, salaryVisible, currentEmployeeId]);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, _setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  const handleFitView = useCallback(() => fitView({ padding: 0.15, duration: 400 }), [fitView]);
+
+  const handleFocusMe = useCallback(() => {
+    if (!currentEmployeeId) return;
+    const meNode = nodes.find((n) => n.id === currentEmployeeId);
+    if (meNode) {
+      fitView({
+        nodes: [meNode],
+        padding: 0.5,
+        duration: 500,
+      });
     }
-  }, []);
+  }, [currentEmployeeId, nodes, fitView]);
+
+  const handleExportPng = useCallback(async () => {
+    if (!flowRef.current) return;
+    const bounds = getNodesBounds(nodes);
+    const vp = getViewportForBounds(bounds, bounds.width + 80, bounds.height + 80, 0.5, 2, 0.1);
+
+    const { toPng } = await import("html-to-image");
+    const flowEl = flowRef.current.querySelector(".react-flow__viewport") as HTMLElement;
+    if (!flowEl) return;
+
+    const dataUrl = await toPng(flowEl, {
+      width: bounds.width + 80,
+      height: bounds.height + 80,
+      style: {
+        width: `${bounds.width + 80}px`,
+        height: `${bounds.height + 80}px`,
+        transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})`,
+      },
+    });
+
+    const link = document.createElement("a");
+    link.download = "organigramme.png";
+    link.href = dataUrl;
+    link.click();
+  }, [nodes]);
+
+  const deptLegend = useMemo(() => {
+    const seen = new Set<string>();
+    return employees
+      .map((e) => e.current_department_id)
+      .filter((id): id is string => !!id && !seen.has(id) && (seen.add(id), true))
+      .map((id) => ({
+        name: deptMap.get(id) ?? "—",
+        color: deptColorMap.get(id) ?? DEPT_COLORS[0],
+      }));
+  }, [employees, deptMap, deptColorMap]);
+
+  if (employees.length === 0) {
+    return (
+      <div className="rounded-3xl border border-[#e2e7e2] bg-white p-12 text-center shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+        <p className="text-[color:rgba(11,11,11,0.65)]">Aucun talent dans l&apos;organisation.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="relative">
-      <div ref={nodeRef} className="flex items-start gap-2">
-        {hasChildren && (
-          <button
-            onClick={() => toggleExpand(node.id)}
-            className="mt-3 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-md border border-[#e2e7e2] bg-white text-xs text-[color:rgba(11,11,11,0.5)] transition hover:bg-[#f0f2f0]"
-          >
-            {isExpanded ? "−" : "+"}
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <button onClick={handleFitView} className="cursor-pointer rounded-full border border-[#e2e7e2] bg-white px-3 py-1.5 text-xs font-medium text-[var(--text)] transition hover:bg-[#f8faf8]">
+          Voir tout
+        </button>
+        {currentEmployeeId && (
+          <button onClick={handleFocusMe} className="cursor-pointer rounded-full border border-[var(--brand)]/30 bg-[var(--brand)]/5 px-3 py-1.5 text-xs font-medium text-[var(--brand)] transition hover:bg-[var(--brand)]/10">
+            Mon poste
           </button>
         )}
-        {!hasChildren && depth > 0 && <span className="mt-3 h-5 w-5 shrink-0" />}
-
-        <div className={`rounded-2xl border px-4 py-3 shadow-sm transition ${
-          isMe ? "border-[var(--brand)] bg-[var(--brand)]/5 ring-2 ring-[var(--brand)]/20" : "border-[#e2e7e2] bg-white hover:border-[var(--brand)]/30 hover:shadow-md"
-        }`}>
-          <div className="flex items-center gap-3">
-            <Avatar firstName={node.first_name} lastName={node.last_name} avatarUrl={node.avatar_url} size="sm" />
-            <div>
-              <p className={`text-sm font-semibold ${isMe ? "text-[var(--brand)]" : "text-[var(--text)]"}`}>
-                {node.first_name} {node.last_name}
-                {isMe && <span className="ml-1.5 text-[10px] font-medium text-[var(--brand)]">(vous)</span>}
-              </p>
-              <p className="mt-0.5 text-xs text-[color:rgba(11,11,11,0.6)]">{node.current_job_title || "—"}</p>
-            </div>
-          </div>
-          {deptName && (
-            <span className="mt-1.5 inline-block rounded-lg bg-[var(--brand)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--brand)]">
-              {deptName}
-            </span>
-          )}
-          {salaryVisible && node.annual_salary_brut != null && (
-            <p className="mt-1 text-xs font-semibold text-[color:rgba(11,11,11,0.7)]">
-              {Number(node.annual_salary_brut).toLocaleString("fr-FR")} €
-            </p>
-          )}
-        </div>
+        <button onClick={handleExportPng} className="cursor-pointer rounded-full border border-[#e2e7e2] bg-white px-3 py-1.5 text-xs font-medium text-[var(--text)] transition hover:bg-[#f8faf8]">
+          Export PNG
+        </button>
       </div>
 
-      {hasChildren && isExpanded && (
-        <div className="ml-6 mt-1 space-y-1 border-l-2 border-[#e2e7e2] pl-4">
-          {node.children
-            .sort((a, b) => a.last_name.localeCompare(b.last_name))
-            .map((child) => (
-              <OrgNode
-                key={child.id}
-                node={child}
-                deptMap={deptMap}
-                depth={depth + 1}
-                expandedSet={expandedSet}
-                toggleExpand={toggleExpand}
-                currentEmployeeId={currentEmployeeId}
-                salaryVisible={salaryVisible}
-              />
-            ))}
+      {deptLegend.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {deptLegend.map((d) => (
+            <span
+              key={d.name}
+              className="rounded-lg px-2.5 py-1 text-[11px] font-semibold"
+              style={{ background: d.color.bg, color: d.color.text, border: `1px solid ${d.color.border}` }}
+            >
+              {d.name}
+            </span>
+          ))}
         </div>
       )}
+
+      <div
+        ref={flowRef}
+        className="rounded-3xl border border-[#e2e7e2] bg-[#f8faf8] shadow-[0_24px_60px_rgba(17,27,24,0.06)]"
+        style={{ height: "70vh", minHeight: 400 }}
+      >
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          nodeTypes={nodeTypes}
+          fitView
+          fitViewOptions={{ padding: 0.15 }}
+          minZoom={0.1}
+          maxZoom={2}
+          proOptions={{ hideAttribution: true }}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={false}
+        >
+          <Background gap={24} size={1} color="rgba(0,0,0,0.04)" />
+          <Controls showInteractive={false} className="!rounded-xl !border-[#e2e7e2] !shadow-sm" />
+          <MiniMap
+            nodeStrokeWidth={3}
+            pannable
+            zoomable
+            className="!rounded-xl !border-[#e2e7e2]"
+            maskColor="rgba(248,250,248,0.8)"
+          />
+        </ReactFlow>
+      </div>
     </div>
   );
 }
@@ -132,80 +324,14 @@ export function TalentOrganigrammeClient({
   currentEmployeeId: string | null;
   salaryVisible: boolean;
 }) {
-  const deptMap = useMemo(() => new Map(departments.map((d) => [d.id, d.name])), [departments]);
-  const tree = useMemo(() => buildTree(employees), [employees]);
-  const [expandedSet, setExpandedSet] = useState<Set<string>>(() => {
-    const set = new Set<string>();
-    const walk = (nodes: TreeNode[]) => {
-      nodes.forEach((n) => { set.add(n.id); walk(n.children); });
-    };
-    walk(tree);
-    return set;
-  });
-  const mainRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!mainRef.current) return;
-    const nodes = mainRef.current.querySelectorAll("[data-org-root]");
-    gsap.fromTo(nodes, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.08, ease: "power2.out" });
-  }, []);
-
-  const toggleExpand = useCallback((id: string) => {
-    setExpandedSet((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const expandAll = useCallback(() => {
-    const all = new Set<string>();
-    const walk = (nodes: TreeNode[]) => { nodes.forEach((n) => { all.add(n.id); walk(n.children); }); };
-    walk(tree);
-    setExpandedSet(all);
-  }, [tree]);
-
-  const collapseAll = useCallback(() => setExpandedSet(new Set()), []);
-
-  if (employees.length === 0) {
-    return (
-      <div className="rounded-3xl border border-[#e2e7e2] bg-white p-12 text-center shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
-        <p className="text-[color:rgba(11,11,11,0.65)]">Aucun talent dans l&apos;organisation.</p>
-      </div>
-    );
-  }
-
   return (
-    <div ref={mainRef} className="space-y-4">
-      <div className="flex items-center gap-2">
-        <button onClick={expandAll} className="cursor-pointer rounded-full border border-[#e2e7e2] bg-white px-3 py-1.5 text-xs font-medium text-[var(--text)] transition hover:bg-[#f8faf8]">
-          Tout déplier
-        </button>
-        <button onClick={collapseAll} className="cursor-pointer rounded-full border border-[#e2e7e2] bg-white px-3 py-1.5 text-xs font-medium text-[var(--text)] transition hover:bg-[#f8faf8]">
-          Tout replier
-        </button>
-      </div>
-
-      <div className="rounded-3xl border border-[#e2e7e2] bg-[#f8faf8] p-4 shadow-[0_24px_60px_rgba(17,27,24,0.06)] sm:p-6">
-        <div className="space-y-3">
-          {tree
-            .sort((a, b) => a.last_name.localeCompare(b.last_name))
-            .map((root) => (
-              <div key={root.id} data-org-root>
-                <OrgNode
-                  node={root}
-                  deptMap={deptMap}
-                  depth={0}
-                  expandedSet={expandedSet}
-                  toggleExpand={toggleExpand}
-                  currentEmployeeId={currentEmployeeId}
-                  salaryVisible={salaryVisible}
-                />
-              </div>
-            ))}
-        </div>
-      </div>
-    </div>
+    <ReactFlowProvider>
+      <OrganigrammeFlow
+        employees={employees}
+        departments={departments}
+        currentEmployeeId={currentEmployeeId}
+        salaryVisible={salaryVisible}
+      />
+    </ReactFlowProvider>
   );
 }

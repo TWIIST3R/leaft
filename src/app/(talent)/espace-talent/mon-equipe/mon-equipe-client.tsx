@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useMemo } from "react";
+import Link from "next/link";
 import gsap from "gsap";
 import { Avatar } from "@/components/ui/avatar";
 import { PieChart } from "@/components/charts/pie-chart";
@@ -39,6 +40,7 @@ type PositionHistory = {
 
 type Props = {
   data: {
+    currentEmployeeId: string;
     teamMembers: TeamMember[];
     interviews: Interview[];
     departments: Dept[];
@@ -136,7 +138,11 @@ export function MonEquipeClient({ data }: Props) {
         <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Membres de l&apos;equipe</h2>
         <div className="mt-4 space-y-3">
           {teamMembers.map((m) => (
-            <div key={m.id} className="flex items-center gap-4 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-4 transition hover:shadow-sm">
+            <Link
+              key={m.id}
+              href={`/espace-talent/mon-equipe/${m.id}`}
+              className="flex items-center gap-4 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-4 transition hover:border-[var(--brand)]/30 hover:shadow-md"
+            >
               <Avatar firstName={m.first_name} lastName={m.last_name} avatarUrl={m.avatar_url} size="md" />
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-[var(--text)]">{m.first_name} {m.last_name}</p>
@@ -155,7 +161,10 @@ export function MonEquipeClient({ data }: Props) {
                   <p className="mt-1 text-sm font-semibold text-[var(--text)]">{Number(m.annual_salary_brut).toLocaleString("fr-FR")} €</p>
                 )}
               </div>
-            </div>
+              <svg className="h-4 w-4 shrink-0 text-[color:rgba(11,11,11,0.3)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
           ))}
           {teamMembers.length === 0 && (
             <div className="rounded-xl border border-dashed border-[#e2e7e2] p-6 text-center text-sm text-[color:rgba(11,11,11,0.5)]">

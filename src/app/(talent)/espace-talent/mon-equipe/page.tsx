@@ -67,6 +67,7 @@ async function getData(userId: string, orgId: string | null) {
     : { data: [] };
 
   return {
+    currentEmployeeId: currentEmp.id,
     teamMembers: teamMembers ?? [],
     interviews: interviews ?? [],
     departments: departments ?? [],

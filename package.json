@@ -11,9 +11,12 @@
   "dependencies": {
     "@clerk/localizations": "^3.28.0",
     "@clerk/nextjs": "^6.34.5",
+    "@dagrejs/dagre": "^3.0.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.80.0",
+    "@xyflow/react": "^12.10.2",
     "gsap": "^3.13.0",
+    "html-to-image": "^1.11.13",
     "next": "16.0.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
