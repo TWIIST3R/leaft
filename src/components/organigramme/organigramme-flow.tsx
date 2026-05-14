@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useRef } from "react";
+import { useMemo, useCallback, useRef, useState, useEffect } from "react";
 import Image from "next/image";
 import {
   ReactFlow,
@@ -90,7 +90,7 @@ function OrgNodeCustom({ data }: NodeProps) {
         )}
         {d.salaryVisible && d.salary != null && (
           <p className="mt-1 text-xs font-semibold text-[color:rgba(11,11,11,0.65)]">
-            {Number(d.salary).toLocaleString("fr-FR")} \u20AC
+            {`${Number(d.salary).toLocaleString("fr-FR")} €`}
           </p>
         )}
       </div>
@@ -130,6 +130,37 @@ function getLayoutedElements(
   return { nodes: layoutedNodes, edges };
 }
 
+type OrgScope = "full" | "team" | "chain";
+
+function collectSubtreeIds(employees: OrgEmployee[], rootId: string): Set<string> {
+  const children = new Map<string, string[]>();
+  for (const e of employees) {
+    if (!e.manager_id) continue;
+    if (!children.has(e.manager_id)) children.set(e.manager_id, []);
+    children.get(e.manager_id)!.push(e.id);
+  }
+  const out = new Set<string>([rootId]);
+  const stack = [...(children.get(rootId) ?? [])];
+  while (stack.length) {
+    const id = stack.pop()!;
+    if (out.has(id)) continue;
+    out.add(id);
+    for (const c of children.get(id) ?? []) stack.push(c);
+  }
+  return out;
+}
+
+function collectChainIds(employees: OrgEmployee[], leafId: string): Set<string> {
+  const byId = new Map(employees.map((e) => [e.id, e]));
+  const out = new Set<string>();
+  let cur: string | null = leafId;
+  while (cur) {
+    out.add(cur);
+    cur = byId.get(cur)?.manager_id ?? null;
+  }
+  return out;
+}
+
 function OrganigrammeFlowInner({
   employees,
   departments,
@@ -145,6 +176,19 @@ function OrganigrammeFlowInner({
 }) {
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
+  const [scope, setScope] = useState<OrgScope>("full");
+  const scopeFilterable = !!currentEmployeeId && employees.length > 1;
+
+  const displayEmployees = useMemo(() => {
+    if (!scopeFilterable || scope === "full") return employees;
+    if (!currentEmployeeId) return employees;
+    if (scope === "team") {
+      const ids = collectSubtreeIds(employees, currentEmployeeId);
+      return employees.filter((e) => ids.has(e.id));
+    }
+    const ids = collectChainIds(employees, currentEmployeeId);
+    return employees.filter((e) => ids.has(e.id));
+  }, [employees, scope, currentEmployeeId, scopeFilterable]);
 
   const deptMap = useMemo(() => new Map(departments.map((d) => [d.id, d.name])), [departments]);
   const deptColorMap = useMemo(() => {
@@ -158,7 +202,7 @@ function OrganigrammeFlowInner({
   }, [departments]);
 
   const { initialNodes, initialEdges } = useMemo(() => {
-    const nodes: Node[] = employees.map((emp) => ({
+    const nodes: Node[] = displayEmployees.map((emp) => ({
       id: emp.id,
       type: "orgNode",
       position: { x: 0, y: 0 },
@@ -175,8 +219,8 @@ function OrganigrammeFlowInner({
       },
     }));
 
-    const employeeIdSet = new Set(employees.map((e) => e.id));
-    const edges: Edge[] = employees
+    const employeeIdSet = new Set(displayEmployees.map((e) => e.id));
+    const edges: Edge[] = displayEmployees
       .filter((emp) => emp.manager_id && employeeIdSet.has(emp.manager_id))
       .map((emp) => ({
         id: `${emp.manager_id}-${emp.id}`,
@@ -189,10 +233,19 @@ function OrganigrammeFlowInner({
 
     const laid = getLayoutedElements(nodes, edges);
     return { initialNodes: laid.nodes, initialEdges: laid.edges };
-  }, [employees, deptMap, deptColorMap, salaryVisible, currentEmployeeId]);
+  }, [displayEmployees, deptMap, deptColorMap, salaryVisible, currentEmployeeId]);
 
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
-  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  useEffect(() => {
+    setNodes(initialNodes);
+    setEdges(initialEdges);
+    const t = requestAnimationFrame(() => {
+      fitView({ padding: 0.15, duration: 350 });
+    });
+    return () => cancelAnimationFrame(t);
+  }, [initialNodes, initialEdges, setNodes, setEdges, fitView]);
 
   const handleFitView = useCallback(() => fitView({ padding: 0.15, duration: 400 }), [fitView]);
 
@@ -271,14 +324,14 @@ function OrganigrammeFlowInner({
 
   const deptLegend = useMemo(() => {
     const seen = new Set<string>();
-    return employees
+    return displayEmployees
       .map((e) => e.current_department_id)
       .filter((id): id is string => !!id && !seen.has(id) && (seen.add(id), true))
       .map((id) => ({
         name: deptMap.get(id) ?? "\u2014",
         color: deptColorMap.get(id) ?? DEPT_COLORS[0],
       }));
-  }, [employees, deptMap, deptColorMap]);
+  }, [displayEmployees, deptMap, deptColorMap]);
 
   if (employees.length === 0) {
     return (
@@ -291,19 +344,39 @@ function OrganigrammeFlowInner({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <button onClick={handleFitView} className="cursor-pointer rounded-full border border-[#e2e7e2] bg-white px-3 py-1.5 text-xs font-medium text-[var(--text)] transition hover:bg-[#f8faf8]">
+        <button type="button" onClick={handleFitView} className="cursor-pointer rounded-full border border-[#e2e7e2] bg-white px-3 py-1.5 text-xs font-medium text-[var(--text)] transition hover:bg-[#f8faf8]">
           Voir tout
         </button>
         {currentEmployeeId && (
-          <button onClick={handleFocusMe} className="cursor-pointer rounded-full border border-[var(--brand)]/30 bg-[var(--brand)]/5 px-3 py-1.5 text-xs font-medium text-[var(--brand)] transition hover:bg-[var(--brand)]/10">
+          <button type="button" onClick={handleFocusMe} className="cursor-pointer rounded-full border border-[var(--brand)]/30 bg-[var(--brand)]/5 px-3 py-1.5 text-xs font-medium text-[var(--brand)] transition hover:bg-[var(--brand)]/10">
             Mon poste
           </button>
         )}
-        <button onClick={handleExportPng} className="cursor-pointer rounded-full border border-[#e2e7e2] bg-white px-3 py-1.5 text-xs font-medium text-[var(--text)] transition hover:bg-[#f8faf8]">
+        <button type="button" onClick={handleExportPng} className="cursor-pointer rounded-full border border-[#e2e7e2] bg-white px-3 py-1.5 text-xs font-medium text-[var(--text)] transition hover:bg-[#f8faf8]">
           Export PNG
         </button>
+        {scopeFilterable && (
+          <div className="flex flex-wrap items-center gap-1.5 border-l border-[#e2e7e2] pl-2">
+            {(["full", "team", "chain"] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setScope(s)}
+                className={`cursor-pointer rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                  scope === s
+                    ? "bg-[var(--brand)] text-white"
+                    : "border border-[#e2e7e2] bg-white text-[var(--text)] hover:bg-[#f8faf8]"
+                }`}
+              >
+                {s === "full" ? "Toute l’org." : s === "team" ? "Mon équipe" : "Ma chaîne"}
+              </button>
+            ))}
+          </div>
+        )}
         <span className="text-xs text-[color:rgba(11,11,11,0.5)]">
-          {employees.length} collaborateur{employees.length > 1 ? "s" : ""}
+          {scopeFilterable && scope !== "full"
+            ? `${displayEmployees.length} / ${employees.length} collaborateur${employees.length > 1 ? "s" : ""}`
+            : `${employees.length} collaborateur${employees.length > 1 ? "s" : ""}`}
         </span>
       </div>
 

@@ -4,6 +4,9 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import gsap from "gsap";
 import { Avatar } from "@/components/ui/avatar";
 import { LineChart } from "@/components/charts/line-chart";
+import { TalentOnboarding } from "@/components/talent/talent-onboarding";
+import { TalentJobMarketCard, type InseeSalaryGameUi } from "@/components/talent/talent-job-market-card";
+import type { TalentMarketBenchmarkRow } from "@/lib/talent/refresh-talent-market-benchmark";
 
 type Interview = {
   id: string;
@@ -65,6 +68,9 @@ type TalentData = {
   deptLevels: DeptLevel[];
   benchmark: { p25: number; p50: number; p75: number; source: string; updated_at: string } | null;
   positionHistory: PositionEntry[];
+  hasdataConfigured: boolean;
+  talentMarketBenchmark: TalentMarketBenchmarkRow | null;
+  inseeSalaryGame: InseeSalaryGameUi | null;
 };
 
 const CARD = "rounded-3xl border border-[#e2e7e2] bg-white p-4 shadow-[0_24px_60px_rgba(17,27,24,0.06)] sm:p-6";
@@ -311,6 +317,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
 
   return (
     <div ref={mainRef} className="space-y-6 sm:space-y-8">
+      <TalentOnboarding firstName={employee.first_name} />
       <section data-section className={`${CARD} !p-5 sm:!p-8`}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
@@ -400,11 +407,25 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
                 </p>
               </div>
               <div>
-                <p className={LABEL}>Compa-ratio</p>
-                <p className="mt-1 text-sm font-medium text-[color:rgba(11,11,11,0.6)]">En cours de développement</p>
-                <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.5)]">
-                  Benchmark marché automatisé bientôt disponible.
-                </p>
+                <p className={LABEL}>Compa-ratio interne</p>
+                {data.compaRatio != null ? (
+                  <>
+                    <p className="mt-1 text-3xl font-semibold text-[var(--text)]">{data.compaRatio} %</p>
+                    <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.55)]">
+                      Salaire par rapport au midpoint de ton niveau dans la grille entreprise.
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.55)]">Non calculable (midpoint ou salaire manquant).</p>
+                )}
+              </div>
+              <div className="sm:col-span-2">
+                <TalentJobMarketCard
+                  annualSalaryBrut={employee.annual_salary_brut}
+                  hasdataConfigured={data.hasdataConfigured}
+                  talentMarketBenchmark={data.talentMarketBenchmark}
+                  inseeSalaryGame={data.inseeSalaryGame}
+                />
               </div>
               {data.levelRange && data.levelRange.min != null && data.levelRange.max != null && (
                 <div className="sm:col-span-2">
@@ -421,7 +442,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
           </div>
         )}
 
-        <div className={`${CARD} flex flex-col ${data.salaryVisible ? "lg:col-span-3" : "lg:col-span-5"}`}>
+        <div className={`${CARD} flex flex-col ${data.salaryVisible ? "lg:col-span-3" : "lg:col-span-5"}`} id="talent-mes-entretiens">
           <div className="flex items-center justify-between gap-2">
             <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Mes entretiens</h2>
             <span className="rounded-full bg-[var(--brand)]/10 px-2.5 py-0.5 text-xs font-semibold text-[var(--brand)]">
@@ -429,15 +450,23 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
             </span>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            {interviewRecap.lastDays != null && (
-              <span className="rounded-full border border-[#e2e7e2] bg-[#f8faf8] px-3 py-1 text-xs font-medium text-[color:rgba(11,11,11,0.65)]">
-                Dernier entretien : il y a {interviewRecap.lastDays} jour{interviewRecap.lastDays > 1 ? "s" : ""}
-              </span>
+            {interviewRecap.last && interviewRecap.lastDays != null && (
+              <button
+                type="button"
+                onClick={() => document.getElementById(`talent-iv-${interviewRecap.last!.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                className="cursor-pointer rounded-full border border-[#e2e7e2] bg-[#f8faf8] px-3 py-1 text-left text-xs font-medium text-[color:rgba(11,11,11,0.65)] transition hover:border-[var(--brand)]/30 hover:bg-[var(--brand)]/5"
+              >
+                Dernier entretien : il y a {interviewRecap.lastDays} jour{interviewRecap.lastDays > 1 ? "s" : ""} — voir
+              </button>
             )}
-            {interviewRecap.nextDays != null && (
-              <span className="rounded-full border border-[#e2e7e2] bg-[#f8faf8] px-3 py-1 text-xs font-medium text-[color:rgba(11,11,11,0.65)]">
-                Prochain entretien : dans {interviewRecap.nextDays} jour{interviewRecap.nextDays > 1 ? "s" : ""}
-              </span>
+            {interviewRecap.next && interviewRecap.nextDays != null && (
+              <button
+                type="button"
+                onClick={() => document.getElementById(`talent-iv-${interviewRecap.next!.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                className="cursor-pointer rounded-full border border-[#e2e7e2] bg-[#f8faf8] px-3 py-1 text-left text-xs font-medium text-[color:rgba(11,11,11,0.65)] transition hover:border-[var(--brand)]/30 hover:bg-[var(--brand)]/5"
+              >
+                Prochain entretien : dans {interviewRecap.nextDays} jour{interviewRecap.nextDays > 1 ? "s" : ""} — voir
+              </button>
             )}
           </div>
 
@@ -582,7 +611,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
           ) : (
             <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto pr-1">
               {data.interviews.map((iv) => (
-                <div key={iv.id} className="rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-3 sm:p-4">
+                <div key={iv.id} id={`talent-iv-${iv.id}`} className="rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-3 sm:p-4 scroll-mt-24">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${typeBadge(iv.type)}`}>

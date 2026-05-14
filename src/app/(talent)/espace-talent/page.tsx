@@ -1,6 +1,20 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { optionalEnv } from "@/env";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import {
+  estimateNetMonthlyFromAnnualBrut,
+  approximatePrivateNetPercentile2024,
+  pctVsInseeMedianNetMonthly,
+  readInseeMedianNetMonthly,
+} from "@/lib/talent/insee-fr-distribution";
+import { frSalaryGameBucket, frSalaryGameTitle } from "@/lib/talent/fr-salary-game";
+import {
+  deriveMarketSearchParams,
+  isTalentMarketBenchmarkStale,
+  refreshTalentMarketBenchmark,
+  type TalentMarketBenchmarkRow,
+} from "@/lib/talent/refresh-talent-market-benchmark";
 import { EspaceTalentClient } from "./espace-talent-client";
 
 async function getData(userId: string, orgId: string | null, userEmail: string | null) {
@@ -56,7 +70,7 @@ async function getData(userId: string, orgId: string | null, userEmail: string |
     }
   }
 
-  if (!employee) return { orgName: org?.name ?? "", employee: null, department: null, level: null, manager: null, salaryVisible: false };
+  if (!employee) return { orgName: org?.name ?? "", employee: null, department: null, level: null, manager: null, salaryVisible: false, hasdataConfigured: !!optionalEnv.HASDATA_API_KEY, talentMarketBenchmark: null, inseeSalaryGame: null };
 
   const [deptResult, levelResult, managerResult] = await Promise.all([
     employee.current_department_id
@@ -115,6 +129,58 @@ async function getData(userId: string, orgId: string | null, userEmail: string |
   const salary = employee.annual_salary_brut != null ? Number(employee.annual_salary_brut) : null;
   const compaRatio = salary && midSalary && midSalary > 0 ? Math.round((salary / midSalary) * 100) : null;
 
+  const { data: tmbRow, error: tmbErr } = await supabase
+    .from("talent_market_benchmarks")
+    .select("*")
+    .eq("employee_id", employee.id)
+    .maybeSingle();
+
+  const { keyword: marketKeyword, location: marketLocation } = deriveMarketSearchParams({
+    current_job_title: employee.current_job_title,
+    location: employee.location,
+  });
+
+  let talentMarketBenchmark = (!tmbErr && tmbRow ? (tmbRow as TalentMarketBenchmarkRow) : null) ?? null;
+  const hasdataConfigured = !!optionalEnv.HASDATA_API_KEY;
+  if (
+    salary != null &&
+    hasdataConfigured &&
+    isTalentMarketBenchmarkStale(talentMarketBenchmark, salary, marketKeyword, marketLocation)
+  ) {
+    try {
+      const updated = await refreshTalentMarketBenchmark(supabase, {
+        employeeId: employee.id,
+        organizationId: organizationId,
+        keyword: marketKeyword,
+        location: marketLocation,
+        annualSalaryBrut: salary,
+      });
+      if (updated) talentMarketBenchmark = updated;
+    } catch (e) {
+      console.error("[espace-talent] refresh talent market benchmark", e);
+    }
+  }
+
+  let inseeSalaryGame: {
+    netMonthlyEstimated: number;
+    inseeMedianNetMonthly: number;
+    pctVsMedian: number;
+    approximatePercentile: number;
+    game: { bucket: number; title: string; emoji: string; blurb: string };
+  } | null = null;
+  if (salary != null) {
+    const netMonthly = estimateNetMonthlyFromAnnualBrut(salary);
+    const pctVsMedian = pctVsInseeMedianNetMonthly(netMonthly);
+    const bucket = frSalaryGameBucket(pctVsMedian);
+    inseeSalaryGame = {
+      netMonthlyEstimated: Math.round(netMonthly),
+      inseeMedianNetMonthly: readInseeMedianNetMonthly(),
+      pctVsMedian,
+      approximatePercentile: Math.round(approximatePrivateNetPercentile2024(netMonthly) * 10) / 10,
+      game: { bucket, ...frSalaryGameTitle(bucket) },
+    };
+  }
+
   return {
     orgName: org?.name ?? "",
     employee,
@@ -144,6 +210,9 @@ async function getData(userId: string, orgId: string | null, userEmail: string |
         departmentId: p.department_id,
       }))
       .sort((a, b) => (a.startDate && b.startDate ? new Date(a.startDate).getTime() - new Date(b.startDate).getTime() : 0)),
+    hasdataConfigured,
+    talentMarketBenchmark,
+    inseeSalaryGame,
   };
 }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sendSalaryChangeEmail } from "@/lib/email";
+import { invalidateTalentMarketBenchmark } from "@/lib/talent/refresh-talent-market-benchmark";
 
 async function getOrganizationId(userId: string, orgId: string | null) {
   const supabase = supabaseAdmin();
@@ -128,6 +129,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             salary_adjustment: adj,
           };
           await supabase.from("employees").update(empUpdates).eq("id", currentRow.employee_id);
+          await invalidateTalentMarketBenchmark(supabase, currentRow.employee_id);
 
           const effectiveDate = currentRow.interview_date || new Date().toISOString().split("T")[0];
           const reason = `Suite à ${currentRow.type || "entretien"}`;

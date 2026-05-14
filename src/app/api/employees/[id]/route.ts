@@ -3,6 +3,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { updateSubscriptionSeats } from "@/lib/stripe/subscriptions";
 import { sendRemoveTalentEmail } from "@/lib/email";
+import { invalidateTalentMarketBenchmark } from "@/lib/talent/refresh-talent-market-benchmark";
 
 async function getOrganizationId(userId: string, orgId: string | null) {
   const supabase = supabaseAdmin();
@@ -150,6 +151,15 @@ export async function PATCH(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     if (!data) return NextResponse.json({ error: "Talent introuvable" }, { status: 404 });
+
+    const invalidateMarket =
+      updates.annual_salary_brut !== undefined ||
+      updates.current_job_title !== undefined ||
+      updates.location !== undefined;
+    if (invalidateMarket) {
+      await invalidateTalentMarketBenchmark(supabase, id);
+    }
+
     return NextResponse.json(data);
   } catch (e) {
     console.error("Employee PATCH:", e);

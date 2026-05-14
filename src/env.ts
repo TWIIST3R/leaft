@@ -28,6 +28,8 @@ export const clientEnv = {
 export const optionalEnv = {
   CLERK_WEBHOOK_SECRET: readEnv("CLERK_WEBHOOK_SECRET", false),
   HASDATA_API_KEY: readEnv("HASDATA_API_KEY", false),
+  /** Surcharge optionnelle de la médiane nette mensuelle Insee (€) pour la jauge « vs France ». */
+  INSEE_NET_MEDIAN_MONTHLY_OVERRIDE: readEnv("INSEE_NET_MEDIAN_MONTHLY_OVERRIDE", false),
 };
 
 export type ServerEnv = typeof serverEnv;

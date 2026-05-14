@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { invalidateTalentMarketBenchmark } from "@/lib/talent/refresh-talent-market-benchmark";
 import { optionalEnv } from "@/env";
 import crypto from "crypto";
 
@@ -122,6 +123,7 @@ export async function POST(request: NextRequest) {
         console.error("Error linking clerk_user_id to employee:", empError);
         return false;
       }
+      await invalidateTalentMarketBenchmark(supabase, emp.id);
       console.log("Linked clerk_user_id to employee:", { clerkUserId, email: trimmed });
       return true;
     }
