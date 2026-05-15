@@ -133,11 +133,11 @@ export function InseeSalaryCurveChart({
       </svg>
 
       <div
-        className="pointer-events-none absolute z-[3] flex -translate-x-1/2 flex-col items-center gap-1"
+        className="pointer-events-none absolute z-[3] flex -translate-x-1/2 flex-col items-center gap-1.5"
         style={{
           left: `${(talentX / VB_W) * 100}%`,
-          top: `${(talentY / VB_H) * 100}%`,
-          transform: "translate(-50%, calc(-100% - 10px))",
+          top: `${((talentY - 44) / VB_H) * 100}%`,
+          transform: "translate(-50%, -100%)",
         }}
       >
         <div className="rounded-full bg-white p-0.5 shadow-lg ring-2 ring-[var(--brand)]">

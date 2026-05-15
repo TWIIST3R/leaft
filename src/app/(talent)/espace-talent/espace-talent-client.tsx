@@ -5,7 +5,8 @@ import gsap from "gsap";
 import { Avatar } from "@/components/ui/avatar";
 import { LineChart } from "@/components/charts/line-chart";
 import { TalentOnboarding } from "@/components/talent/talent-onboarding";
-import { TalentJobMarketCard, type InseeSalaryGameUi } from "@/components/talent/talent-job-market-card";
+import { TalentMarketOffersCard } from "@/components/talent/talent-market-offers-card";
+import { TalentFranceReferenceCard, type InseeSalaryGameUi } from "@/components/talent/talent-france-reference-card";
 import type { TalentMarketBenchmarkRow } from "@/lib/talent/refresh-talent-market-benchmark";
 
 type Interview = {
@@ -327,8 +328,10 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
       <TalentOnboarding
         firstName={employee.first_name}
         salaryVisible={data.salaryVisible}
+        hasProgression={progressionData.length >= 2}
         subscriptionActive={subscriptionActive}
         rdvModalOpen={showRdvModal}
+        onTourOpenRdv={() => setShowRdvModal(true)}
       />
       <section data-section data-tour="talent-welcome" className={`${CARD} !p-5 sm:!p-8`}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -407,11 +410,11 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
         </div>
       </section>
 
-      <section data-section className="grid items-start gap-4 sm:gap-6 lg:grid-cols-5">
-        {data.salaryVisible && (
-          <div data-tour="talent-remuneration" className="rounded-3xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-4 shadow-[0_24px_60px_rgba(17,27,24,0.06)] sm:p-6 lg:col-span-2">
+      {data.salaryVisible && (
+        <section data-section className="space-y-4 sm:space-y-6">
+          <div data-tour="talent-remuneration-stats" className="rounded-3xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-4 shadow-[0_24px_60px_rgba(17,27,24,0.06)] sm:p-6">
             <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Rémunération</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:gap-6">
+            <div className="mt-4 grid gap-6 sm:grid-cols-2">
               <div>
                 <p className={LABEL}>Salaire annuel brut</p>
                 <p className="mt-1 text-3xl font-semibold text-[var(--text)]">
@@ -419,48 +422,47 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
                 </p>
               </div>
               <div>
-                <p className={LABEL}>Compa-ratio interne</p>
+                <p className={LABEL}>Position dans la grille</p>
                 {data.compaRatio != null ? (
                   <>
                     <p className="mt-1 text-3xl font-semibold text-[var(--text)]">{data.compaRatio} %</p>
                     <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.55)]">
-                      Salaire par rapport au midpoint de ton niveau dans la grille entreprise.
+                      Par rapport au midpoint de votre niveau dans la grille de l&apos;entreprise.
                     </p>
                   </>
                 ) : (
-                  <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.55)]">Non calculable (midpoint ou salaire manquant).</p>
+                  <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.55)]">Non calculable pour le moment.</p>
                 )}
               </div>
-              <div className="sm:col-span-2">
-                <TalentJobMarketCard
-                  annualSalaryBrut={employee.annual_salary_brut}
-                  hasdataConfigured={data.hasdataConfigured}
-                  talentMarketBenchmark={data.talentMarketBenchmark}
-                  inseeSalaryGame={data.inseeSalaryGame}
-                  salaryVisible={data.salaryVisible}
-                  currentEmployeeId={employee.id}
-                  marketTeamPeers={data.marketTeamPeers}
-                  firstName={employee.first_name}
-                  lastName={employee.last_name}
-                  avatarUrl={avatarUrl ?? employee.avatar_url}
-                />
-              </div>
-              {data.levelRange && data.levelRange.min != null && data.levelRange.max != null && (
-                <div className="sm:col-span-2">
-                  <p className={LABEL}>Fourchette du niveau</p>
-                  <p className="mt-1 text-sm text-[var(--text)]">
-                    {data.levelRange.min.toLocaleString("fr-FR")} € — {data.levelRange.max.toLocaleString("fr-FR")} €
-                  </p>
-                  {data.levelRange.mid != null && (
-                    <p className="mt-0.5 text-xs text-[color:rgba(11,11,11,0.5)]">Midpoint : {data.levelRange.mid.toLocaleString("fr-FR")} €</p>
-                  )}
-                </div>
-              )}
             </div>
           </div>
-        )}
 
-        <div data-tour="talent-entretiens" className={`${CARD} flex flex-col ${data.salaryVisible ? "lg:col-span-3" : "lg:col-span-5"}`} id="talent-mes-entretiens">
+          <div data-tour="talent-marche-emploi">
+            <TalentMarketOffersCard
+              annualSalaryBrut={employee.annual_salary_brut}
+              hasdataConfigured={data.hasdataConfigured}
+              talentMarketBenchmark={data.talentMarketBenchmark}
+              salaryVisible={data.salaryVisible}
+              currentEmployeeId={employee.id}
+              marketTeamPeers={data.marketTeamPeers}
+            />
+          </div>
+
+          {data.inseeSalaryGame && (
+            <div data-tour="talent-reference-france">
+              <TalentFranceReferenceCard
+                inseeSalaryGame={data.inseeSalaryGame}
+                firstName={employee.first_name}
+                lastName={employee.last_name}
+                avatarUrl={avatarUrl ?? employee.avatar_url}
+              />
+            </div>
+          )}
+        </section>
+      )}
+
+      <section data-section>
+        <div data-tour="talent-entretiens" className={`${CARD} flex flex-col`} id="talent-mes-entretiens">
           <div className="flex items-center justify-between gap-2">
             <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Mes entretiens</h2>
             <span className="rounded-full bg-[var(--brand)]/10 px-2.5 py-0.5 text-xs font-semibold text-[var(--brand)]">
@@ -767,7 +769,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
       </section>
 
       {progressionData.length >= 2 && (
-        <section data-section className={CARD}>
+        <section data-section data-tour="talent-progression" className={CARD}>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Ma progression</h2>
             <span className="rounded-full bg-[var(--brand)]/10 px-2.5 py-0.5 text-xs font-semibold text-[var(--brand)]">

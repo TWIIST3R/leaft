@@ -46,9 +46,9 @@ export function MarketOffersTeamRail({
   const posPct = (sal: number) => ((sal - axisLo) / axisSpan) * 100;
 
   const markers = [
-    { label: "P25 offres", value: p25, tone: "muted" as const },
-    { label: "P50 (médiane offres)", value: p50, tone: "brand" as const },
-    { label: "P75 offres", value: p75, tone: "muted" as const },
+    { label: "Fourchette basse", value: p25, tone: "muted" as const },
+    { label: "Médiane marché", value: p50, tone: "brand" as const },
+    { label: "Fourchette haute", value: p75, tone: "muted" as const },
   ];
 
   const sorted = [...peersToShow].sort((a, b) => Number(a.annual_salary_brut) - Number(b.annual_salary_brut));

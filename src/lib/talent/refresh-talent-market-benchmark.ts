@@ -5,8 +5,10 @@ import {
   fetchGlassdoorListing,
   fetchIndeedListing,
   mergeMarketStats,
-  normalizeHasDataLocation,
 } from "@/lib/hasdata/job-market";
+import { expandJobSearchKeywords } from "@/lib/talent/market-job-keywords";
+
+export const MARKET_SEARCH_LOCATION_FRANCE = "France";
 
 export type TalentMarketBenchmarkRow = {
   employee_id: string;
@@ -35,10 +37,10 @@ function positionLabel(
   p75: number | null,
 ): string | null {
   if (p25 == null || p50 == null || p75 == null) return null;
-  if (salary < p25) return "sous le quartile bas des offres agrégées";
-  if (salary < p50) return "entre le 1er quartile et la médiane marché (offres)";
-  if (salary <= p75) return "entre la médiane et le 3e quartile marché (offres)";
-  return "au-dessus du 3e quartile des offres agrégées";
+  if (salary < p25) return "en dessous de la fourchette basse observée sur les offres";
+  if (salary < p50) return "dans la moitié basse du marché (offres)";
+  if (salary <= p75) return "dans la moitié haute du marché (offres)";
+  return "au-dessus de la fourchette haute observée sur les offres";
 }
 
 export function deriveMarketSearchParams(employee: {
@@ -46,18 +48,15 @@ export function deriveMarketSearchParams(employee: {
   location: string | null;
 }): { keyword: string; location: string } {
   const keyword = (employee.current_job_title || "emploi").trim().slice(0, 120) || "emploi";
-  const raw =
-    employee.location && employee.location.trim().length > 1 ? employee.location.trim() : "France";
-  const location = normalizeHasDataLocation(raw);
-  return { keyword, location };
+  return { keyword, location: MARKET_SEARCH_LOCATION_FRANCE };
 }
 
 function describeHttp(source: string, status: number): string {
-  if (status === 429) return `${source} : limite de débit (429), réessaie plus tard.`;
-  if (status === 401 || status === 403) return `${source} : clé API refusée (${status}).`;
-  if (status === 400) return `${source} : requête refusée (400), vérifie la zone ou le libellé du poste.`;
-  if (status >= 500) return `${source} : erreur serveur (${status}).`;
-  return `${source} : erreur HTTP ${status}.`;
+  if (status === 429) return `${source} : trop de requêtes, réessaie plus tard.`;
+  if (status === 401 || status === 403) return `${source} : accès refusé.`;
+  if (status === 400) return `${source} : recherche non acceptée.`;
+  if (status >= 500) return `${source} : service indisponible.`;
+  return `${source} : erreur (${status}).`;
 }
 
 export function isTalentMarketBenchmarkStale(
@@ -74,7 +73,6 @@ export function isTalentMarketBenchmarkStale(
   return false;
 }
 
-/** Supprime le cache comparatif pour forcer un nouvel appel HasData au prochain chargement utile. */
 export async function invalidateTalentMarketBenchmark(
   supabase: ReturnType<typeof supabaseAdmin>,
   employeeId: string,
@@ -82,9 +80,6 @@ export async function invalidateTalentMarketBenchmark(
   await supabase.from("talent_market_benchmarks").delete().eq("employee_id", employeeId);
 }
 
-/**
- * Appelle HasData et enregistre le résultat (y compris en cas d’erreur partielle, pour ne pas boucler à chaque hit).
- */
 export async function refreshTalentMarketBenchmark(
   supabase: ReturnType<typeof supabaseAdmin>,
   params: {
@@ -97,12 +92,13 @@ export async function refreshTalentMarketBenchmark(
 ): Promise<TalentMarketBenchmarkRow | null> {
   const apiKey = optionalEnv.HASDATA_API_KEY;
   const salary = params.annualSalaryBrut != null ? Number(params.annualSalaryBrut) : null;
+  const location = MARKET_SEARCH_LOCATION_FRANCE;
 
   const baseRow = {
     employee_id: params.employeeId,
     organization_id: params.organizationId,
     search_keyword: params.keyword,
-    search_location: params.location,
+    search_location: location,
     salary_at_fetch: salary,
     fetched_at: new Date().toISOString(),
   };
@@ -112,70 +108,83 @@ export async function refreshTalentMarketBenchmark(
   }
 
   let fetchError: string | null = null;
-  let indeed = { ok: false, status: 0, count: 0 };
-  let glassdoor = { ok: false, status: 0, count: 0 };
+  let indeedOk = false;
+  let glassdoorOk = false;
+  let indeedCount = 0;
+  let glassdoorCount = 0;
   let p25: number | null = null;
   let p50: number | null = null;
   let p75: number | null = null;
   let sampleSize = 0;
+  let lastIndeedStatus = 0;
+  let lastGlassdoorStatus = 0;
 
   try {
-    const indeedRes = await fetchIndeedListing({
-      apiKey,
-      keyword: params.keyword,
-      location: params.location,
-    });
-    await new Promise((r) => setTimeout(r, 750));
+    const keywords = await expandJobSearchKeywords(params.keyword);
+    const allIndeed: number[] = [];
+    const allGlassdoor: number[] = [];
 
-    let glassdoorRes = await fetchGlassdoorListing({
-      apiKey,
-      keyword: params.keyword,
-      location: params.location,
-    });
-    if (!glassdoorRes.ok && glassdoorRes.status === 400) {
-      await new Promise((r) => setTimeout(r, 500));
-      glassdoorRes = await fetchGlassdoorListing({
-        apiKey,
-        keyword: params.keyword,
-        location: params.location,
-        domain: "www.glassdoor.com",
-      });
+    for (let i = 0; i < keywords.length; i++) {
+      const kw = keywords[i]!;
+      if (i > 0) await new Promise((r) => setTimeout(r, 800));
+
+      const indeedRes = await fetchIndeedListing({ apiKey, keyword: kw, location });
+      lastIndeedStatus = indeedRes.status;
+      if (indeedRes.ok) {
+        indeedOk = true;
+        const vals = extractAnnualSalariesFromPayload(indeedRes.payload);
+        indeedCount += vals.length;
+        allIndeed.push(...vals);
+      }
+
+      await new Promise((r) => setTimeout(r, 750));
+
+      let glassdoorRes = await fetchGlassdoorListing({ apiKey, keyword: kw, location });
+      lastGlassdoorStatus = glassdoorRes.status;
+      if (!glassdoorRes.ok && glassdoorRes.status === 400) {
+        await new Promise((r) => setTimeout(r, 500));
+        glassdoorRes = await fetchGlassdoorListing({
+          apiKey,
+          keyword: kw,
+          location,
+          domain: "www.glassdoor.com",
+        });
+        lastGlassdoorStatus = glassdoorRes.status;
+      }
+      if (glassdoorRes.ok) {
+        glassdoorOk = true;
+        const vals = extractAnnualSalariesFromPayload(glassdoorRes.payload);
+        glassdoorCount += vals.length;
+        allGlassdoor.push(...vals);
+      }
+
+      const mergedSoFar = mergeMarketStats(allIndeed, allGlassdoor);
+      if (mergedSoFar.n >= 12) break;
     }
 
-    indeed = {
-      ok: indeedRes.ok,
-      status: indeedRes.status,
-      count: indeedRes.ok ? extractAnnualSalariesFromPayload(indeedRes.payload).length : 0,
-    };
-    glassdoor = {
-      ok: glassdoorRes.ok,
-      status: glassdoorRes.status,
-      count: glassdoorRes.ok ? extractAnnualSalariesFromPayload(glassdoorRes.payload).length : 0,
-    };
-    const indeedVals = indeedRes.ok ? extractAnnualSalariesFromPayload(indeedRes.payload) : [];
-    const glassdoorVals = glassdoorRes.ok ? extractAnnualSalariesFromPayload(glassdoorRes.payload) : [];
-    const merged = mergeMarketStats(indeedVals, glassdoorVals);
+    const merged = mergeMarketStats(allIndeed, allGlassdoor);
     p25 = merged.p25;
     p50 = merged.p50;
     p75 = merged.p75;
     sampleSize = merged.n;
-    if (!indeedRes.ok && !glassdoorRes.ok) {
-      fetchError = `${describeHttp("Indeed", indeedRes.status)} ${describeHttp("Glassdoor", glassdoorRes.status)}`.trim();
-    } else if (!indeedRes.ok) {
-      fetchError = describeHttp("Indeed", indeedRes.status);
-    } else if (!glassdoorRes.ok) {
-      fetchError = describeHttp("Glassdoor", glassdoorRes.status);
+
+    if (!indeedOk && !glassdoorOk) {
+      fetchError = `${describeHttp("Indeed", lastIndeedStatus)} ${describeHttp("Glassdoor", lastGlassdoorStatus)}`.trim();
+    } else if (!indeedOk) {
+      fetchError = describeHttp("Indeed", lastIndeedStatus);
+    } else if (!glassdoorOk) {
+      fetchError = describeHttp("Glassdoor", lastGlassdoorStatus);
     } else if (sampleSize === 0) {
-      fetchError = "Aucun salaire exploitable dans les résultats agrégés.";
+      fetchError =
+        "Peu d’offres avec un salaire indiqué pour des postes proches du vôtre en France. Les résultats seront mis à jour lors de prochaines synchronisations.";
     }
   } catch (e) {
-    fetchError = e instanceof Error ? e.message : "Erreur HasData";
+    fetchError = e instanceof Error ? e.message : "Impossible de récupérer les offres pour le moment.";
   }
 
   const marketCompaPct =
     salary != null && p50 != null && p50 > 0 ? Math.round((salary / p50) * 100) : null;
-  const positionVsMarket =
-    salary != null ? positionLabel(salary, p25, p50, p75) : null;
+  const positionVsMarket = salary != null ? positionLabel(salary, p25, p50, p75) : null;
 
   const { data, error } = await supabase
     .from("talent_market_benchmarks")
@@ -186,10 +195,10 @@ export async function refreshTalentMarketBenchmark(
         p50_annual: p50,
         p75_annual: p75,
         sample_size: sampleSize,
-        indeed_ok: indeed.ok,
-        glassdoor_ok: glassdoor.ok,
-        indeed_count: indeed.count,
-        glassdoor_count: glassdoor.count,
+        indeed_ok: indeedOk,
+        glassdoor_ok: glassdoorOk,
+        indeed_count: indeedCount,
+        glassdoor_count: glassdoorCount,
         market_compa_pct: marketCompaPct,
         position_vs_market: positionVsMarket,
         fetch_error: fetchError,
