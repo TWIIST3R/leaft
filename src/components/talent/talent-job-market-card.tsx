@@ -156,6 +156,7 @@ export function TalentJobMarketCard({
           )}
           <InseeSalaryCurveChart
             netMonthlyEstimated={inseeSalaryGame.netMonthlyEstimated}
+            inseeMedianNetMonthly={inseeSalaryGame.inseeMedianNetMonthly}
             firstName={firstName}
             lastName={lastName}
             avatarUrl={avatarUrl}

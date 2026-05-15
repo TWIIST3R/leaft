@@ -5,7 +5,6 @@ import {
   INSEE_CHART_NET_MAX,
   INSEE_CHART_NET_MIN,
   INSEE_INSPIRED_NET_MONTHLY_HISTOGRAM,
-  readInseeMedianNetMonthly,
 } from "@/lib/talent/insee-fr-distribution";
 
 const VB_W = 640;
@@ -50,16 +49,19 @@ function curveYAtNet(net: number): number {
  */
 export function InseeSalaryCurveChart({
   netMonthlyEstimated,
+  inseeMedianNetMonthly,
   firstName,
   lastName,
   avatarUrl,
 }: {
   netMonthlyEstimated: number;
+  /** Médiane déjà résolue côté serveur (override env inclus). */
+  inseeMedianNetMonthly: number;
   firstName: string;
   lastName: string;
   avatarUrl: string | null;
 }) {
-  const median = readInseeMedianNetMonthly();
+  const median = inseeMedianNetMonthly;
   const maxRel = Math.max(...INSEE_INSPIRED_NET_MONTHLY_HISTOGRAM.map((b) => b.rel), 0.01);
 
   const bars = INSEE_INSPIRED_NET_MONTHLY_HISTOGRAM.map((b) => {

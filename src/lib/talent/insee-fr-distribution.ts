@@ -2,9 +2,10 @@
  * Repères publics Insee (secteur privé, salaire net mensuel, base « Tous salariés » 2024)
  * pour positionner le talent sur une distribution indicative — sans appel API.
  * Les montants nets sont issus des publications Insee courantes (médiane, déciles élevés).
+ *
+ * Ne pas importer @/env ici : ce module est utilisé par des composants client (graph Insee) ;
+ * charger env.ts exécuterait aussi serverEnv (CLERK_SECRET_KEY, etc.) et ferait planter le navigateur.
  */
-
-import { optionalEnv } from "@/env";
 
 /** Médiane : 50 % des salariés gagnent plus que ce montant (net / mois). */
 export const INSEE_PRIVATE_NET_MEDIAN_MONTHLY_2024 = 2190;
@@ -42,7 +43,7 @@ export const INSEE_CHART_NET_MIN = 900;
 export const INSEE_CHART_NET_MAX = 14000;
 
 export function readInseeMedianNetMonthly(): number {
-  const raw = optionalEnv.INSEE_NET_MEDIAN_MONTHLY_OVERRIDE;
+  const raw = process.env.INSEE_NET_MEDIAN_MONTHLY_OVERRIDE;
   if (raw) {
     const n = Number(raw);
     if (Number.isFinite(n) && n > 800 && n < 8000) return Math.round(n);
