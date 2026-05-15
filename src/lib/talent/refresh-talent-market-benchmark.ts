@@ -5,6 +5,7 @@ import {
   fetchGlassdoorListing,
   fetchIndeedListing,
   mergeMarketStats,
+  normalizeHasDataLocation,
 } from "@/lib/hasdata/job-market";
 
 export type TalentMarketBenchmarkRow = {
@@ -45,8 +46,18 @@ export function deriveMarketSearchParams(employee: {
   location: string | null;
 }): { keyword: string; location: string } {
   const keyword = (employee.current_job_title || "emploi").trim().slice(0, 120) || "emploi";
-  const location = (employee.location && employee.location.trim().length > 1 ? employee.location.trim() : "France").slice(0, 120);
+  const raw =
+    employee.location && employee.location.trim().length > 1 ? employee.location.trim() : "France";
+  const location = normalizeHasDataLocation(raw);
   return { keyword, location };
+}
+
+function describeHttp(source: string, status: number): string {
+  if (status === 429) return `${source} : limite de débit (429), réessaie plus tard.`;
+  if (status === 401 || status === 403) return `${source} : clé API refusée (${status}).`;
+  if (status === 400) return `${source} : requête refusée (400), vérifie la zone ou le libellé du poste.`;
+  if (status >= 500) return `${source} : erreur serveur (${status}).`;
+  return `${source} : erreur HTTP ${status}.`;
 }
 
 export function isTalentMarketBenchmarkStale(
@@ -109,10 +120,28 @@ export async function refreshTalentMarketBenchmark(
   let sampleSize = 0;
 
   try {
-    const [indeedRes, glassdoorRes] = await Promise.all([
-      fetchIndeedListing({ apiKey, keyword: params.keyword, location: params.location }),
-      fetchGlassdoorListing({ apiKey, keyword: params.keyword, location: params.location }),
-    ]);
+    const indeedRes = await fetchIndeedListing({
+      apiKey,
+      keyword: params.keyword,
+      location: params.location,
+    });
+    await new Promise((r) => setTimeout(r, 750));
+
+    let glassdoorRes = await fetchGlassdoorListing({
+      apiKey,
+      keyword: params.keyword,
+      location: params.location,
+    });
+    if (!glassdoorRes.ok && glassdoorRes.status === 400) {
+      await new Promise((r) => setTimeout(r, 500));
+      glassdoorRes = await fetchGlassdoorListing({
+        apiKey,
+        keyword: params.keyword,
+        location: params.location,
+        domain: "www.glassdoor.com",
+      });
+    }
+
     indeed = {
       ok: indeedRes.ok,
       status: indeedRes.status,
@@ -131,9 +160,13 @@ export async function refreshTalentMarketBenchmark(
     p75 = merged.p75;
     sampleSize = merged.n;
     if (!indeedRes.ok && !glassdoorRes.ok) {
-      fetchError = `Indeed ${indeedRes.status} / Glassdoor ${glassdoorRes.status}`;
+      fetchError = `${describeHttp("Indeed", indeedRes.status)} ${describeHttp("Glassdoor", glassdoorRes.status)}`.trim();
+    } else if (!indeedRes.ok) {
+      fetchError = describeHttp("Indeed", indeedRes.status);
+    } else if (!glassdoorRes.ok) {
+      fetchError = describeHttp("Glassdoor", glassdoorRes.status);
     } else if (sampleSize === 0) {
-      fetchError = "Aucun salaire exploitable dans les résultats";
+      fetchError = "Aucun salaire exploitable dans les résultats agrégés.";
     }
   } catch (e) {
     fetchError = e instanceof Error ? e.message : "Erreur HasData";

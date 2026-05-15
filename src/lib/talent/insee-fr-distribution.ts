@@ -18,6 +18,29 @@ export const INSEE_PRIVATE_NET_P99_MONTHLY_2024 = 10261;
 /** Zone basse indicative du graphique (stages / contrats courts, hors agricole). */
 export const INSEE_PRIVATE_NET_FLOOR_MONTHLY_2024 = 1300;
 
+/**
+ * Histogramme indicatif (forme proche des courbes Insee « tous salariés » privé, net / mois).
+ * Hauteurs relatives uniquement — pour visualisation, pas des effectifs officiels.
+ */
+export const INSEE_INSPIRED_NET_MONTHLY_HISTOGRAM: { from: number; to: number; rel: number }[] = [
+  { from: 900, to: 1300, rel: 0.12 },
+  { from: 1300, to: 1500, rel: 0.38 },
+  { from: 1500, to: 1700, rel: 0.62 },
+  { from: 1700, to: 1900, rel: 0.72 },
+  { from: 1900, to: 2100, rel: 0.58 },
+  { from: 2100, to: 2400, rel: 0.45 },
+  { from: 2400, to: 2800, rel: 0.32 },
+  { from: 2800, to: 3400, rel: 0.24 },
+  { from: 3400, to: 4200, rel: 0.18 },
+  { from: 4200, to: 5200, rel: 0.13 },
+  { from: 5200, to: 7000, rel: 0.09 },
+  { from: 7000, to: 9500, rel: 0.06 },
+  { from: 9500, to: 14000, rel: 0.04 },
+];
+
+export const INSEE_CHART_NET_MIN = 900;
+export const INSEE_CHART_NET_MAX = 14000;
+
 export function readInseeMedianNetMonthly(): number {
   const raw = optionalEnv.INSEE_NET_MEDIAN_MONTHLY_OVERRIDE;
   if (raw) {

@@ -3,6 +3,15 @@
 const INDEED_URL = "https://api.hasdata.com/scrape/indeed/listing";
 const GLASSDOOR_URL = "https://api.hasdata.com/scrape/glassdoor/listing";
 
+/** Localisation exploitable par les scrapers (ville seule → suffixe France). */
+export function normalizeHasDataLocation(location: string): string {
+  const t = location.trim().replace(/\s+/g, " ");
+  if (!t || /^france$/i.test(t)) return "France";
+  if (/france/i.test(t)) return t.slice(0, 120);
+  if (/,/.test(t)) return t.slice(0, 120);
+  return `${t}, France`.slice(0, 120);
+}
+
 function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
 }
@@ -141,9 +150,10 @@ export async function fetchIndeedListing(params: {
   keyword: string;
   location: string;
 }): Promise<{ ok: boolean; status: number; payload: unknown }> {
+  const loc = normalizeHasDataLocation(params.location);
   const url = new URL(INDEED_URL);
   url.searchParams.set("keyword", params.keyword);
-  url.searchParams.set("location", params.location);
+  url.searchParams.set("location", loc);
   url.searchParams.set("sort", "date");
   url.searchParams.set("domain", "fr.indeed.com");
 
@@ -167,12 +177,14 @@ export async function fetchGlassdoorListing(params: {
   apiKey: string;
   keyword: string;
   location: string;
+  domain?: string;
 }): Promise<{ ok: boolean; status: number; payload: unknown }> {
+  const loc = normalizeHasDataLocation(params.location);
   const url = new URL(GLASSDOOR_URL);
   url.searchParams.set("keyword", params.keyword);
-  url.searchParams.set("location", params.location);
+  url.searchParams.set("location", loc);
   url.searchParams.set("sort", "recent");
-  url.searchParams.set("domain", "www.glassdoor.fr");
+  url.searchParams.set("domain", params.domain ?? "www.glassdoor.fr");
 
   const res = await fetch(url.toString(), {
     headers: {

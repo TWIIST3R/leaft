@@ -70,7 +70,35 @@ async function getData(userId: string, orgId: string | null, userEmail: string |
     }
   }
 
-  if (!employee) return { orgName: org?.name ?? "", employee: null, department: null, level: null, manager: null, salaryVisible: false, hasdataConfigured: !!optionalEnv.HASDATA_API_KEY, talentMarketBenchmark: null, inseeSalaryGame: null };
+  if (!employee) return { orgName: org?.name ?? "", employee: null, department: null, level: null, manager: null, salaryVisible: false, hasdataConfigured: !!optionalEnv.HASDATA_API_KEY, talentMarketBenchmark: null, inseeSalaryGame: null, marketTeamPeers: [] };
+
+  let marketTeamPeers: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    avatar_url: string | null;
+    annual_salary_brut: number | null;
+  }[] = [];
+
+  if (employee.manager_id) {
+    const { data: mgrPeers } = await supabase
+      .from("employees")
+      .select("id, first_name, last_name, avatar_url, annual_salary_brut")
+      .eq("organization_id", organizationId)
+      .eq("manager_id", employee.manager_id);
+    marketTeamPeers = mgrPeers ?? [];
+  }
+  if (marketTeamPeers.length < 2 && employee.current_department_id) {
+    const { data: deptPeers } = await supabase
+      .from("employees")
+      .select("id, first_name, last_name, avatar_url, annual_salary_brut")
+      .eq("organization_id", organizationId)
+      .eq("current_department_id", employee.current_department_id)
+      .limit(48);
+    const byId = new Map(marketTeamPeers.map((p) => [p.id, p]));
+    for (const p of deptPeers ?? []) byId.set(p.id, p);
+    marketTeamPeers = [...byId.values()];
+  }
 
   const [deptResult, levelResult, managerResult] = await Promise.all([
     employee.current_department_id
@@ -213,6 +241,7 @@ async function getData(userId: string, orgId: string | null, userEmail: string |
     hasdataConfigured,
     talentMarketBenchmark,
     inseeSalaryGame,
+    marketTeamPeers,
   };
 }
 

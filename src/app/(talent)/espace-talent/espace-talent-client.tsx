@@ -71,6 +71,13 @@ type TalentData = {
   hasdataConfigured: boolean;
   talentMarketBenchmark: TalentMarketBenchmarkRow | null;
   inseeSalaryGame: InseeSalaryGameUi | null;
+  marketTeamPeers: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    avatar_url: string | null;
+    annual_salary_brut: number | null;
+  }[];
 };
 
 const CARD = "rounded-3xl border border-[#e2e7e2] bg-white p-4 shadow-[0_24px_60px_rgba(17,27,24,0.06)] sm:p-6";
@@ -317,8 +324,13 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
 
   return (
     <div ref={mainRef} className="space-y-6 sm:space-y-8">
-      <TalentOnboarding firstName={employee.first_name} />
-      <section data-section className={`${CARD} !p-5 sm:!p-8`}>
+      <TalentOnboarding
+        firstName={employee.first_name}
+        salaryVisible={data.salaryVisible}
+        subscriptionActive={subscriptionActive}
+        rdvModalOpen={showRdvModal}
+      />
+      <section data-section data-tour="talent-welcome" className={`${CARD} !p-5 sm:!p-8`}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <h1 className="text-2xl font-semibold text-[var(--text)]">
@@ -397,7 +409,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
 
       <section data-section className="grid items-start gap-4 sm:gap-6 lg:grid-cols-5">
         {data.salaryVisible && (
-          <div className="rounded-3xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-4 shadow-[0_24px_60px_rgba(17,27,24,0.06)] sm:p-6 lg:col-span-2">
+          <div data-tour="talent-remuneration" className="rounded-3xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-4 shadow-[0_24px_60px_rgba(17,27,24,0.06)] sm:p-6 lg:col-span-2">
             <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Rémunération</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:gap-6">
               <div>
@@ -425,6 +437,12 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
                   hasdataConfigured={data.hasdataConfigured}
                   talentMarketBenchmark={data.talentMarketBenchmark}
                   inseeSalaryGame={data.inseeSalaryGame}
+                  salaryVisible={data.salaryVisible}
+                  currentEmployeeId={employee.id}
+                  marketTeamPeers={data.marketTeamPeers}
+                  firstName={employee.first_name}
+                  lastName={employee.last_name}
+                  avatarUrl={avatarUrl ?? employee.avatar_url}
                 />
               </div>
               {data.levelRange && data.levelRange.min != null && data.levelRange.max != null && (
@@ -442,7 +460,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
           </div>
         )}
 
-        <div className={`${CARD} flex flex-col ${data.salaryVisible ? "lg:col-span-3" : "lg:col-span-5"}`} id="talent-mes-entretiens">
+        <div data-tour="talent-entretiens" className={`${CARD} flex flex-col ${data.salaryVisible ? "lg:col-span-3" : "lg:col-span-5"}`} id="talent-mes-entretiens">
           <div className="flex items-center justify-between gap-2">
             <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Mes entretiens</h2>
             <span className="rounded-full bg-[var(--brand)]/10 px-2.5 py-0.5 text-xs font-semibold text-[var(--brand)]">
@@ -472,6 +490,8 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <button
+              id="talent-tour-rdv-btn"
+              type="button"
               onClick={() => setShowRdvModal(true)}
               disabled={subscriptionActive === false}
               className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
@@ -491,7 +511,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
           )}
 
           {showRdvModal && (
-            <div className="mt-4 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-5">
+            <div id="talent-tour-rdv-panel" className="mt-4 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-5">
               <div className="space-y-4">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-[var(--text)]">Type d&apos;entretien</label>
@@ -594,6 +614,8 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
                     {rdvLoading ? "Envoi..." : "Envoyer la demande"}
                   </button>
                   <button
+                    id="talent-tour-rdv-cancel"
+                    type="button"
                     onClick={() => { setShowRdvModal(false); setRdvNote(""); setRdvSlots([{ date: "", time: "", durationMin: 45 }, { date: "", time: "", durationMin: 45 }, { date: "", time: "", durationMin: 45 }]); }}
                     className="cursor-pointer rounded-full border border-[#e2e7e2] px-4 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-[#f8faf8]"
                   >
