@@ -4,16 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const BASE_LINKS = [
-  { href: "/espace-talent", label: "Mon profil", exact: true },
-  { href: "/espace-talent/simulateur", label: "Simulateur", exact: false },
-  { href: "/espace-talent/organigramme", label: "Organigramme", exact: false },
+  { href: "/espace-talent", label: "Mon profil", exact: true, tourId: "talent-nav-profil" },
+  { href: "/espace-talent/comparatif", label: "Comparatif", exact: false, tourId: "talent-nav-comparatif" },
+  { href: "/espace-talent/simulateur", label: "Simulateur", exact: false, tourId: undefined },
+  { href: "/espace-talent/organigramme", label: "Organigramme", exact: false, tourId: undefined },
 ];
 
 export function TalentNav({ isManager = false }: { isManager?: boolean }) {
   const pathname = usePathname();
 
   const links = isManager
-    ? [...BASE_LINKS, { href: "/espace-talent/mon-equipe", label: "Mon equipe", exact: false }]
+    ? [...BASE_LINKS, { href: "/espace-talent/mon-equipe", label: "Mon equipe", exact: false, tourId: undefined }]
     : BASE_LINKS;
 
   return (
@@ -24,6 +25,7 @@ export function TalentNav({ isManager = false }: { isManager?: boolean }) {
           <Link
             key={link.href}
             href={link.href}
+            data-tour={link.tourId}
             className={`flex items-center rounded-xl px-3 py-2 text-sm font-medium transition ${
               isActive
                 ? "bg-[var(--brand)]/10 text-[var(--brand)]"

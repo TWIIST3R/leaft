@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-export const TALENT_TOUR_STORAGE_KEY = "leaft_talent_guided_tour_v3_done";
+export const TALENT_TOUR_STORAGE_KEY = "leaft_talent_guided_tour_v4_done";
 
 type TourStep =
   | "intro"
   | "hero"
   | "remuneration"
-  | "marche"
-  | "france"
+  | "comparatif"
   | "entretiens"
   | "progression"
   | "rdv_hint"
@@ -45,6 +44,7 @@ function clearTourDone() {
   try {
     window.localStorage.removeItem(TALENT_TOUR_STORAGE_KEY);
     window.localStorage.removeItem("leaft_talent_guided_tour_v2_done");
+    window.localStorage.removeItem("leaft_talent_guided_tour_v3_done");
   } catch {
     /* ignore */
   }
@@ -88,8 +88,7 @@ function BlockoutExcept({ rect, pad }: { rect: Rect; pad: number }) {
 const STEP_SELECTOR: Record<string, string> = {
   hero: '[data-tour="talent-welcome"]',
   remuneration: '[data-tour="talent-remuneration-stats"]',
-  marche: '[data-tour="talent-marche-emploi"]',
-  france: '[data-tour="talent-reference-france"]',
+  comparatif: '[data-tour="talent-nav-comparatif"]',
   entretiens: '[data-tour="talent-entretiens"]',
   progression: '[data-tour="talent-progression"]',
 };
@@ -159,13 +158,13 @@ export function TalentOnboarding({
   const [hole, setHole] = useState<Rect | null>(null);
   const rdvModalWasOpenedRef = useRef(false);
 
-  const totalSteps = salaryVisible ? (hasProgression ? 8 : 7) : hasProgression ? 5 : 4;
+  const totalSteps = salaryVisible ? (hasProgression ? 7 : 6) : hasProgression ? 5 : 4;
 
   const stepIndex = (() => {
     const order: TourStep[] = salaryVisible
       ? hasProgression
-        ? ["intro", "hero", "remuneration", "marche", "france", "entretiens", "progression", "rdv_hint", "outro"]
-        : ["intro", "hero", "remuneration", "marche", "france", "entretiens", "rdv_hint", "outro"]
+        ? ["intro", "hero", "remuneration", "comparatif", "entretiens", "progression", "rdv_hint", "outro"]
+        : ["intro", "hero", "remuneration", "comparatif", "entretiens", "rdv_hint", "outro"]
       : hasProgression
         ? ["intro", "hero", "entretiens", "progression", "rdv_hint", "outro"]
         : ["intro", "hero", "entretiens", "rdv_hint", "outro"];
@@ -204,9 +203,8 @@ export function TalentOnboarding({
     goStep(salaryVisible ? "remuneration" : "entretiens");
   }, [salaryVisible, goStep]);
 
-  const afterRemuneration = useCallback(() => goStep("marche"), [goStep]);
-  const afterMarche = useCallback(() => goStep("france"), [goStep]);
-  const afterFrance = useCallback(() => goStep("entretiens"), [goStep]);
+  const afterRemuneration = useCallback(() => goStep("comparatif"), [goStep]);
+  const afterComparatif = useCallback(() => goStep("entretiens"), [goStep]);
 
   const afterEntretiens = useCallback(() => {
     goStep(hasProgression ? "progression" : "rdv_hint");
@@ -332,7 +330,7 @@ export function TalentOnboarding({
           <div className="relative w-full max-w-md rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-xl sm:p-8">
             <h2 className="text-xl font-semibold text-[var(--text)]">Bienvenue, {firstName}</h2>
             <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
-              Un court parcours vous montre votre profil, votre rémunération, le comparatif marché, vos entretiens et comment demander un rendez-vous.
+              Un court parcours vous montre votre profil, votre rémunération, la page Comparatif, vos entretiens et comment demander un rendez-vous.
             </p>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <button
@@ -350,7 +348,7 @@ export function TalentOnboarding({
         </div>
       )}
 
-      {["hero", "remuneration", "marche", "france", "entretiens", "progression"].includes(step) && (
+      {["hero", "remuneration", "comparatif", "entretiens", "progression"].includes(step) && (
         <div className="pointer-events-none absolute inset-0 z-[97] flex items-end justify-center p-4 pb-[min(20vh,160px)] sm:items-center sm:pb-8">
           {step === "hero" && (
             <Popover
@@ -370,21 +368,12 @@ export function TalentOnboarding({
               onSkip={dismissAll}
             />
           )}
-          {step === "marche" && (
+          {step === "comparatif" && (
             <Popover
               stepLabel={label(stepIndex)}
-              title="Comparatif marché"
-              body="Fourchette issue des offres Indeed et Glassdoor en France, et position de votre équipe sur cette échelle."
-              onNext={afterMarche}
-              onSkip={dismissAll}
-            />
-          )}
-          {step === "france" && (
-            <Popover
-              stepLabel={label(stepIndex)}
-              title="Référence France"
-              body="Où vous vous situez sur la distribution des salaires nets du secteur privé (estimation à partir de votre brut)."
-              onNext={afterFrance}
+              title="Page Comparatif"
+              body="Marché des offres (Indeed & Glassdoor), référence France et positionnement par rapport à votre équipe — accessible depuis ce menu."
+              onNext={afterComparatif}
               onSkip={dismissAll}
             />
           )}
@@ -444,7 +433,7 @@ export function TalentOnboarding({
           <div className="w-full max-w-md rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-xl sm:p-8">
             <h2 className="text-lg font-semibold text-[var(--text)]">{label(totalSteps)} — Menu</h2>
             <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
-              Utilisez le menu pour le <strong>Simulateur</strong> d’augmentation et l’<strong>Organigramme</strong> de l’entreprise.
+              Utilisez le menu <strong>Comparatif</strong>, le <strong>Simulateur</strong> d’augmentation et l’<strong>Organigramme</strong>.
             </p>
             <button
               type="button"

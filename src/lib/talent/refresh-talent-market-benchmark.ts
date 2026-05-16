@@ -10,6 +10,10 @@ import { expandJobSearchKeywords } from "@/lib/talent/market-job-keywords";
 
 export const MARKET_SEARCH_LOCATION_FRANCE = "France";
 
+/**
+ * Snapshot persisté en base (`talent_market_benchmarks`) après chaque appel HasData réussi ou partiel.
+ * Réutilisable côté espace talent et fiches RH (lecture par `employee_id` / `organization_id`).
+ */
 export type TalentMarketBenchmarkRow = {
   employee_id: string;
   organization_id: string;
@@ -28,7 +32,13 @@ export type TalentMarketBenchmarkRow = {
   position_vs_market: string | null;
   fetch_error: string | null;
   fetched_at: string;
+  search_keywords_used: string[] | null;
 };
+
+export function parseSearchKeywordsUsed(row: unknown): string[] {
+  if (!row || !Array.isArray(row)) return [];
+  return row.filter((x): x is string => typeof x === "string" && x.trim().length > 0);
+}
 
 function positionLabel(
   salary: number,
@@ -118,9 +128,11 @@ export async function refreshTalentMarketBenchmark(
   let sampleSize = 0;
   let lastIndeedStatus = 0;
   let lastGlassdoorStatus = 0;
+  let keywordsUsed: string[] = [];
 
   try {
     const keywords = await expandJobSearchKeywords(params.keyword);
+    keywordsUsed = keywords;
     const allIndeed: number[] = [];
     const allGlassdoor: number[] = [];
 
@@ -202,6 +214,7 @@ export async function refreshTalentMarketBenchmark(
         market_compa_pct: marketCompaPct,
         position_vs_market: positionVsMarket,
         fetch_error: fetchError,
+        search_keywords_used: keywordsUsed,
       },
       { onConflict: "employee_id" },
     )
@@ -217,5 +230,9 @@ export async function refreshTalentMarketBenchmark(
       .maybeSingle();
     return (prev as TalentMarketBenchmarkRow | null) ?? null;
   }
-  return data as TalentMarketBenchmarkRow;
+  const row = data as TalentMarketBenchmarkRow;
+  return {
+    ...row,
+    search_keywords_used: parseSearchKeywordsUsed(row.search_keywords_used),
+  };
 }

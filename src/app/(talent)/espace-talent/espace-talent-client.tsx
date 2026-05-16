@@ -5,9 +5,6 @@ import gsap from "gsap";
 import { Avatar } from "@/components/ui/avatar";
 import { LineChart } from "@/components/charts/line-chart";
 import { TalentOnboarding } from "@/components/talent/talent-onboarding";
-import { TalentMarketOffersCard } from "@/components/talent/talent-market-offers-card";
-import { TalentFranceReferenceCard, type InseeSalaryGameUi } from "@/components/talent/talent-france-reference-card";
-import type { TalentMarketBenchmarkRow } from "@/lib/talent/refresh-talent-market-benchmark";
 
 type Interview = {
   id: string;
@@ -69,16 +66,6 @@ type TalentData = {
   deptLevels: DeptLevel[];
   benchmark: { p25: number; p50: number; p75: number; source: string; updated_at: string } | null;
   positionHistory: PositionEntry[];
-  hasdataConfigured: boolean;
-  talentMarketBenchmark: TalentMarketBenchmarkRow | null;
-  inseeSalaryGame: InseeSalaryGameUi | null;
-  marketTeamPeers: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    avatar_url: string | null;
-    annual_salary_brut: number | null;
-  }[];
 };
 
 const CARD = "rounded-3xl border border-[#e2e7e2] bg-white p-4 shadow-[0_24px_60px_rgba(17,27,24,0.06)] sm:p-6";
@@ -410,59 +397,42 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
         </div>
       </section>
 
-      {data.salaryVisible && (
-        <section data-section className="space-y-4 sm:space-y-6">
-          <div data-tour="talent-remuneration-stats" className="rounded-3xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-4 shadow-[0_24px_60px_rgba(17,27,24,0.06)] sm:p-6">
-            <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Rémunération</h2>
-            <div className="mt-4 grid gap-6 sm:grid-cols-2">
+      <section data-section className={`grid items-start gap-4 sm:gap-6 ${data.salaryVisible ? "lg:grid-cols-5" : ""}`}>
+        {data.salaryVisible && (
+          <div
+            data-tour="talent-remuneration-stats"
+            className="rounded-3xl border border-[#063d1f] bg-[var(--brand)] p-5 text-white shadow-[0_20px_50px_rgba(9,82,40,0.35)] sm:p-6 lg:col-span-2"
+          >
+            <h2 className="border-l-4 border-white/80 pl-4 text-lg font-semibold">Rémunération</h2>
+            <div className="mt-5 space-y-5">
               <div>
-                <p className={LABEL}>Salaire annuel brut</p>
-                <p className="mt-1 text-3xl font-semibold text-[var(--text)]">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-white/70">Salaire annuel brut</p>
+                <p className="mt-1 text-3xl font-bold tabular-nums">
                   {salary != null ? `${salary.toLocaleString("fr-FR")} €` : "—"}
                 </p>
               </div>
               <div>
-                <p className={LABEL}>Position dans la grille</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-white/70">Position dans la grille</p>
                 {data.compaRatio != null ? (
                   <>
-                    <p className="mt-1 text-3xl font-semibold text-[var(--text)]">{data.compaRatio} %</p>
-                    <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.55)]">
-                      Par rapport au midpoint de votre niveau dans la grille de l&apos;entreprise.
+                    <p className="mt-1 text-3xl font-bold tabular-nums">{data.compaRatio} %</p>
+                    <p className="mt-1 text-xs text-white/75">
+                      Par rapport au midpoint de votre niveau dans la grille entreprise.
                     </p>
                   </>
                 ) : (
-                  <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.55)]">Non calculable pour le moment.</p>
+                  <p className="mt-1 text-sm text-white/75">Non calculable pour le moment.</p>
                 )}
               </div>
             </div>
           </div>
+        )}
 
-          <div data-tour="talent-marche-emploi">
-            <TalentMarketOffersCard
-              annualSalaryBrut={employee.annual_salary_brut}
-              hasdataConfigured={data.hasdataConfigured}
-              talentMarketBenchmark={data.talentMarketBenchmark}
-              salaryVisible={data.salaryVisible}
-              currentEmployeeId={employee.id}
-              marketTeamPeers={data.marketTeamPeers}
-            />
-          </div>
-
-          {data.inseeSalaryGame && (
-            <div data-tour="talent-reference-france">
-              <TalentFranceReferenceCard
-                inseeSalaryGame={data.inseeSalaryGame}
-                firstName={employee.first_name}
-                lastName={employee.last_name}
-                avatarUrl={avatarUrl ?? employee.avatar_url}
-              />
-            </div>
-          )}
-        </section>
-      )}
-
-      <section data-section>
-        <div data-tour="talent-entretiens" className={`${CARD} flex flex-col`} id="talent-mes-entretiens">
+        <div
+          data-tour="talent-entretiens"
+          className={`${CARD} flex flex-col ${data.salaryVisible ? "lg:col-span-3" : ""}`}
+          id="talent-mes-entretiens"
+        >
           <div className="flex items-center justify-between gap-2">
             <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Mes entretiens</h2>
             <span className="rounded-full bg-[var(--brand)]/10 px-2.5 py-0.5 text-xs font-semibold text-[var(--brand)]">

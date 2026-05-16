@@ -22,4 +22,4 @@ CREATE TABLE IF NOT EXISTS talent_market_benchmarks (
 
 CREATE INDEX IF NOT EXISTS idx_talent_market_benchmarks_org ON talent_market_benchmarks(organization_id);
 
-COMMENT ON TABLE talent_market_benchmarks IS 'Snapshot HasData (offres) par employé ; rafraîchi seulement si salaire / recherche changent.';
+COMMENT ON TABLE talent_market_benchmarks IS 'Snapshot HasData (Indeed/Glassdoor) par employé — réutilisable espace talent et fiches RH. Rafraîchi si salaire, intitulé ou zone changent. Inclut search_keywords_used (variantes IA).';

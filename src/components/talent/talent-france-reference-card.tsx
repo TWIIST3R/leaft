@@ -3,13 +3,9 @@
 import { nextBucketThresholdPct } from "@/lib/talent/fr-salary-game";
 import { InseeSalaryCurveChart } from "@/components/talent/insee-salary-curve-chart";
 
-export type InseeSalaryGameUi = {
-  netMonthlyEstimated: number;
-  inseeMedianNetMonthly: number;
-  pctVsMedian: number;
-  approximatePercentile: number;
-  game: { bucket: number; title: string; emoji: string; blurb: string };
-};
+import type { InseeSalaryGameUi } from "@/lib/talent/insee-salary-game-ui";
+
+export type { InseeSalaryGameUi };
 
 export function TalentFranceReferenceCard({
   inseeSalaryGame,
