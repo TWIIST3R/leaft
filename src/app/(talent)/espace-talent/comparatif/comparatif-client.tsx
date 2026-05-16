@@ -1,6 +1,6 @@
 "use client";
 
-import type { TalentComparatifData } from "@/lib/talent/get-talent-comparatif-data";
+import type { TalentComparatifData } from "@/lib/talent/talent-comparatif-types";
 import { TalentMarketOffersCard } from "@/components/talent/talent-market-offers-card";
 import { TalentFranceReferenceCard } from "@/components/talent/talent-france-reference-card";
 

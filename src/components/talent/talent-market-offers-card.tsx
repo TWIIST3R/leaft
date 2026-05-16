@@ -1,7 +1,9 @@
 "use client";
 
-import type { TalentMarketBenchmarkRow } from "@/lib/talent/refresh-talent-market-benchmark";
-import { parseSearchKeywordsUsed } from "@/lib/talent/refresh-talent-market-benchmark";
+import {
+  parseSearchKeywordsUsed,
+  type TalentMarketBenchmarkRow,
+} from "@/lib/talent/talent-market-benchmark-shared";
 import { MarketOffersTeamRail, type MarketTeamPeer } from "@/components/talent/market-offers-team-rail";
 import { SearchKeywordsInfo } from "@/components/talent/search-keywords-info";
 

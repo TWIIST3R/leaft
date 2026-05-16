@@ -10,36 +10,16 @@ import { frSalaryGameBucket, frSalaryGameTitle } from "@/lib/talent/fr-salary-ga
 import {
   deriveMarketSearchParams,
   isTalentMarketBenchmarkStale,
-  parseSearchKeywordsUsed,
   refreshTalentMarketBenchmark,
-  type TalentMarketBenchmarkRow,
 } from "@/lib/talent/refresh-talent-market-benchmark";
+import {
+  parseSearchKeywordsUsed,
+  type TalentMarketBenchmarkRow,
+} from "@/lib/talent/talent-market-benchmark-shared";
 import type { InseeSalaryGameUi } from "@/lib/talent/insee-salary-game-ui";
+import type { TalentComparatifData } from "@/lib/talent/talent-comparatif-types";
 
-export type TalentComparatifData = {
-  employee: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    current_job_title: string;
-    annual_salary_brut: number | null;
-    avatar_url: string | null;
-    manager_id: string | null;
-    current_department_id: string | null;
-  };
-  salaryVisible: boolean;
-  compaRatio: number | null;
-  hasdataConfigured: boolean;
-  talentMarketBenchmark: TalentMarketBenchmarkRow | null;
-  inseeSalaryGame: InseeSalaryGameUi | null;
-  marketTeamPeers: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    avatar_url: string | null;
-    annual_salary_brut: number | null;
-  }[];
-};
+export type { TalentComparatifData };
 
 function normalizeBenchmarkRow(row: Record<string, unknown> | null): TalentMarketBenchmarkRow | null {
   if (!row) return null;
