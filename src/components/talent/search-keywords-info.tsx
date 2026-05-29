@@ -7,11 +7,13 @@ export function SearchKeywordsInfo({
   referenceTitle,
   location,
   fetchedAt,
+  onDarkHeader = false,
 }: {
   keywords: string[];
   referenceTitle?: string | null;
   location?: string | null;
   fetchedAt?: string | null;
+  onDarkHeader?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -32,7 +34,11 @@ export function SearchKeywordsInfo({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border border-[#c5ccc5] bg-white text-xs font-bold text-[var(--brand)] shadow-sm transition hover:border-[var(--brand)]/40 hover:bg-[var(--brand)]/5"
+        className={`inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border text-xs font-bold shadow-sm transition ${
+          onDarkHeader
+            ? "border-white/40 bg-white/15 text-white hover:bg-white/25"
+            : "border-[#c5ccc5] bg-white text-[var(--brand)] hover:border-[var(--brand)]/40 hover:bg-[var(--brand)]/5"
+        }`}
         aria-label="Intitulés de recherche utilisés"
         title="Intitulés de recherche utilisés"
       >

@@ -3,10 +3,14 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { SalaryTransparencyModal } from "@/components/settings/salary-transparency-modal";
+import type { SalaryDisclosureMode } from "@/lib/organization/salary-transparency-shared";
+import { parseSalaryDisclosureMode } from "@/lib/organization/salary-transparency-shared";
 
 type Settings = {
   name: string;
   salary_transparency_enabled: boolean;
+  salary_disclosure_mode: string;
   logo_url: string | null;
 };
 
@@ -15,6 +19,11 @@ export function ParametresClient({ initialSettings }: { initialSettings: Setting
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [salaryTransparency, setSalaryTransparency] = useState(initialSettings.salary_transparency_enabled);
+  const [disclosureMode, setDisclosureMode] = useState<SalaryDisclosureMode>(
+    parseSalaryDisclosureMode(initialSettings.salary_disclosure_mode),
+  );
+  const [transparencyModalOpen, setTransparencyModalOpen] = useState(false);
+  const [transparencyModalIntent, setTransparencyModalIntent] = useState<"enable" | "change_mode" | "disable">("enable");
   const [orgName, setOrgName] = useState(initialSettings.name);
   const [logoUrl, setLogoUrl] = useState(initialSettings.logo_url);
   const [loading, setLoading] = useState(false);
@@ -22,30 +31,42 @@ export function ParametresClient({ initialSettings }: { initialSettings: Setting
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
 
-  async function handleTransparencyToggle(checked: boolean) {
+  async function saveTransparency(enabled: boolean, mode: SalaryDisclosureMode) {
     setLoading(true);
     setMessage(null);
     try {
       const res = await fetch("/api/organization/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ salary_transparency_enabled: checked }),
+        body: JSON.stringify({
+          salary_transparency_enabled: enabled,
+          salary_disclosure_mode: mode,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erreur");
-      setSalaryTransparency(checked);
+      setSalaryTransparency(enabled);
+      setDisclosureMode(parseSalaryDisclosureMode(data.salary_disclosure_mode));
       setMessage({
         type: "ok",
-        text: checked
-          ? "Transparence salariale activée : les managers et talents pourront consulter les rémunérations."
+        text: enabled
+          ? mode === "exact"
+            ? "Transparence activée : salaires individuels visibles par les talents et managers."
+            : "Transparence activée : moyennes par département visibles (recommandé)."
           : "Transparence salariale désactivée.",
       });
       router.refresh();
     } catch (err) {
       setMessage({ type: "error", text: err instanceof Error ? err.message : "Erreur" });
+      throw err;
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleTransparencySwitchClick() {
+    setTransparencyModalIntent(salaryTransparency ? "disable" : "enable");
+    setTransparencyModalOpen(true);
   }
 
   async function handleSaveName() {
@@ -206,15 +227,16 @@ export function ParametresClient({ initialSettings }: { initialSettings: Setting
       <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
         <h2 className="text-lg font-semibold text-[var(--text)]">Transparence salariale</h2>
         <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
-          Conformité avec la loi sur la transparence des rémunérations en France. Lorsque cette option est activée, les comptes <strong>Manager</strong> et <strong>Talent</strong> (employé) peuvent consulter l&apos;ensemble des salaires de l&apos;entreprise.
+          Conformité avec la loi française : les talents et managers peuvent voir des informations de rémunération sur le comparatif et l&apos;organigramme.
+          La <strong>moyenne par département</strong> suffit en général ; le partage des salaires exacts reste optionnel.
         </p>
-        <div className="mt-4 flex items-center gap-3">
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           <button
             type="button"
             role="switch"
             aria-checked={salaryTransparency}
             disabled={loading}
-            onClick={() => handleTransparencyToggle(!salaryTransparency)}
+            onClick={handleTransparencySwitchClick}
             className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/30 focus:ring-offset-2 disabled:opacity-50 ${
               salaryTransparency ? "bg-[var(--brand)]" : "bg-[#e2e7e2]"
             }`}
@@ -228,8 +250,34 @@ export function ParametresClient({ initialSettings }: { initialSettings: Setting
           <span className="text-sm font-medium text-[var(--text)]">
             {salaryTransparency ? "Transparence activée" : "Transparence désactivée"}
           </span>
+          {salaryTransparency && (
+            <span className="rounded-full bg-[var(--brand)]/10 px-2.5 py-0.5 text-xs font-semibold text-[var(--brand)]">
+              {disclosureMode === "exact" ? "Salaires exacts" : "Moyenne département"}
+            </span>
+          )}
         </div>
+        {salaryTransparency && (
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => {
+              setTransparencyModalIntent("change_mode");
+              setTransparencyModalOpen(true);
+            }}
+            className="mt-3 cursor-pointer text-sm font-medium text-[var(--brand)] underline hover:no-underline disabled:opacity-50"
+          >
+            Modifier le mode de partage
+          </button>
+        )}
       </section>
+
+      <SalaryTransparencyModal
+        open={transparencyModalOpen}
+        intent={transparencyModalIntent}
+        initialMode={disclosureMode}
+        onClose={() => setTransparencyModalOpen(false)}
+        onConfirm={async ({ enabled, mode }) => saveTransparency(enabled, mode)}
+      />
 
       <section id="facturation" className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
         <h2 className="text-lg font-semibold text-[var(--text)]">Facturation</h2>

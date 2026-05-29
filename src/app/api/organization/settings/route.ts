@@ -31,7 +31,7 @@ export async function GET() {
     const supabase = supabaseAdmin();
     const { data, error } = await supabase
       .from("organizations")
-      .select("id, name, salary_transparency_enabled, logo_url")
+      .select("id, name, salary_transparency_enabled, salary_disclosure_mode, logo_url")
       .eq("id", organizationId)
       .single();
 
@@ -40,6 +40,7 @@ export async function GET() {
     }
     return NextResponse.json({
       salary_transparency_enabled: data.salary_transparency_enabled ?? false,
+      salary_disclosure_mode: data.salary_disclosure_mode ?? "department_average",
       name: data.name,
       logo_url: data.logo_url ?? null,
     });
@@ -58,9 +59,17 @@ export async function PATCH(request: NextRequest) {
     if (!organizationId) return NextResponse.json({ error: "Organisation introuvable" }, { status: 404 });
 
     const body = await request.json();
-    const updates: { salary_transparency_enabled?: boolean; name?: string; logo_url?: string | null } = {};
+    const updates: {
+      salary_transparency_enabled?: boolean;
+      salary_disclosure_mode?: string;
+      name?: string;
+      logo_url?: string | null;
+    } = {};
     if (typeof body.salary_transparency_enabled === "boolean") {
       updates.salary_transparency_enabled = body.salary_transparency_enabled;
+    }
+    if (body.salary_disclosure_mode === "department_average" || body.salary_disclosure_mode === "exact") {
+      updates.salary_disclosure_mode = body.salary_disclosure_mode;
     }
     if (typeof body.name === "string" && body.name.trim()) {
       updates.name = body.name.trim();
@@ -77,7 +86,7 @@ export async function PATCH(request: NextRequest) {
       .from("organizations")
       .update(updates)
       .eq("id", organizationId)
-      .select("id, name, salary_transparency_enabled, logo_url")
+      .select("id, name, salary_transparency_enabled, salary_disclosure_mode, logo_url")
       .single();
 
     if (error) {
@@ -86,6 +95,7 @@ export async function PATCH(request: NextRequest) {
     }
     return NextResponse.json({
       salary_transparency_enabled: data.salary_transparency_enabled ?? false,
+      salary_disclosure_mode: data.salary_disclosure_mode ?? "department_average",
       name: data.name,
       logo_url: data.logo_url ?? null,
     });

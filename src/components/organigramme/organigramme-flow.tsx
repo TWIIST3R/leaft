@@ -22,6 +22,8 @@ import {
 } from "@xyflow/react";
 import dagre from "@dagrejs/dagre";
 import { Avatar } from "@/components/ui/avatar";
+import type { DepartmentSalaryAverage, SalaryDisclosureMode } from "@/lib/organization/salary-transparency-shared";
+import { getDepartmentAverageForEmployee } from "@/lib/organization/department-salary-averages";
 import "@xyflow/react/dist/style.css";
 
 export type OrgEmployee = {
@@ -59,6 +61,7 @@ function OrgNodeCustom({ data }: NodeProps) {
     deptName: string | null;
     deptColor: (typeof DEPT_COLORS)[0] | null;
     salary: number | null;
+    salaryLabel: string | null;
     salaryVisible: boolean;
     isMe: boolean;
   };
@@ -88,10 +91,8 @@ function OrgNodeCustom({ data }: NodeProps) {
             {d.deptName}
           </span>
         )}
-        {d.salaryVisible && d.salary != null && (
-          <p className="mt-1 text-xs font-semibold text-[color:rgba(11,11,11,0.65)]">
-            {`${Number(d.salary).toLocaleString("fr-FR")} €`}
-          </p>
+        {d.salaryVisible && d.salaryLabel && (
+          <p className="mt-1 text-xs font-semibold text-[var(--brand)]">{d.salaryLabel}</p>
         )}
       </div>
       <Handle type="source" position={Position.Bottom} className="!bg-transparent !border-0 !w-0 !h-0" />
@@ -161,17 +162,38 @@ function collectChainIds(employees: OrgEmployee[], leafId: string): Set<string> 
   return out;
 }
 
+function salaryLabelForNode(
+  emp: OrgEmployee,
+  salaryVisible: boolean,
+  disclosureMode: SalaryDisclosureMode,
+  departmentAverages: DepartmentSalaryAverage[],
+): string | null {
+  if (!salaryVisible) return null;
+  if (disclosureMode === "exact") {
+    const sal = emp.annual_salary_brut != null ? Number(emp.annual_salary_brut) : null;
+    if (sal == null || sal <= 0) return null;
+    return `${Math.round(sal).toLocaleString("fr-FR")} € brut / an`;
+  }
+  const avg = getDepartmentAverageForEmployee(emp.current_department_id, departmentAverages);
+  if (!avg) return null;
+  return `Moy. dép. ${avg.average_annual_brut.toLocaleString("fr-FR")} €`;
+}
+
 function OrganigrammeFlowInner({
   employees,
   departments,
   currentEmployeeId = null,
   salaryVisible = false,
+  salaryDisclosureMode = "department_average",
+  departmentAverages = [],
   companyLogoUrl = null,
 }: {
   employees: OrgEmployee[];
   departments: OrgDept[];
   currentEmployeeId?: string | null;
   salaryVisible?: boolean;
+  salaryDisclosureMode?: SalaryDisclosureMode;
+  departmentAverages?: DepartmentSalaryAverage[];
   companyLogoUrl?: string | null;
 }) {
   const { fitView } = useReactFlow();
@@ -214,6 +236,7 @@ function OrganigrammeFlowInner({
         deptName: emp.current_department_id ? deptMap.get(emp.current_department_id) ?? null : null,
         deptColor: emp.current_department_id ? deptColorMap.get(emp.current_department_id) ?? null : null,
         salary: emp.annual_salary_brut ?? null,
+        salaryLabel: salaryLabelForNode(emp, salaryVisible, salaryDisclosureMode, departmentAverages),
         salaryVisible,
         isMe: emp.id === currentEmployeeId,
       },
@@ -233,7 +256,7 @@ function OrganigrammeFlowInner({
 
     const laid = getLayoutedElements(nodes, edges);
     return { initialNodes: laid.nodes, initialEdges: laid.edges };
-  }, [displayEmployees, deptMap, deptColorMap, salaryVisible, currentEmployeeId]);
+  }, [displayEmployees, deptMap, deptColorMap, salaryVisible, salaryDisclosureMode, departmentAverages, currentEmployeeId]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -448,12 +471,16 @@ export function OrganigrammeFlow({
   departments,
   currentEmployeeId,
   salaryVisible,
+  salaryDisclosureMode,
+  departmentAverages,
   companyLogoUrl,
 }: {
   employees: OrgEmployee[];
   departments: OrgDept[];
   currentEmployeeId?: string | null;
   salaryVisible?: boolean;
+  salaryDisclosureMode?: SalaryDisclosureMode;
+  departmentAverages?: DepartmentSalaryAverage[];
   companyLogoUrl?: string | null;
 }) {
   return (
@@ -463,6 +490,8 @@ export function OrganigrammeFlow({
         departments={departments}
         currentEmployeeId={currentEmployeeId}
         salaryVisible={salaryVisible}
+        salaryDisclosureMode={salaryDisclosureMode}
+        departmentAverages={departmentAverages}
         companyLogoUrl={companyLogoUrl}
       />
     </ReactFlowProvider>

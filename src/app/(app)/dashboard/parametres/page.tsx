@@ -25,13 +25,14 @@ async function getData() {
 
   const { data: org } = await supabase
     .from("organizations")
-    .select("id, name, salary_transparency_enabled, logo_url")
+    .select("id, name, salary_transparency_enabled, salary_disclosure_mode, logo_url")
     .eq("id", organizationId)
     .single();
 
   return {
     name: org?.name ?? "",
     salary_transparency_enabled: org?.salary_transparency_enabled ?? false,
+    salary_disclosure_mode: org?.salary_disclosure_mode ?? "department_average",
     logo_url: org?.logo_url ?? null,
   };
 }

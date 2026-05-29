@@ -1,18 +1,40 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
+import type { SalaryDisclosureMode } from "@/lib/organization/salary-transparency-shared";
+import type { MarketTeamPeer } from "@/lib/talent/market-team-peer-types";
 
-export type MarketTeamPeer = {
-  id: string;
-  first_name: string;
-  last_name: string;
-  avatar_url: string | null;
-  annual_salary_brut: number | null;
-};
+function PeerHoverCard({ peer, isMe }: { peer: MarketTeamPeer; isMe: boolean }) {
+  const sal = peer.annual_salary_brut != null ? Number(peer.annual_salary_brut) : null;
+  return (
+    <div className="rounded-xl border border-[#e2e7e2] bg-white px-3 py-2.5 text-xs shadow-lg">
+      <p className="font-semibold text-[var(--text)]">
+        {peer.is_department_average
+          ? `Moyenne — ${peer.department_name ?? "département"}`
+          : `${peer.first_name} ${peer.last_name}${isMe ? " (vous)" : ""}`}
+      </p>
+      {peer.current_job_title && !peer.is_department_average && (
+        <p className="mt-1 text-[color:rgba(11,11,11,0.6)]">{peer.current_job_title}</p>
+      )}
+      {peer.department_name && (
+        <p className="mt-0.5 text-[color:rgba(11,11,11,0.55)]">{peer.department_name}</p>
+      )}
+      {sal != null && (
+        <p className="mt-2 text-sm font-bold tabular-nums text-[var(--brand)]">
+          {peer.is_department_average ? "Moyenne " : ""}
+          {Math.round(sal).toLocaleString("fr-FR")} € <span className="text-[10px] font-medium text-[color:rgba(11,11,11,0.5)]">brut / an</span>
+        </p>
+      )}
+      {peer.is_department_average && (
+        <p className="mt-1 text-[10px] text-[color:rgba(11,11,11,0.5)]">Basé sur les salaires renseignés dans votre département.</p>
+      )}
+    </div>
+  );
+}
 
 /**
- * Fourchette marché offres (P25–P75 HasData) + position des salaires équipe (avatars).
- * Si la transparence salariale est désactivée : uniquement le talent courant.
+ * Fourchette marché offres (P25–P75) + position des salaires (avatars).
  */
 export function MarketOffersTeamRail({
   p25,
@@ -21,6 +43,7 @@ export function MarketOffersTeamRail({
   currentEmployeeId,
   teamPeers,
   salaryVisible,
+  disclosureMode,
 }: {
   p25: number;
   p50: number;
@@ -28,11 +51,24 @@ export function MarketOffersTeamRail({
   currentEmployeeId: string;
   teamPeers: MarketTeamPeer[];
   salaryVisible: boolean;
+  disclosureMode: SalaryDisclosureMode;
 }) {
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const railRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!hoveredId) return;
+    const onDoc = (e: MouseEvent) => {
+      if (railRef.current && !railRef.current.contains(e.target as Node)) setHoveredId(null);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [hoveredId]);
+
   const withSalary = teamPeers.filter((p) => p.annual_salary_brut != null && Number(p.annual_salary_brut) > 0);
-  const peersToShow = salaryVisible
-    ? withSalary
-    : withSalary.filter((p) => p.id === currentEmployeeId);
+  const peersToShow = !salaryVisible
+    ? withSalary.filter((p) => p.id === currentEmployeeId)
+    : withSalary;
 
   const salaries = peersToShow.map((p) => Number(p.annual_salary_brut));
   const minPeer = salaries.length ? Math.min(...salaries) : p25;
@@ -64,13 +100,15 @@ export function MarketOffersTeamRail({
     stackAt[i] = stack;
   }
 
+  const hovered = sorted.find((p) => p.id === hoveredId);
+
   return (
-    <div className="mt-4">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.45)]">
-        Où se situent les salaires (brut annuel) vs la fourchette marché offres
+    <div className="mt-4" ref={railRef}>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80">
+        Position sur la fourchette marché
       </p>
-      <div className="relative mt-10 min-h-[112px] rounded-2xl border border-[#e2e7e2] bg-gradient-to-r from-[#f4f1ea] via-[#eef5ee] to-[#e8f0e8] px-3 pt-2 pb-14">
-        <div className="absolute inset-x-4 top-8 h-4 rounded-full bg-white/85 shadow-inner ring-1 ring-[#e2e7e2]/80" />
+      <div className="relative mt-8 min-h-[120px] rounded-2xl border border-[#063d1f]/30 bg-[#063d1f]/15 px-3 pt-2 pb-14">
+        <div className="absolute inset-x-4 top-8 h-4 rounded-full bg-white/90 shadow-inner ring-1 ring-white/50" />
         {markers.map((mk) => {
           const left = Math.max(2, Math.min(98, posPct(mk.value)));
           return (
@@ -80,12 +118,12 @@ export function MarketOffersTeamRail({
               style={{ left: `${left}%` }}
             >
               <span
-                className={`h-8 w-0.5 rounded-full ${mk.tone === "brand" ? "bg-[var(--brand)]" : "bg-[#c5ccc5]"}`}
+                className={`h-8 w-0.5 rounded-full ${mk.tone === "brand" ? "bg-white" : "bg-white/50"}`}
               />
-              <span className="mt-1 max-w-[92px] text-center text-[9px] font-semibold uppercase leading-tight text-[color:rgba(11,11,11,0.5)]">
+              <span className="mt-1 max-w-[92px] text-center text-[9px] font-semibold uppercase leading-tight text-white/70">
                 {mk.label}
               </span>
-              <span className="text-[10px] font-semibold text-[var(--text)]">{Math.round(mk.value).toLocaleString("fr-FR")} €</span>
+              <span className="text-[10px] font-semibold text-white">{Math.round(mk.value).toLocaleString("fr-FR")} €</span>
             </div>
           );
         })}
@@ -95,31 +133,62 @@ export function MarketOffersTeamRail({
           const left = Math.max(4, Math.min(96, posPct(sal)));
           const stack = stackAt[i] ?? 0;
           const isMe = peer.id === currentEmployeeId;
+          const isDeptAvg = !!peer.is_department_average;
           return (
             <div
               key={peer.id}
               className="absolute z-[2] flex -translate-x-1/2 flex-col items-center gap-1"
               style={{ left: `${left}%`, bottom: `${12 + stack * 52}px` }}
-              title={`${peer.first_name} ${peer.last_name} — ${sal.toLocaleString("fr-FR")} € brut / an`}
+              onMouseEnter={() => setHoveredId(peer.id)}
+              onMouseLeave={() => setHoveredId((id) => (id === peer.id ? null : id))}
+              onFocus={() => setHoveredId(peer.id)}
+              onBlur={() => setHoveredId(null)}
             >
-              <div
-                className={`rounded-full p-0.5 shadow-md ring-2 ${isMe ? "ring-[var(--brand)] ring-offset-2 ring-offset-white" : "ring-white"}`}
+              <button
+                type="button"
+                className={`cursor-pointer rounded-full p-0.5 shadow-md ring-2 transition hover:scale-105 ${
+                  isMe ? "ring-white ring-offset-2 ring-offset-[var(--brand)]" : isDeptAvg ? "ring-amber-200 bg-amber-50" : "ring-white"
+                }`}
+                aria-label={
+                  isDeptAvg
+                    ? `Moyenne ${peer.department_name}`
+                    : `${peer.first_name} ${peer.last_name}`
+                }
               >
-                <Avatar
-                  firstName={peer.first_name}
-                  lastName={peer.last_name}
-                  avatarUrl={peer.avatar_url}
-                  size="sm"
-                />
-              </div>
+                {isDeptAvg ? (
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--brand)] text-[10px] font-bold text-white">
+                    Ø
+                  </span>
+                ) : (
+                  <Avatar
+                    firstName={peer.first_name}
+                    lastName={peer.last_name}
+                    avatarUrl={peer.avatar_url}
+                    size="sm"
+                  />
+                )}
+              </button>
+              {hoveredId === peer.id && (
+                <div className="absolute bottom-full z-50 mb-2 w-[min(100vw-2rem,14rem)]">
+                  <PeerHoverCard peer={peer} isMe={isMe} />
+                </div>
+              )}
             </div>
           );
         })}
       </div>
       {!salaryVisible && peersToShow.length <= 1 && (
-        <p className="mt-2 text-[11px] text-[color:rgba(11,11,11,0.5)]">
-          La transparence salariale est désactivée : seule ta position est affichée sur la fourchette marché.
+        <p className="mt-2 text-[11px] text-white/70">
+          Transparence désactivée : seule votre position est affichée.
         </p>
+      )}
+      {salaryVisible && disclosureMode === "department_average" && (
+        <p className="mt-2 text-[11px] text-white/75">
+          Mode conforme : votre salaire et la moyenne de votre département (pas les salaires individuels des collègues).
+        </p>
+      )}
+      {salaryVisible && disclosureMode === "exact" && hovered && (
+        <p className="mt-2 text-[11px] text-white/60">Survolez un profil pour voir le détail.</p>
       )}
     </div>
   );

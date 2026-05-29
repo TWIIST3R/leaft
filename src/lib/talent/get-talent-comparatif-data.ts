@@ -18,6 +18,9 @@ import {
 } from "@/lib/talent/talent-market-benchmark-shared";
 import type { InseeSalaryGameUi } from "@/lib/talent/insee-salary-game-ui";
 import type { TalentComparatifData } from "@/lib/talent/talent-comparatif-types";
+import { parseSalaryDisclosureMode } from "@/lib/organization/salary-transparency-shared";
+import { computeDepartmentSalaryAverages } from "@/lib/organization/department-salary-averages";
+import { buildMarketTeamPeersForRail } from "@/lib/talent/build-market-team-peers";
 
 export type { TalentComparatifData };
 
@@ -57,9 +60,11 @@ export async function getTalentComparatifData(
 
   const { data: org } = await supabase
     .from("organizations")
-    .select("salary_transparency_enabled")
+    .select("salary_transparency_enabled, salary_disclosure_mode")
     .eq("id", organizationId)
     .single();
+
+  const salaryDisclosureMode = parseSalaryDisclosureMode(org?.salary_disclosure_mode);
 
   let { data: employee } = await supabase
     .from("employees")
@@ -88,37 +93,45 @@ export async function getTalentComparatifData(
   if (!employee) return null;
 
   const salaryVisible = org?.salary_transparency_enabled ?? false;
+  const [{ data: allEmployees }, { data: departments }] = await Promise.all([
+    supabase
+      .from("employees")
+      .select(
+        "id, first_name, last_name, current_job_title, current_department_id, avatar_url, annual_salary_brut, manager_id",
+      )
+      .eq("organization_id", organizationId),
+    supabase.from("departments").select("id, name").eq("organization_id", organizationId),
+  ]);
+
+  const deptNameMap = new Map((departments ?? []).map((d) => [d.id, d.name]));
+  const deptAverages = computeDepartmentSalaryAverages(allEmployees ?? [], deptNameMap);
+
+  let teamRows = (allEmployees ?? []).filter((e) => e.manager_id === employee.manager_id);
+  if (teamRows.length < 2 && employee.current_department_id) {
+    teamRows = (allEmployees ?? []).filter((e) => e.current_department_id === employee.current_department_id);
+  }
+
+  const marketTeamPeers = salaryVisible
+    ? buildMarketTeamPeersForRail(
+        employee,
+        salaryDisclosureMode,
+        deptNameMap,
+        deptAverages,
+        teamRows,
+      )
+    : buildMarketTeamPeersForRail(employee, "department_average", deptNameMap, deptAverages, []);
+
   if (!salaryVisible) {
     return {
       employee,
       salaryVisible: false,
+      salaryDisclosureMode,
       compaRatio: null,
       hasdataConfigured: !!optionalEnv.HASDATA_API_KEY,
       talentMarketBenchmark: null,
       inseeSalaryGame: null,
-      marketTeamPeers: [],
+      marketTeamPeers,
     };
-  }
-
-  let marketTeamPeers: TalentComparatifData["marketTeamPeers"] = [];
-  if (employee.manager_id) {
-    const { data: mgrPeers } = await supabase
-      .from("employees")
-      .select("id, first_name, last_name, avatar_url, annual_salary_brut")
-      .eq("organization_id", organizationId)
-      .eq("manager_id", employee.manager_id);
-    marketTeamPeers = mgrPeers ?? [];
-  }
-  if (marketTeamPeers.length < 2 && employee.current_department_id) {
-    const { data: deptPeers } = await supabase
-      .from("employees")
-      .select("id, first_name, last_name, avatar_url, annual_salary_brut")
-      .eq("organization_id", organizationId)
-      .eq("current_department_id", employee.current_department_id)
-      .limit(48);
-    const byId = new Map(marketTeamPeers.map((p) => [p.id, p]));
-    for (const p of deptPeers ?? []) byId.set(p.id, p);
-    marketTeamPeers = [...byId.values()];
   }
 
   let compaRatio: number | null = null;
@@ -186,6 +199,7 @@ export async function getTalentComparatifData(
   return {
     employee,
     salaryVisible: true,
+    salaryDisclosureMode,
     compaRatio,
     hasdataConfigured,
     talentMarketBenchmark,
