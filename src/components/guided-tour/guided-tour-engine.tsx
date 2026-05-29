@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
+  computePopoverPlacement,
   measureSelector,
   TourBlockout,
   TourHighlightRing,
   TourPopover,
   useTourTargetElevate,
+  type PopoverPlacement,
   type TourRect,
 } from "@/components/guided-tour/guided-tour-overlay";
 
@@ -60,6 +62,7 @@ export function GuidedTourEngine({
   const [active, setActive] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [hole, setHole] = useState<TourRect | null>(null);
+  const [popoverPlacement, setPopoverPlacement] = useState<PopoverPlacement | null>(null);
 
   const step = steps[stepIndex];
   const totalSteps = steps.filter((s) => s.kind !== "modal" || s.id !== "intro").length;
@@ -180,10 +183,12 @@ export function GuidedTourEngine({
   useLayoutEffect(() => {
     if (!active || !step) {
       setHole(null);
+      setPopoverPlacement(null);
       return;
     }
     if (step.kind === "modal") {
       setHole(null);
+      setPopoverPlacement(null);
       return;
     }
 
@@ -192,13 +197,17 @@ export function GuidedTourEngine({
         step.kind === "navigate" ? step.navSelector : step.selector;
       if (!sel) {
         setHole(null);
+        setPopoverPlacement(null);
         return;
       }
       if (step.pathname && !pathMatches(pathname, step.pathname)) {
         setHole(null);
+        setPopoverPlacement(null);
         return;
       }
-      setHole(measureSelector(sel));
+      const nextHole = measureSelector(sel);
+      setHole(nextHole);
+      setPopoverPlacement(nextHole ? computePopoverPlacement(nextHole) : null);
     };
 
     update();
@@ -236,12 +245,12 @@ export function GuidedTourEngine({
   const isNavigate = step.kind === "navigate";
 
   return (
-    <div className="fixed inset-0 z-[9997]" aria-live="polite">
+    <div className="pointer-events-none fixed inset-0 z-[9997]" aria-live="polite">
       {showHole && hole && <TourBlockout rect={hole} />}
       {showHole && hole && <TourHighlightRing rect={hole} />}
 
       {step.kind === "modal" && step.id === "intro" && (
-        <div className="absolute inset-0 z-[10000] flex items-center justify-center bg-black/45 p-4">
+        <div className="pointer-events-auto absolute inset-0 z-[10000] flex items-center justify-center bg-black/45 p-4">
           <div className="w-full max-w-md rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-xl sm:p-8">
             <h2 className="text-xl font-semibold text-[var(--text)]">
               Bienvenue{firstName ? `, ${firstName}` : ""}
@@ -264,7 +273,7 @@ export function GuidedTourEngine({
       )}
 
       {step.kind === "modal" && step.id === "outro" && (
-        <div className="absolute inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4">
+        <div className="pointer-events-auto absolute inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-xl sm:p-8">
             <h2 className="text-lg font-semibold text-[var(--text)]">{step.title}</h2>
             <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">{step.body}</p>
@@ -280,17 +289,16 @@ export function GuidedTourEngine({
       )}
 
       {(step.kind === "highlight" || step.kind === "navigate") && (
-        <div className="pointer-events-none absolute inset-0 z-[10000] flex items-end justify-center p-4 pb-[min(18vh,140px)] sm:items-center sm:pb-8">
-          <TourPopover
-            stepLabel={label}
-            title={step.title}
-            body={step.body}
-            onNext={isNavigate ? undefined : advance}
-            onSkip={dismiss}
-            nextLabel={step.nextLabel ?? "Suivant"}
-            showNext={step.showNext !== false && !isNavigate}
-          />
-        </div>
+        <TourPopover
+          stepLabel={label}
+          title={step.title}
+          body={step.body}
+          onNext={isNavigate ? undefined : advance}
+          onSkip={dismiss}
+          nextLabel={step.nextLabel ?? "Suivant"}
+          showNext={step.showNext !== false && !isNavigate}
+          placement={popoverPlacement}
+        />
       )}
     </div>
   );

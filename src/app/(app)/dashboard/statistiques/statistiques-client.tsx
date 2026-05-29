@@ -162,20 +162,6 @@ export function StatistiquesClient({
     return Object.entries(byGender).map(([gender, s]) => ({ label: gender, value: avg(s) }));
   }, [employees]);
 
-  const compaRatios = useMemo(() => {
-    const ratios: { name: string; ratio: number }[] = [];
-    employees.forEach((e) => {
-      if (e.annual_salary_brut == null || !e.current_level_id) return;
-      const level = levelMap.get(e.current_level_id);
-      if (!level?.mid_salary || Number(level.mid_salary) === 0) return;
-      ratios.push({
-        name: `${e.first_name} ${e.last_name.charAt(0)}.`,
-        ratio: Math.round((Number(e.annual_salary_brut) / Number(level.mid_salary)) * 100),
-      });
-    });
-    return ratios.sort((a, b) => a.ratio - b.ratio);
-  }, [employees, levelMap]);
-
   const employeeIds = useMemo(() => new Set(employees.map((e) => e.id)), [employees]);
 
   const salaryEvolution = useMemo(() => {
@@ -334,36 +320,6 @@ export function StatistiquesClient({
         </div>
       )}
 
-      {compaRatios.length > 0 && (
-        <div data-card className={CARD}>
-          <h3 className="text-sm font-semibold text-[var(--text)]">Compa-ratio</h3>
-          <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.5)]">
-            Salaire réel ÷ midpoint du niveau. 100% = aligné au midpoint.
-          </p>
-          <div className="mt-4 space-y-2.5">
-            {compaRatios.map((cr) => (
-              <div key={cr.name} className="flex items-center gap-3">
-                <span className="w-28 truncate text-sm text-[var(--text)]">{cr.name}</span>
-                <div className="flex-1 h-2.5 overflow-hidden rounded-full bg-[#f0f2f0] relative">
-                  <div
-                    className="absolute left-1/2 top-0 h-full w-px bg-[color:rgba(11,11,11,0.15)]"
-                    title="100%"
-                  />
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${Math.min(cr.ratio, 150)}%`,
-                      maxWidth: "100%",
-                      backgroundColor: cr.ratio < 90 ? "#ef4444" : cr.ratio > 110 ? "#f59e0b" : "var(--brand)",
-                    }}
-                  />
-                </div>
-                <span className="w-14 text-right text-sm font-medium text-[var(--text)]">{cr.ratio}%</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -52,6 +52,8 @@ export function TalentFranceReferenceCard({
       <InseeSalaryCurveChart
         netMonthlyEstimated={inseeSalaryGame.netMonthlyEstimated}
         inseeMedianNetMonthly={inseeSalaryGame.inseeMedianNetMonthly}
+        pctVsMedian={inseeSalaryGame.pctVsMedian}
+        approximatePercentile={inseeSalaryGame.approximatePercentile}
         firstName={firstName}
         lastName={lastName}
         avatarUrl={avatarUrl}

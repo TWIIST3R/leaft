@@ -71,13 +71,20 @@ export function MarketOffersTeamRail({
     : withSalary;
 
   const salaries = peersToShow.map((p) => Number(p.annual_salary_brut));
-  const minPeer = salaries.length ? Math.min(...salaries) : p25;
-  const maxPeer = salaries.length ? Math.max(...salaries) : p75;
-  const span = Math.max(p75 - p25, maxPeer - minPeer, 1);
-  const pad = span * 0.08;
-  const axisLo = Math.min(p25, minPeer) - pad;
-  const axisHi = Math.max(p75, maxPeer) + pad;
-  const axisSpan = Math.max(axisHi - axisLo, 1);
+  const mePeer = peersToShow.find((p) => p.id === currentEmployeeId);
+  const meSal =
+    mePeer?.annual_salary_brut != null
+      ? Number(mePeer.annual_salary_brut)
+      : salaries.length
+        ? salaries[Math.floor(salaries.length / 2)]!
+        : p50;
+
+  const allAxisValues = [p25, p50, p75, ...salaries];
+  const maxDist = Math.max(...allAxisValues.map((v) => Math.abs(v - meSal)), (p75 - p25) / 2);
+  const halfSpan = Math.max(maxDist * 1.15, (p75 - p25) * 0.55, 1);
+  const axisLo = meSal - halfSpan;
+  const axisHi = meSal + halfSpan;
+  const axisSpan = axisHi - axisLo;
 
   const posPct = (sal: number) => ((sal - axisLo) / axisSpan) * 100;
 
@@ -107,14 +114,14 @@ export function MarketOffersTeamRail({
       <p className="text-[10px] font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.45)]">
         Où se situent les salaires (brut annuel) vs la fourchette marché offres
       </p>
-      <div className="relative mt-10 min-h-[112px] rounded-2xl border border-[#e2e7e2] bg-gradient-to-r from-[#f4f1ea] via-[#eef5ee] to-[#e8f0e8] px-3 pt-2 pb-14">
-        <div className="absolute inset-x-4 top-8 h-4 rounded-full bg-white/85 shadow-inner ring-1 ring-[#e2e7e2]/80" />
+      <div className="relative mt-10 min-h-[128px] rounded-2xl border border-[#e2e7e2] bg-gradient-to-r from-[#f4f1ea] via-[#eef5ee] to-[#e8f0e8] px-4 pt-3 pb-16">
+        <div className="absolute inset-x-6 top-10 h-4 rounded-full bg-white/85 shadow-inner ring-1 ring-[#e2e7e2]/80" />
         {markers.map((mk) => {
           const left = Math.max(2, Math.min(98, posPct(mk.value)));
           return (
             <div
               key={mk.label}
-              className="absolute top-6 z-[1] flex -translate-x-1/2 flex-col items-center"
+              className="absolute top-8 z-[1] flex -translate-x-1/2 flex-col items-center"
               style={{ left: `${left}%` }}
             >
               <span
@@ -144,6 +151,9 @@ export function MarketOffersTeamRail({
               onFocus={() => setHoveredId(peer.id)}
               onBlur={() => setHoveredId(null)}
             >
+              {isMe && (
+                <span className="mb-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--brand)]">Vous</span>
+              )}
               <button
                 type="button"
                 className={`cursor-pointer rounded-full p-0.5 shadow-md ring-2 transition hover:scale-105 ${
@@ -156,8 +166,10 @@ export function MarketOffersTeamRail({
                 }
               >
                 {isDeptAvg ? (
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--brand)] text-[10px] font-bold text-white">
-                    Ø
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--brand)] text-white">
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-5-3.87M9 20H4v-2a4 4 0 015-3.87M16 7a4 4 0 11-8 0 4 4 0 018 0zM21 10a3 3 0 11-6 0 3 3 0 016 0zM9 10a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
                   </span>
                 ) : (
                   <Avatar
