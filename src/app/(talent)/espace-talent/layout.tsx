@@ -6,6 +6,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { checkSubscriptionAccess } from "@/lib/subscription-check";
 import { DashboardTopbar } from "@/components/dashboard/topbar";
 import { TalentNav } from "./talent-nav";
+import { DashboardMain } from "@/components/navigation/dashboard-main";
+import { TalentTourHost } from "@/components/talent/talent-tour-host";
 
 async function getEmployeeInfo(userId: string, orgId: string | null, userEmail: string | null) {
   const supabase = supabaseAdmin();
@@ -35,7 +37,15 @@ async function getEmployeeInfo(userId: string, orgId: string | null, userEmail: 
     }
   }
 
-  if (!organizationId) return { orgName: "", orgLogo: null, employee: null };
+  if (!organizationId) {
+    return { orgName: "", orgLogo: null, employee: null, salaryVisible: false, hasProgression: false };
+  }
+
+  const { data: orgRow } = await supabase
+    .from("organizations")
+    .select("salary_transparency_enabled")
+    .eq("id", organizationId)
+    .single();
 
   let { data: emp } = await supabase
     .from("employees")
@@ -57,14 +67,31 @@ async function getEmployeeInfo(userId: string, orgId: string | null, userEmail: 
     }
   }
 
-  return { orgName, orgLogo, employee: emp };
+  let hasProgression = false;
+  if (emp?.id) {
+    const { count } = await supabase
+      .from("employee_position_history")
+      .select("*", { count: "exact", head: true })
+      .eq("employee_id", emp.id);
+    hasProgression = (count ?? 0) >= 2;
+  }
+
+  return {
+    orgName,
+    orgLogo,
+    employee: emp,
+    salaryVisible: orgRow?.salary_transparency_enabled ?? false,
+    hasProgression,
+  };
 }
 
 export default async function TalentSpaceLayout({ children }: { children: ReactNode }) {
   const { userId, orgId } = await auth();
   const user = await currentUser();
   const userEmail = user?.emailAddresses?.[0]?.emailAddress ?? null;
-  const info = userId ? await getEmployeeInfo(userId, orgId ?? null, userEmail) : { orgName: "", orgLogo: null, employee: null };
+  const info = userId
+    ? await getEmployeeInfo(userId, orgId ?? null, userEmail)
+    : { orgName: "", orgLogo: null, employee: null, salaryVisible: false, hasProgression: false };
   const subscription = userId ? await checkSubscriptionAccess(userId, orgId ?? undefined) : { hasAccess: false };
 
   return (
@@ -117,7 +144,15 @@ export default async function TalentSpaceLayout({ children }: { children: ReactN
             <TalentNav isManager={info.employee?.is_manager ?? false} />
           </div>
         </header>
-        <main className="flex-1 px-3 py-6 sm:px-6 sm:py-8 lg:px-10">{children}</main>
+        <DashboardMain className="relative flex-1 px-3 py-6 sm:px-6 sm:py-8 lg:px-10">{children}</DashboardMain>
+        {info.employee && (
+          <TalentTourHost
+            firstName={info.employee.first_name}
+            salaryVisible={info.salaryVisible}
+            hasProgression={info.hasProgression}
+            subscriptionActive={subscription.hasAccess}
+          />
+        )}
       </div>
     </div>
   );

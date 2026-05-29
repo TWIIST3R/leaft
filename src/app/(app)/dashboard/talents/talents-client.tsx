@@ -54,7 +54,7 @@ export function TalentsClient({
   }, [filtered.length, filterDeptId, search]);
 
   return (
-    <div className="space-y-8">
+    <div data-tour="rh-talents-main" className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-[var(--text)]">Talents</h1>

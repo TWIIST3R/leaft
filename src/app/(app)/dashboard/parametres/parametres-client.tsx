@@ -224,7 +224,10 @@ export function ParametresClient({ initialSettings }: { initialSettings: Setting
         </div>
       </section>
 
-      <section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
+      <section
+        data-tour="rh-parametres-transparency"
+        className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]"
+      >
         <h2 className="text-lg font-semibold text-[var(--text)]">Transparence salariale</h2>
         <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
           Conformité avec la loi française : les talents et managers peuvent voir des informations de rémunération sur le comparatif et l&apos;organigramme.

@@ -104,11 +104,11 @@ export function MarketOffersTeamRail({
 
   return (
     <div className="mt-4" ref={railRef}>
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80">
-        Position sur la fourchette marché
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.45)]">
+        Où se situent les salaires (brut annuel) vs la fourchette marché offres
       </p>
-      <div className="relative mt-8 min-h-[120px] rounded-2xl border border-[#063d1f]/30 bg-[#063d1f]/15 px-3 pt-2 pb-14">
-        <div className="absolute inset-x-4 top-8 h-4 rounded-full bg-white/90 shadow-inner ring-1 ring-white/50" />
+      <div className="relative mt-10 min-h-[112px] rounded-2xl border border-[#e2e7e2] bg-gradient-to-r from-[#f4f1ea] via-[#eef5ee] to-[#e8f0e8] px-3 pt-2 pb-14">
+        <div className="absolute inset-x-4 top-8 h-4 rounded-full bg-white/85 shadow-inner ring-1 ring-[#e2e7e2]/80" />
         {markers.map((mk) => {
           const left = Math.max(2, Math.min(98, posPct(mk.value)));
           return (
@@ -118,12 +118,12 @@ export function MarketOffersTeamRail({
               style={{ left: `${left}%` }}
             >
               <span
-                className={`h-8 w-0.5 rounded-full ${mk.tone === "brand" ? "bg-white" : "bg-white/50"}`}
+                className={`h-8 w-0.5 rounded-full ${mk.tone === "brand" ? "bg-[var(--brand)]" : "bg-[#c5ccc5]"}`}
               />
-              <span className="mt-1 max-w-[92px] text-center text-[9px] font-semibold uppercase leading-tight text-white/70">
+              <span className="mt-1 max-w-[92px] text-center text-[9px] font-semibold uppercase leading-tight text-[color:rgba(11,11,11,0.5)]">
                 {mk.label}
               </span>
-              <span className="text-[10px] font-semibold text-white">{Math.round(mk.value).toLocaleString("fr-FR")} €</span>
+              <span className="text-[10px] font-semibold text-[var(--text)]">{Math.round(mk.value).toLocaleString("fr-FR")} €</span>
             </div>
           );
         })}
@@ -147,7 +147,7 @@ export function MarketOffersTeamRail({
               <button
                 type="button"
                 className={`cursor-pointer rounded-full p-0.5 shadow-md ring-2 transition hover:scale-105 ${
-                  isMe ? "ring-white ring-offset-2 ring-offset-[var(--brand)]" : isDeptAvg ? "ring-amber-200 bg-amber-50" : "ring-white"
+                  isMe ? "ring-[var(--brand)] ring-offset-2 ring-offset-white" : isDeptAvg ? "ring-amber-200 bg-amber-50" : "ring-white"
                 }`}
                 aria-label={
                   isDeptAvg
@@ -178,17 +178,17 @@ export function MarketOffersTeamRail({
         })}
       </div>
       {!salaryVisible && peersToShow.length <= 1 && (
-        <p className="mt-2 text-[11px] text-white/70">
+        <p className="mt-2 text-[11px] text-[color:rgba(11,11,11,0.5)]">
           Transparence désactivée : seule votre position est affichée.
         </p>
       )}
       {salaryVisible && disclosureMode === "department_average" && (
-        <p className="mt-2 text-[11px] text-white/75">
-          Mode conforme : votre salaire et la moyenne de votre département (pas les salaires individuels des collègues).
+        <p className="mt-2 text-[11px] text-[color:rgba(11,11,11,0.5)]">
+          Votre salaire et la moyenne de votre département (pas les salaires individuels des collègues).
         </p>
       )}
       {salaryVisible && disclosureMode === "exact" && hovered && (
-        <p className="mt-2 text-[11px] text-white/60">Survolez un profil pour voir le détail.</p>
+        <p className="mt-2 text-[11px] text-[color:rgba(11,11,11,0.5)]">Survolez un profil pour voir le détail.</p>
       )}
     </div>
   );

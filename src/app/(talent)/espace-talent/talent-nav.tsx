@@ -1,13 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { NavLink } from "@/components/navigation/nav-link";
 
 const BASE_LINKS = [
   { href: "/espace-talent", label: "Mon profil", exact: true, tourId: "talent-nav-profil" },
   { href: "/espace-talent/comparatif", label: "Comparatif", exact: false, tourId: "talent-nav-comparatif" },
-  { href: "/espace-talent/simulateur", label: "Simulateur", exact: false, tourId: undefined },
-  { href: "/espace-talent/organigramme", label: "Organigramme", exact: false, tourId: undefined },
+  { href: "/espace-talent/simulateur", label: "Simulateur", exact: false, tourId: "talent-nav-simulateur" },
+  { href: "/espace-talent/organigramme", label: "Organigramme", exact: false, tourId: "talent-nav-organigramme" },
 ];
 
 export function TalentNav({ isManager = false }: { isManager?: boolean }) {
@@ -22,7 +22,7 @@ export function TalentNav({ isManager = false }: { isManager?: boolean }) {
       {links.map((link) => {
         const isActive = link.exact ? pathname === link.href : pathname.startsWith(link.href);
         return (
-          <Link
+          <NavLink
             key={link.href}
             href={link.href}
             data-tour={link.tourId}
@@ -33,7 +33,7 @@ export function TalentNav({ isManager = false }: { isManager?: boolean }) {
             }`}
           >
             {link.label}
-          </Link>
+          </NavLink>
         );
       })}
     </nav>

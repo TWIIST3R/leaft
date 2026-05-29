@@ -133,7 +133,7 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
   }));
 
   return (
-    <div ref={mainRef} className="space-y-8">
+    <div ref={mainRef} data-tour="rh-dashboard" className="space-y-8">
       <section data-animate className="rounded-3xl border border-[#e2e7e2] bg-white p-8 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>

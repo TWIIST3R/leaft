@@ -949,7 +949,7 @@ export function GrillesClient({
     : [];
 
   return (
-    <div ref={mainRef} className="space-y-8">
+    <div ref={mainRef} data-tour="rh-grilles-main" className="space-y-8">
       {/* Onglets */}
       <div data-animate-section className="flex gap-2 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-1">
         <button

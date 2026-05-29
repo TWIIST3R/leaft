@@ -167,16 +167,25 @@ function salaryLabelForNode(
   salaryVisible: boolean,
   disclosureMode: SalaryDisclosureMode,
   departmentAverages: DepartmentSalaryAverage[],
+  currentEmployeeId: string | null,
 ): string | null {
   if (!salaryVisible) return null;
+
+  if (currentEmployeeId && emp.id === currentEmployeeId) {
+    const sal = emp.annual_salary_brut != null ? Number(emp.annual_salary_brut) : null;
+    if (sal == null || sal <= 0) return null;
+    return `${Math.round(sal).toLocaleString("fr-FR")} €`;
+  }
+
   if (disclosureMode === "exact") {
     const sal = emp.annual_salary_brut != null ? Number(emp.annual_salary_brut) : null;
     if (sal == null || sal <= 0) return null;
-    return `${Math.round(sal).toLocaleString("fr-FR")} € brut / an`;
+    return `${Math.round(sal).toLocaleString("fr-FR")} €`;
   }
+
   const avg = getDepartmentAverageForEmployee(emp.current_department_id, departmentAverages);
   if (!avg) return null;
-  return `Moy. dép. ${avg.average_annual_brut.toLocaleString("fr-FR")} €`;
+  return `${avg.average_annual_brut.toLocaleString("fr-FR")} €`;
 }
 
 function OrganigrammeFlowInner({
@@ -236,7 +245,7 @@ function OrganigrammeFlowInner({
         deptName: emp.current_department_id ? deptMap.get(emp.current_department_id) ?? null : null,
         deptColor: emp.current_department_id ? deptColorMap.get(emp.current_department_id) ?? null : null,
         salary: emp.annual_salary_brut ?? null,
-        salaryLabel: salaryLabelForNode(emp, salaryVisible, salaryDisclosureMode, departmentAverages),
+        salaryLabel: salaryLabelForNode(emp, salaryVisible, salaryDisclosureMode, departmentAverages, currentEmployeeId),
         salaryVisible,
         isMe: emp.id === currentEmployeeId,
       },

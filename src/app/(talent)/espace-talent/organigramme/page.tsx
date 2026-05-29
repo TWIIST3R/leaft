@@ -49,15 +49,17 @@ export default async function TalentOrganigrammePage() {
           Vue hiérarchique de votre organisation — filtres équipe et chaîne managériale disponibles.
         </p>
       </div>
-      <OrganigrammeFlow
-        employees={data.employees}
-        departments={data.departments}
-        currentEmployeeId={employee?.id ?? null}
-        salaryVisible={data.salaryVisible}
-        salaryDisclosureMode={data.salaryDisclosureMode}
-        departmentAverages={data.departmentAverages}
-        companyLogoUrl={data.companyLogoUrl}
-      />
+      <div data-tour="talent-organigramme-view">
+        <OrganigrammeFlow
+          employees={data.employees}
+          departments={data.departments}
+          currentEmployeeId={employee?.id ?? null}
+          salaryVisible={data.salaryVisible}
+          salaryDisclosureMode={data.salaryDisclosureMode}
+          departmentAverages={data.departmentAverages}
+          companyLogoUrl={data.companyLogoUrl}
+        />
+      </div>
     </div>
   );
 }

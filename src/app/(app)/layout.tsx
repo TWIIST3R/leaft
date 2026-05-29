@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { DashboardTopbar } from "@/components/dashboard/topbar";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
+import { DashboardMain } from "@/components/navigation/dashboard-main";
+import { RhTourHost } from "@/components/rh/rh-tour-host";
 import { checkSubscriptionAccess } from "@/lib/subscription-check";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -86,7 +88,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-10 border-b border-[#e2e7e2] bg-white/85 px-6 py-4 backdrop-blur">
           <DashboardTopbar />
         </header>
-        <main className="flex-1 px-4 py-8 sm:px-6 lg:px-10">{children}</main>
+        <DashboardMain className="relative flex-1 px-4 py-8 sm:px-6 lg:px-10">{children}</DashboardMain>
+        <RhTourHost />
       </div>
     </div>
   );

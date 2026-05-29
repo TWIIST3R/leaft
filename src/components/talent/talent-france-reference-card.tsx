@@ -22,36 +22,40 @@ export function TalentFranceReferenceCard({
       : `${inseeSalaryGame.pctVsMedian} %`;
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-[#063d1f]/25 bg-white shadow-sm">
-      <div className="bg-[var(--brand)] px-4 py-4 sm:px-6 sm:py-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-white/80">Référence salariale en France</p>
-        <p className="mt-2 text-sm text-white/90">
-          Où vous vous situez par rapport aux salaires nets du secteur privé (données publiques indicatives).
-        </p>
-        <div className="mt-4 flex flex-wrap items-end gap-4">
-          <div>
-            <p className="text-[10px] font-semibold uppercase text-white/70">Votre position</p>
-            <p className="text-3xl font-bold tabular-nums text-white">{pctLabel}</p>
-            <p className="text-xs text-white/75">vs médiane nationale (~{inseeSalaryGame.inseeMedianNetMonthly.toLocaleString("fr-FR")} € net / mois)</p>
-          </div>
-          <div className="rounded-xl bg-white/15 px-3 py-2">
-            <p className="text-[10px] uppercase text-white/70">Net mensuel estimé</p>
-            <p className="text-lg font-semibold tabular-nums text-white">
-              {inseeSalaryGame.netMonthlyEstimated.toLocaleString("fr-FR")} €
-            </p>
-            <p className="text-[10px] text-white/70">~{Math.round(inseeSalaryGame.approximatePercentile)}e percentile</p>
-          </div>
+    <div className="rounded-3xl border border-[#dfe6df] bg-gradient-to-br from-white to-[#f4f7f4] p-4 shadow-sm sm:p-6 lg:p-8">
+      <p className="text-xs font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.55)]">
+        Référence salariale en France
+      </p>
+      <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.6)]">
+        Position indicative par rapport aux salaires nets du secteur privé (données publiques, hors offres d&apos;emploi).
+      </p>
+
+      <div className="mt-4 flex flex-wrap gap-6 border-l-4 border-[var(--brand)] pl-4">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.45)]">Votre position</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-[var(--brand)]">{pctLabel}</p>
+          <p className="mt-0.5 text-xs text-[color:rgba(11,11,11,0.55)]">
+            vs médiane nationale (~{inseeSalaryGame.inseeMedianNetMonthly.toLocaleString("fr-FR")} € net / mois)
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.45)]">Net mensuel estimé</p>
+          <p className="mt-1 text-xl font-semibold tabular-nums text-[var(--text)]">
+            {inseeSalaryGame.netMonthlyEstimated.toLocaleString("fr-FR")} €
+          </p>
+          <p className="mt-0.5 text-xs text-[color:rgba(11,11,11,0.55)]">
+            ~{Math.round(inseeSalaryGame.approximatePercentile)}e percentile
+          </p>
         </div>
       </div>
-      <div className="bg-[#f8faf8] px-2 pb-2 pt-1 sm:px-4">
-        <InseeSalaryCurveChart
-          netMonthlyEstimated={inseeSalaryGame.netMonthlyEstimated}
-          inseeMedianNetMonthly={inseeSalaryGame.inseeMedianNetMonthly}
-          firstName={firstName}
-          lastName={lastName}
-          avatarUrl={avatarUrl}
-        />
-      </div>
+
+      <InseeSalaryCurveChart
+        netMonthlyEstimated={inseeSalaryGame.netMonthlyEstimated}
+        inseeMedianNetMonthly={inseeSalaryGame.inseeMedianNetMonthly}
+        firstName={firstName}
+        lastName={lastName}
+        avatarUrl={avatarUrl}
+      />
     </div>
   );
 }

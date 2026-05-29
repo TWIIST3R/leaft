@@ -4,7 +4,10 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import gsap from "gsap";
 import { Avatar } from "@/components/ui/avatar";
 import { LineChart } from "@/components/charts/line-chart";
-import { TalentOnboarding } from "@/components/talent/talent-onboarding";
+import {
+  TALENT_TOUR_OPEN_RDV_EVENT,
+  TALENT_TOUR_RDV_CLOSED_EVENT,
+} from "@/components/talent/talent-tour-host";
 
 type Interview = {
   id: string;
@@ -79,8 +82,18 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
   const [deletingAvatar, setDeletingAvatar] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [subscriptionActive, setSubscriptionActive] = useState<boolean | null>(null);
-
   const [showRdvModal, setShowRdvModal] = useState(false);
+
+  const closeRdvModal = () => {
+    setShowRdvModal(false);
+    setRdvNote("");
+    setRdvSlots([
+      { date: "", time: "", durationMin: 45 },
+      { date: "", time: "", durationMin: 45 },
+      { date: "", time: "", durationMin: 45 },
+    ]);
+    window.dispatchEvent(new CustomEvent(TALENT_TOUR_RDV_CLOSED_EVENT));
+  };
   const [rdvTo, setRdvTo] = useState<{ manager: boolean; rh: boolean }>({ manager: true, rh: false });
   const [rdvInterviewType, setRdvInterviewType] = useState<(typeof INTERVIEW_TYPES)[number]["value"]>(INTERVIEW_TYPES[0].value);
   const [rdvSlots, setRdvSlots] = useState<{ date: string; time: string; durationMin: number }[]>([
@@ -155,6 +168,12 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
       .then((r) => r.json())
       .then((d) => setSubscriptionActive(!!d?.hasSubscription))
       .catch(() => setSubscriptionActive(null));
+  }, []);
+
+  useEffect(() => {
+    const onOpen = () => setShowRdvModal(true);
+    window.addEventListener(TALENT_TOUR_OPEN_RDV_EVENT, onOpen);
+    return () => window.removeEventListener(TALENT_TOUR_OPEN_RDV_EVENT, onOpen);
   }, []);
 
   async function handleRdvSubmit() {
@@ -312,14 +331,6 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
 
   return (
     <div ref={mainRef} className="space-y-6 sm:space-y-8">
-      <TalentOnboarding
-        firstName={employee.first_name}
-        salaryVisible={data.salaryVisible}
-        hasProgression={progressionData.length >= 2}
-        subscriptionActive={subscriptionActive}
-        rdvModalOpen={showRdvModal}
-        onTourOpenRdv={() => setShowRdvModal(true)}
-      />
       <section data-section data-tour="talent-welcome" className={`${CARD} !p-5 sm:!p-8`}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
@@ -464,7 +475,10 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
             <button
               id="talent-tour-rdv-btn"
               type="button"
-              onClick={() => setShowRdvModal(true)}
+              onClick={() => {
+                setShowRdvModal(true);
+                window.dispatchEvent(new CustomEvent(TALENT_TOUR_OPEN_RDV_EVENT));
+              }}
               disabled={subscriptionActive === false}
               className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -588,7 +602,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
                   <button
                     id="talent-tour-rdv-cancel"
                     type="button"
-                    onClick={() => { setShowRdvModal(false); setRdvNote(""); setRdvSlots([{ date: "", time: "", durationMin: 45 }, { date: "", time: "", durationMin: 45 }, { date: "", time: "", durationMin: 45 }]); }}
+                    onClick={closeRdvModal}
                     className="cursor-pointer rounded-full border border-[#e2e7e2] px-4 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-[#f8faf8]"
                   >
                     Annuler

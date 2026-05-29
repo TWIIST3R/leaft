@@ -20,9 +20,9 @@ export function ComparatifClient({ data }: { data: TalentComparatifData }) {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <section className="rounded-2xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 px-4 py-4 sm:px-6">
-        <h1 className="text-2xl font-semibold text-[var(--brand)]">Comparatif</h1>
-        <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.7)]">
+      <section>
+        <h1 className="text-2xl font-semibold text-[var(--text)]">Comparatif</h1>
+        <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
           Marché des offres, référence France et positionnement par rapport à votre équipe.
         </p>
       </section>
