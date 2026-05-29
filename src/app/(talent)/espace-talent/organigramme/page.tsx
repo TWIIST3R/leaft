@@ -43,13 +43,13 @@ export default async function TalentOrganigrammePage() {
 
   return (
     <div className="space-y-8">
-      <div>
+      <div data-tour="talent-organigramme-header">
         <h1 className="text-2xl font-semibold text-[var(--text)]">Organigramme</h1>
         <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
           Vue hiérarchique de votre organisation — filtres équipe et chaîne managériale disponibles.
         </p>
       </div>
-      <div data-tour="talent-organigramme-view">
+      <div>
         <OrganigrammeFlow
           employees={data.employees}
           departments={data.departments}

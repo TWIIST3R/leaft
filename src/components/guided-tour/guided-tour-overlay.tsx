@@ -36,7 +36,10 @@ function firstVisibleElement(selector: string): HTMLElement | null {
 }
 
 /** Positionne la modale à côté de la cible, sans la recouvrir. */
-export function computePopoverPlacement(rect: TourRect): PopoverPlacement {
+export function computePopoverPlacement(
+  rect: TourRect,
+  hint: "default" | "nav-right" | "bottom-right" | "page-header" = "default",
+): PopoverPlacement {
   const margin = 16;
   const popoverW = Math.min(384, window.innerWidth - margin * 2);
   const popoverH = 200;
@@ -47,8 +50,28 @@ export function computePopoverPlacement(rect: TourRect): PopoverPlacement {
   const clampTop = (top: number) => Math.max(margin, Math.min(vh - popoverH - margin, top));
   const clampLeft = (left: number) => Math.max(margin, Math.min(vw - popoverW - margin, left));
 
+  if (hint === "bottom-right") {
+    return {
+      top: vh - popoverH - margin,
+      left: vw - popoverW - margin,
+      maxWidth: popoverW,
+    };
+  }
+
+  if (hint === "page-header") {
+    const below = rect.top + rect.height + margin;
+    if (below + popoverH <= vh - margin) {
+      return { top: below, left: clampLeft(Math.min(rect.left, vw - popoverW - margin)), maxWidth: popoverW };
+    }
+    return {
+      top: clampTop(rect.top - popoverH - margin),
+      left: clampLeft(vw - popoverW - margin),
+      maxWidth: popoverW,
+    };
+  }
+
   // Menu latéral (lien étroit à gauche)
-  if (rect.left < vw * 0.32 && rect.width < 280) {
+  if (hint === "nav-right" || (rect.left < vw * 0.32 && rect.width < 280)) {
     const left = rect.left + rect.width + margin;
     if (left + popoverW <= vw - margin) {
       return { top: clampTop(cy - popoverH / 2), left, maxWidth: popoverW };
@@ -171,7 +194,7 @@ export function TourPopover({
 
   return (
     <div
-      className={`pointer-events-auto z-[10002] w-full max-w-md rounded-2xl border border-[#e2e7e2] bg-white p-5 shadow-xl ${
+      className={`pointer-events-auto z-[10050] w-full max-w-md rounded-2xl border border-[#e2e7e2] bg-white p-5 shadow-xl ${
         placement ? "fixed" : ""
       }`}
       style={style}

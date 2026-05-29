@@ -88,6 +88,12 @@ export function MarketOffersTeamRail({
 
   const posPct = (sal: number) => ((sal - axisLo) / axisSpan) * 100;
 
+  const MARKER_LEFT: Record<string, number> = {
+    "Fourchette basse": 22,
+    "Médiane marché": 50,
+    "Fourchette haute": 78,
+  };
+
   const markers = [
     { label: "Fourchette basse", value: p25, tone: "muted" as const },
     { label: "Médiane marché", value: p50, tone: "brand" as const },
@@ -117,7 +123,7 @@ export function MarketOffersTeamRail({
       <div className="relative mt-10 min-h-[128px] rounded-2xl border border-[#e2e7e2] bg-gradient-to-r from-[#f4f1ea] via-[#eef5ee] to-[#e8f0e8] px-4 pt-3 pb-16">
         <div className="absolute inset-x-6 top-10 h-4 rounded-full bg-white/85 shadow-inner ring-1 ring-[#e2e7e2]/80" />
         {markers.map((mk) => {
-          const left = Math.max(2, Math.min(98, posPct(mk.value)));
+          const left = MARKER_LEFT[mk.label] ?? 50;
           return (
             <div
               key={mk.label}

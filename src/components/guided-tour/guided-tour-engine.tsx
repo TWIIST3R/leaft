@@ -29,6 +29,10 @@ export type GuidedTourStep = {
   waitPathname?: string;
   nextLabel?: string;
   showNext?: boolean;
+  /** Remonte la page avant l’étape (menu latéral, en-tête). */
+  scrollToTop?: boolean;
+  /** Placement préféré de la modale d’étape. */
+  popoverPlacement?: "default" | "nav-right" | "bottom-right" | "page-header";
 };
 
 const STEP_STORAGE_KEY = "leaft_guided_tour_current_step";
@@ -74,7 +78,13 @@ export function GuidedTourEngine({
         : step.selector!
       : null;
 
-  useTourTargetElevate(elevateSelector, !!elevateSelector);
+  const elevateNavOnly =
+    active && step?.kind === "navigate" && !!step.navSelector;
+  useTourTargetElevate(
+    elevateSelector,
+    !!elevateSelector && !elevateNavOnly,
+  );
+  useTourTargetElevate(step?.kind === "navigate" ? step.navSelector ?? null : null, elevateNavOnly);
 
   const readDone = useCallback(() => {
     try {
@@ -122,8 +132,11 @@ export function GuidedTourEngine({
   );
 
   const advance = useCallback(() => {
-    if (stepIndex < steps.length - 1) goToIndex(stepIndex + 1);
-    else dismiss();
+    if (stepIndex >= steps.length - 1) {
+      dismiss();
+      return;
+    }
+    goToIndex(stepIndex + 1);
   }, [stepIndex, steps.length, goToIndex, dismiss]);
 
   useEffect(() => {
@@ -207,7 +220,9 @@ export function GuidedTourEngine({
       }
       const nextHole = measureSelector(sel);
       setHole(nextHole);
-      setPopoverPlacement(nextHole ? computePopoverPlacement(nextHole) : null);
+      setPopoverPlacement(
+        nextHole ? computePopoverPlacement(nextHole, step.popoverPlacement) : null,
+      );
     };
 
     update();
@@ -222,12 +237,41 @@ export function GuidedTourEngine({
   }, [active, step, pathname]);
 
   useEffect(() => {
-    if (!active || !step?.selector || step.kind !== "highlight") return;
+    if (!active || !step) return;
+
+    const scrollPageTop = () => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      const main = document.querySelector("main");
+      if (main instanceof HTMLElement) main.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    if (step.scrollToTop) {
+      scrollPageTop();
+    }
+
+    if (step.kind === "navigate" && step.navSelector) {
+      scrollPageTop();
+      const t = window.setTimeout(() => {
+        document.querySelectorAll(step.navSelector!).forEach((el) => {
+          const r = el.getBoundingClientRect();
+          if (r.width >= 2 && r.height >= 2) {
+            el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          }
+        });
+      }, 280);
+      return () => window.clearTimeout(t);
+    }
+
+    if (step.kind !== "highlight" || !step.selector) return;
+
+    if (step.scrollToTop) return;
+
+    const block = step.popoverPlacement === "page-header" ? "start" : "center";
     const nodes = document.querySelectorAll(step.selector);
     for (const el of nodes) {
       const r = el.getBoundingClientRect();
       if (r.width >= 2 && r.height >= 2) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.scrollIntoView({ behavior: "smooth", block });
         break;
       }
     }

@@ -1,6 +1,6 @@
 import type { GuidedTourStep } from "@/components/guided-tour/guided-tour-engine";
 
-export const RH_TOUR_STORAGE_KEY = "leaft_rh_guided_tour_v1_done";
+export const RH_TOUR_STORAGE_KEY = "leaft_rh_guided_tour_v2_done";
 
 export function buildRhTourSteps(): GuidedTourStep[] {
   return [
@@ -27,6 +27,8 @@ export function buildRhTourSteps(): GuidedTourStep[] {
       title: "Talents",
       body: "Cliquez sur « Talents » pour gérer les fiches collaborateurs.",
       showNext: false,
+      scrollToTop: true,
+      popoverPlacement: "nav-right",
     },
     {
       id: "talents",
@@ -45,14 +47,18 @@ export function buildRhTourSteps(): GuidedTourStep[] {
       title: "Grilles salariales",
       body: "Cliquez sur « Grilles de salaire » pour structurer familles, niveaux et fourchettes.",
       showNext: false,
+      scrollToTop: true,
+      popoverPlacement: "nav-right",
     },
     {
       id: "grilles",
       kind: "highlight",
       pathname: "/dashboard/grilles",
-      selector: '[data-tour="rh-grilles-main"]',
+      selector: '[data-tour="rh-grilles-header"]',
       title: "Grilles",
       body: "Départements, paliers, management et ancienneté : base de votre politique de rémunération.",
+      scrollToTop: true,
+      popoverPlacement: "page-header",
     },
     {
       id: "go_entretiens",
@@ -63,6 +69,8 @@ export function buildRhTourSteps(): GuidedTourStep[] {
       title: "Entretiens",
       body: "Cliquez sur « Entretiens » pour suivre les entretiens et demandes de RDV.",
       showNext: false,
+      scrollToTop: true,
+      popoverPlacement: "nav-right",
     },
     {
       id: "entretiens",
@@ -81,14 +89,18 @@ export function buildRhTourSteps(): GuidedTourStep[] {
       title: "Organigramme",
       body: "Cliquez sur « Organigramme » pour la vue hiérarchique.",
       showNext: false,
+      scrollToTop: true,
+      popoverPlacement: "nav-right",
     },
     {
       id: "organigramme",
       kind: "highlight",
       pathname: "/dashboard/organigramme",
-      selector: '[data-tour="rh-organigramme-main"]',
+      selector: '[data-tour="rh-organigramme-header"]',
       title: "Organigramme RH",
       body: "Même vue que côté talent, avec les rémunérations selon votre paramétrage de transparence.",
+      scrollToTop: true,
+      popoverPlacement: "page-header",
     },
     {
       id: "go_parametres",
@@ -99,6 +111,8 @@ export function buildRhTourSteps(): GuidedTourStep[] {
       title: "Paramétrage",
       body: "Cliquez sur « Paramétrage » pour la transparence salariale et la facturation.",
       showNext: false,
+      scrollToTop: true,
+      popoverPlacement: "nav-right",
     },
     {
       id: "parametres",

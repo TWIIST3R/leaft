@@ -28,8 +28,8 @@ export default async function OrganigrammePage() {
   const data = await loadOrganigrammeForOrganization(organizationId);
 
   return (
-    <div data-tour="rh-organigramme-main" className="space-y-8">
-      <div>
+    <div className="space-y-8">
+      <div data-tour="rh-organigramme-header">
         <h1 className="text-2xl font-semibold text-[var(--text)]">Organigramme</h1>
         <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
           Vue hiérarchique de votre organisation, construite à partir des liens managériaux.

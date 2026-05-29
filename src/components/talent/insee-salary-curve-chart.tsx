@@ -160,11 +160,11 @@ export function InseeSalaryCurveChart({
 
   return (
     <div className="mt-4 w-full">
-      <div className="h-[min(340px,56vw)] min-h-[260px] w-full sm:h-[300px]">
+      <div className="h-[min(400px,62vw)] min-h-[300px] w-full sm:h-[340px]">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
             data={data}
-            margin={{ top: 72, right: 16, left: 8, bottom: 12 }}
+            margin={{ top: 88, right: 16, left: 8, bottom: 12 }}
             onMouseLeave={() => setActiveIndex(null)}
           >
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(11,11,11,0.08)" />
@@ -183,7 +183,7 @@ export function InseeSalaryCurveChart({
                 style: { fontSize: 10, fill: "rgba(11,11,11,0.5)" },
               }}
             />
-            <YAxis hide domain={[0, 100]} allowDataOverflow />
+            <YAxis hide domain={[0, 112]} allowDataOverflow />
             <Tooltip content={<InseeTooltip />} cursor={{ fill: "rgba(9,82,40,0.06)" }} />
             <Bar
               dataKey="density"

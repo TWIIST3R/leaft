@@ -1,11 +1,10 @@
 import type { GuidedTourStep } from "@/components/guided-tour/guided-tour-engine";
 
-export const TALENT_TOUR_STORAGE_KEY = "leaft_talent_guided_tour_v5_done";
+export const TALENT_TOUR_STORAGE_KEY = "leaft_talent_guided_tour_v6_done";
 
 export function buildTalentTourSteps(options: {
   salaryVisible: boolean;
   hasProgression: boolean;
-  skipRdv?: boolean;
 }): GuidedTourStep[] {
   const steps: GuidedTourStep[] = [
     {
@@ -65,6 +64,8 @@ export function buildTalentTourSteps(options: {
       title: "Page Comparatif",
       body: "Cliquez sur « Comparatif » dans le menu pour voir le marché et la référence France.",
       showNext: false,
+      scrollToTop: true,
+      popoverPlacement: "nav-right",
     },
     {
       id: "comparatif_marche",
@@ -73,6 +74,7 @@ export function buildTalentTourSteps(options: {
       selector: '[data-tour="talent-marche-emploi"]',
       title: "Comparatif marché",
       body: "Fourchette issue des offres Indeed et Glassdoor, et position de votre équipe sur cette échelle.",
+      scrollToTop: true,
     },
     {
       id: "comparatif_france",
@@ -91,6 +93,8 @@ export function buildTalentTourSteps(options: {
       title: "Simulateur",
       body: "Cliquez sur « Simulateur » pour projeter une évolution de rémunération.",
       showNext: false,
+      scrollToTop: true,
+      popoverPlacement: "nav-right",
     },
     {
       id: "simulateur",
@@ -99,6 +103,7 @@ export function buildTalentTourSteps(options: {
       selector: '[data-tour="talent-simulateur-params"]',
       title: "Paramètres de simulation",
       body: "Modifiez département, palier, management ou ancienneté pour voir la rémunération projetée.",
+      scrollToTop: true,
     },
     {
       id: "go_organigramme",
@@ -109,47 +114,19 @@ export function buildTalentTourSteps(options: {
       title: "Organigramme",
       body: "Cliquez sur « Organigramme » pour visualiser la hiérarchie de l’entreprise.",
       showNext: false,
+      scrollToTop: true,
+      popoverPlacement: "nav-right",
     },
     {
       id: "organigramme",
       kind: "highlight",
       pathname: "/espace-talent/organigramme",
-      selector: '[data-tour="talent-organigramme-view"]',
+      selector: '[data-tour="talent-organigramme-header"]',
       title: "Vue organigramme",
-      body: "Filtrez par équipe ou chaîne managériale, exportez en PNG si besoin.",
-    },
-    {
-      id: "go_profil_rdv",
-      kind: "navigate",
-      pathname: "/espace-talent/organigramme",
-      navSelector: '[data-tour="talent-nav-profil"]',
-      waitPathname: "/espace-talent",
-      title: "Retour au profil",
-      body: options.skipRdv
-        ? "Cliquez sur « Mon profil » pour terminer la visite."
-        : "Cliquez sur « Mon profil » pour découvrir la demande de rendez-vous.",
-      showNext: false,
-    },
-  );
-
-  if (!options.skipRdv) {
-    steps.push({
-      id: "rdv_hint",
-      kind: "highlight",
-      pathname: "/espace-talent",
-      selector: "#talent-tour-rdv-btn",
-      title: "Demander un rendez-vous",
-      body: "Cliquez sur « Demander un RDV » pour ouvrir le formulaire (vous pourrez l’annuler ensuite).",
-      showNext: false,
-    });
-  }
-
-  steps.push(
-    {
-      id: "outro",
-      kind: "modal",
-      title: "C’est tout pour le tour",
-      body: "Explorez librement votre espace. Vous pouvez relancer ce guide avec ?tour=replay sur la page profil.",
+      body: "Filtrez par équipe ou chaîne managériale, exportez en PNG si besoin. L’organigramme interactif est juste en dessous.",
+      scrollToTop: true,
+      popoverPlacement: "page-header",
+      nextLabel: "Terminer",
     },
   );
 

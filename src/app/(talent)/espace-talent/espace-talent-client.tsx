@@ -4,11 +4,6 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import gsap from "gsap";
 import { Avatar } from "@/components/ui/avatar";
 import { LineChart } from "@/components/charts/line-chart";
-import {
-  TALENT_TOUR_OPEN_RDV_EVENT,
-  TALENT_TOUR_RDV_CLOSED_EVENT,
-} from "@/components/talent/talent-tour-host";
-
 type Interview = {
   id: string;
   interview_date: string;
@@ -92,7 +87,6 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
       { date: "", time: "", durationMin: 45 },
       { date: "", time: "", durationMin: 45 },
     ]);
-    window.dispatchEvent(new CustomEvent(TALENT_TOUR_RDV_CLOSED_EVENT));
   };
   const [rdvTo, setRdvTo] = useState<{ manager: boolean; rh: boolean }>({ manager: true, rh: false });
   const [rdvInterviewType, setRdvInterviewType] = useState<(typeof INTERVIEW_TYPES)[number]["value"]>(INTERVIEW_TYPES[0].value);
@@ -168,12 +162,6 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
       .then((r) => r.json())
       .then((d) => setSubscriptionActive(!!d?.hasSubscription))
       .catch(() => setSubscriptionActive(null));
-  }, []);
-
-  useEffect(() => {
-    const onOpen = () => setShowRdvModal(true);
-    window.addEventListener(TALENT_TOUR_OPEN_RDV_EVENT, onOpen);
-    return () => window.removeEventListener(TALENT_TOUR_OPEN_RDV_EVENT, onOpen);
   }, []);
 
   async function handleRdvSubmit() {
@@ -475,10 +463,7 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
             <button
               id="talent-tour-rdv-btn"
               type="button"
-              onClick={() => {
-                setShowRdvModal(true);
-                window.dispatchEvent(new CustomEvent(TALENT_TOUR_OPEN_RDV_EVENT));
-              }}
+              onClick={() => setShowRdvModal(true)}
               disabled={subscriptionActive === false}
               className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >

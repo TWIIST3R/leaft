@@ -150,7 +150,6 @@ export default async function TalentSpaceLayout({ children }: { children: ReactN
             firstName={info.employee.first_name}
             salaryVisible={info.salaryVisible}
             hasProgression={info.hasProgression}
-            subscriptionActive={subscription.hasAccess}
           />
         )}
       </div>

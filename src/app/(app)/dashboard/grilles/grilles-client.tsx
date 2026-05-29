@@ -949,9 +949,9 @@ export function GrillesClient({
     : [];
 
   return (
-    <div ref={mainRef} data-tour="rh-grilles-main" className="space-y-8">
-      {/* Onglets */}
-      <div data-animate-section className="flex gap-2 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-1">
+    <div ref={mainRef} className="space-y-8">
+      <div data-tour="rh-grilles-header" data-animate-section className="space-y-4">
+      <div className="flex gap-2 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-1">
         <button
           type="button"
           onClick={() => setActiveTab("grilles")}
@@ -966,6 +966,7 @@ export function GrillesClient({
         >
           Simulateur
         </button>
+      </div>
       </div>
 
       {activeTab === "simulateur" ? (
