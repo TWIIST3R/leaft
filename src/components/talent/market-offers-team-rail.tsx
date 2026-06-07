@@ -23,11 +23,9 @@ function PeerHoverCard({ peer, isMe }: { peer: MarketTeamPeer; isMe: boolean }) 
       {sal != null && (
         <p className="mt-2 text-sm font-bold tabular-nums text-[var(--brand)]">
           {peer.is_department_average ? "Moyenne " : ""}
-          {Math.round(sal).toLocaleString("fr-FR")} € <span className="text-[10px] font-medium text-[color:rgba(11,11,11,0.5)]">brut / an</span>
+          {Math.round(sal).toLocaleString("fr-FR")} €{" "}
+          <span className="text-[10px] font-medium text-[color:rgba(11,11,11,0.5)]">brut / an</span>
         </p>
-      )}
-      {peer.is_department_average && (
-        <p className="mt-1 text-[10px] text-[color:rgba(11,11,11,0.5)]">Basé sur les salaires renseignés dans votre département.</p>
       )}
     </div>
   );
@@ -35,7 +33,7 @@ function PeerHoverCard({ peer, isMe }: { peer: MarketTeamPeer; isMe: boolean }) 
 
 function buildSalaryAxis(values: number[]) {
   const filtered = values.filter((v) => Number.isFinite(v) && v > 0);
-  if (!filtered.length) return { axisLo: 0, axisHi: 1, posPct: () => 50 };
+  if (!filtered.length) return { posPct: () => 50 };
 
   const rawLo = Math.min(...filtered);
   const rawHi = Math.max(...filtered);
@@ -45,10 +43,21 @@ function buildSalaryAxis(values: number[]) {
   const axisHi = rawHi + pad;
 
   return {
-    axisLo,
-    axisHi,
-    posPct: (sal: number) => Math.max(3, Math.min(97, ((sal - axisLo) / (axisHi - axisLo)) * 100)),
+    posPct: (sal: number) => Math.max(4, Math.min(96, ((sal - axisLo) / (axisHi - axisLo)) * 100)),
   };
+}
+
+/** Évite le chevauchement horizontal entre repères proches. */
+function spreadPositions(items: { id: string; pct: number }[], minGap = 11): Map<string, number> {
+  const sorted = [...items].sort((a, b) => a.pct - b.pct);
+  const out = new Map<string, number>();
+  let last = -Infinity;
+  for (const item of sorted) {
+    const next = Math.max(item.pct, last + minGap);
+    out.set(item.id, Math.min(96, next));
+    last = next;
+  }
+  return out;
 }
 
 /**
@@ -95,23 +104,25 @@ export function MarketOffersTeamRail({
   );
 
   const markers = [
-    { label: "Fourchette basse", value: p25, tone: "muted" as const },
-    { label: "Médiane marché", value: p50, tone: "brand" as const },
-    { label: "Fourchette haute", value: p75, tone: "muted" as const },
+    { id: "p25", label: "Fourchette basse", value: p25, tone: "muted" as const },
+    { id: "p50", label: "Médiane marché", value: p50, tone: "brand" as const },
+    { id: "p75", label: "Fourchette haute", value: p75, tone: "muted" as const },
   ];
 
+  const markerPositions = useMemo(
+    () => spreadPositions(markers.map((m) => ({ id: m.id, pct: posPct(m.value) })), 14),
+    [markers, posPct],
+  );
+
   const sorted = [...peersToShow].sort((a, b) => Number(a.annual_salary_brut) - Number(b.annual_salary_brut));
-  const stackAt: number[] = [];
-  for (let i = 0; i < sorted.length; i++) {
-    const sal = Number(sorted[i]!.annual_salary_brut);
-    const p = posPct(sal);
-    let stack = 0;
-    for (let j = 0; j < i; j++) {
-      const pj = posPct(Number(sorted[j]!.annual_salary_brut));
-      if (Math.abs(p - pj) < 4) stack = Math.max(stack, (stackAt[j] ?? 0) + 1);
-    }
-    stackAt[i] = stack;
-  }
+  const peerPositions = useMemo(
+    () =>
+      spreadPositions(
+        sorted.map((p) => ({ id: p.id, pct: posPct(Number(p.annual_salary_brut)) })),
+        10,
+      ),
+    [sorted, posPct],
+  );
 
   const hovered = sorted.find((p) => p.id === hoveredId);
 
@@ -120,86 +131,142 @@ export function MarketOffersTeamRail({
       <p className="text-[10px] font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.45)]">
         Où se situent les salaires (brut annuel) vs la fourchette marché offres
       </p>
-      <div className="relative mt-10 min-h-[128px] rounded-2xl border border-[#e2e7e2] bg-gradient-to-r from-[#f4f1ea] via-[#eef5ee] to-[#e8f0e8] px-4 pt-3 pb-16">
-        <div className="absolute inset-x-6 top-10 h-4 rounded-full bg-white/85 shadow-inner ring-1 ring-[#e2e7e2]/80" />
-        {markers.map((mk) => {
-          const left = posPct(mk.value);
-          return (
-            <div
-              key={mk.label}
-              className="absolute top-8 z-[1] flex -translate-x-1/2 flex-col items-center"
-              style={{ left: `${left}%` }}
-            >
-              <span
-                className={`h-8 w-0.5 rounded-full ${mk.tone === "brand" ? "bg-[var(--brand)]" : "bg-[#c5ccc5]"}`}
-              />
-              <span className="mt-1 max-w-[92px] text-center text-[9px] font-semibold uppercase leading-tight text-[color:rgba(11,11,11,0.5)]">
-                {mk.label}
-              </span>
-              <span className="text-[10px] font-semibold text-[var(--text)]">{Math.round(mk.value).toLocaleString("fr-FR")} €</span>
-            </div>
-          );
-        })}
 
-        {sorted.map((peer, i) => {
-          const sal = Number(peer.annual_salary_brut);
-          const left = posPct(sal);
-          const stack = stackAt[i] ?? 0;
-          const isMe = peer.id === currentEmployeeId;
-          const isDeptAvg = !!peer.is_department_average;
-          return (
-            <div
-              key={peer.id}
-              className="absolute z-[2] flex -translate-x-1/2 flex-col items-center gap-1"
-              style={{ left: `${left}%`, bottom: `${12 + stack * 52}px` }}
-              onMouseEnter={() => setHoveredId(peer.id)}
-              onMouseLeave={() => setHoveredId((id) => (id === peer.id ? null : id))}
-              onFocus={() => setHoveredId(peer.id)}
-              onBlur={() => setHoveredId(null)}
-            >
-              {isMe && (
-                <span className="mb-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--brand)]">Vous</span>
-              )}
-              {isDeptAvg && (
-                <span className="mb-0.5 max-w-[72px] text-center text-[9px] font-semibold leading-tight text-[color:rgba(11,11,11,0.55)]">
-                  Moy. {peer.department_name ?? "dép."}
-                </span>
-              )}
-              <button
-                type="button"
-                className={`cursor-pointer rounded-full p-0.5 shadow-md ring-2 transition hover:scale-105 ${
-                  isMe ? "ring-[var(--brand)] ring-offset-2 ring-offset-white" : isDeptAvg ? "ring-amber-200 bg-amber-50" : "ring-white"
-                }`}
-                aria-label={
-                  isDeptAvg
-                    ? `Moyenne ${peer.department_name}`
-                    : `${peer.first_name} ${peer.last_name}`
-                }
+      <div className="mt-4 rounded-2xl border border-[#e2e7e2] bg-gradient-to-r from-[#f4f1ea] via-[#eef5ee] to-[#e8f0e8] px-4 py-5 sm:px-6">
+        {/* Repères marché — au-dessus de la jauge */}
+        <div className="relative mb-2 min-h-[52px]">
+          {markers.map((mk) => {
+            const left = markerPositions.get(mk.id) ?? posPct(mk.value);
+            return (
+              <div
+                key={mk.id}
+                className="absolute top-0 flex -translate-x-1/2 flex-col items-center"
+                style={{ left: `${left}%`, width: "max-content", maxWidth: "28%" }}
               >
-                {isDeptAvg ? (
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--brand)] text-white">
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-5-3.87M9 20H4v-2a4 4 0 015-3.87M16 7a4 4 0 11-8 0 4 4 0 018 0zM21 10a3 3 0 11-6 0 3 3 0 016 0zM9 10a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
+                <span
+                  className={`text-[9px] font-semibold uppercase leading-tight text-center ${
+                    mk.tone === "brand" ? "text-[var(--brand)]" : "text-[color:rgba(11,11,11,0.5)]"
+                  }`}
+                >
+                  {mk.label}
+                </span>
+                <span className="mt-0.5 text-[11px] font-bold tabular-nums text-[var(--text)]">
+                  {Math.round(mk.value).toLocaleString("fr-FR")} €
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Jauge */}
+        <div className="relative mx-1 h-4 rounded-full bg-white/90 shadow-inner ring-1 ring-[#e2e7e2]/80">
+          {markers.map((mk) => {
+            const left = markerPositions.get(mk.id) ?? posPct(mk.value);
+            return (
+              <span
+                key={`tick-${mk.id}`}
+                className={`absolute top-1/2 z-[1] h-6 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full ${
+                  mk.tone === "brand" ? "bg-[var(--brand)]" : "bg-[#b8c0b8]"
+                }`}
+                style={{ left: `${left}%` }}
+              />
+            );
+          })}
+        </div>
+
+        {/* Talents & moyenne département — sous la jauge */}
+        <div className="relative mt-6 min-h-[88px]">
+          {sorted.map((peer) => {
+            const left = peerPositions.get(peer.id) ?? posPct(Number(peer.annual_salary_brut));
+            const isMe = peer.id === currentEmployeeId;
+            const isDeptAvg = !!peer.is_department_average;
+            return (
+              <div
+                key={peer.id}
+                className="absolute top-0 flex -translate-x-1/2 flex-col items-center"
+                style={{ left: `${left}%`, width: "max-content", maxWidth: "30%" }}
+                onMouseEnter={() => setHoveredId(peer.id)}
+                onMouseLeave={() => setHoveredId((id) => (id === peer.id ? null : id))}
+              >
+                {isMe ? (
+                  <span className="mb-1 rounded-full bg-[var(--brand)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+                    Vous
                   </span>
-                ) : (
-                  <Avatar
-                    firstName={peer.first_name}
-                    lastName={peer.last_name}
-                    avatarUrl={peer.avatar_url}
-                    size="sm"
-                  />
+                ) : isDeptAvg ? (
+                  <span className="mb-1 rounded-full border border-[var(--brand)]/25 bg-white px-2 py-0.5 text-[9px] font-semibold text-[var(--brand)]">
+                    Moy. {peer.department_name ?? "dép."}
+                  </span>
+                ) : null}
+
+                <button
+                  type="button"
+                  className={`cursor-pointer rounded-full p-0.5 shadow-md ring-2 transition hover:scale-105 ${
+                    isMe
+                      ? "ring-[var(--brand)] ring-offset-2 ring-offset-[#eef5ee]"
+                      : isDeptAvg
+                        ? "ring-[var(--brand)]/40 bg-white"
+                        : "ring-white bg-white"
+                  }`}
+                  aria-label={
+                    isDeptAvg
+                      ? `Moyenne ${peer.department_name}`
+                      : `${peer.first_name} ${peer.last_name}`
+                  }
+                >
+                  {isDeptAvg ? (
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--brand)] text-white">
+                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M17 20h5v-2a4 4 0 00-5-3.87M9 20H4v-2a4 4 0 015-3.87M16 7a4 4 0 11-8 0 4 4 0 018 0zM21 10a3 3 0 11-6 0 3 3 0 016 0zM9 10a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                      </svg>
+                    </span>
+                  ) : (
+                    <Avatar
+                      firstName={peer.first_name}
+                      lastName={peer.last_name}
+                      avatarUrl={peer.avatar_url}
+                      size="md"
+                    />
+                  )}
+                </button>
+
+                {!isMe && !isDeptAvg && (
+                  <span className="mt-1 max-w-[80px] truncate text-center text-[9px] font-medium text-[color:rgba(11,11,11,0.55)]">
+                    {peer.first_name}
+                  </span>
                 )}
-              </button>
-              {hoveredId === peer.id && (
-                <div className="absolute bottom-full z-50 mb-2 w-[min(100vw-2rem,14rem)]">
-                  <PeerHoverCard peer={peer} isMe={isMe} />
-                </div>
-              )}
-            </div>
-          );
-        })}
+
+                {hoveredId === peer.id && (
+                  <div className="absolute top-full z-50 mt-2 w-[min(100vw-2rem,14rem)]">
+                    <PeerHoverCard peer={peer} isMe={isMe} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Légende */}
+        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 border-t border-[#e2e7e2]/80 pt-3 text-[10px] text-[color:rgba(11,11,11,0.5)]">
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-[#b8c0b8]" /> Fourchette marché (offres)
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-[var(--brand)]" /> Médiane
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[var(--brand)] text-[8px] text-white">Ø</span>
+            Moyenne département
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-4 w-4 rounded-full ring-2 ring-[var(--brand)]" /> Vous
+          </span>
+        </div>
       </div>
+
       {!salaryVisible && peersToShow.length <= 1 && (
         <p className="mt-2 text-[11px] text-[color:rgba(11,11,11,0.5)]">
           Transparence désactivée : seule votre position est affichée.

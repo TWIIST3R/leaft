@@ -39,14 +39,22 @@ export type OrgEmployee = {
 export type OrgDept = { id: string; name: string };
 
 const DEPT_COLORS = [
-  { bg: "rgba(9,82,40,0.08)", border: "rgba(9,82,40,0.25)", text: "#095228" },
-  { bg: "rgba(59,130,246,0.08)", border: "rgba(59,130,246,0.3)", text: "#1d4ed8" },
-  { bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.3)", text: "#b45309" },
-  { bg: "rgba(139,92,246,0.08)", border: "rgba(139,92,246,0.3)", text: "#7c3aed" },
-  { bg: "rgba(239,68,68,0.08)", border: "rgba(239,68,68,0.3)", text: "#dc2626" },
-  { bg: "rgba(16,185,129,0.08)", border: "rgba(16,185,129,0.3)", text: "#059669" },
-  { bg: "rgba(236,72,153,0.08)", border: "rgba(236,72,153,0.3)", text: "#db2777" },
-  { bg: "rgba(107,114,128,0.08)", border: "rgba(107,114,128,0.3)", text: "#4b5563" },
+  { bg: "rgba(9,82,40,0.12)", border: "#095228", text: "#095228", accent: "#a1b68d" },
+  { bg: "rgba(59,130,246,0.12)", border: "#2563eb", text: "#1d4ed8", accent: "#93c5fd" },
+  { bg: "rgba(245,158,11,0.14)", border: "#d97706", text: "#b45309", accent: "#fcd34d" },
+  { bg: "rgba(139,92,246,0.12)", border: "#7c3aed", text: "#6d28d9", accent: "#c4b5fd" },
+  { bg: "rgba(239,68,68,0.12)", border: "#dc2626", text: "#b91c1c", accent: "#fca5a5" },
+  { bg: "rgba(16,185,129,0.12)", border: "#059669", text: "#047857", accent: "#6ee7b7" },
+  { bg: "rgba(236,72,153,0.12)", border: "#db2777", text: "#be185d", accent: "#f9a8d4" },
+  { bg: "rgba(107,114,128,0.12)", border: "#6b7280", text: "#4b5563", accent: "#d1d5db" },
+];
+
+export type OrgVisualStyle = "tree" | "flow" | "modern";
+
+const STYLE_OPTIONS: { id: OrgVisualStyle; label: string; hint: string }[] = [
+  { id: "tree", label: "Arbre", hint: "Hiérarchie verticale classique" },
+  { id: "flow", label: "Horizontal", hint: "Branches latérales, lecture gauche → droite" },
+  { id: "modern", label: "Coloré", hint: "Cartes par département, bordures accentuées" },
 ];
 
 const NODE_WIDTH = 200;
@@ -60,21 +68,45 @@ function OrgNodeCustom({ data }: NodeProps) {
     avatarUrl: string | null;
     deptName: string | null;
     deptColor: (typeof DEPT_COLORS)[0] | null;
-    salary: number | null;
     salaryLabel: string | null;
     salaryVisible: boolean;
     isMe: boolean;
+    visualStyle: OrgVisualStyle;
   };
+
+  const dept = d.deptColor;
+  const isModern = d.visualStyle === "modern";
+  const isFlow = d.visualStyle === "flow";
+
+  const borderStyle = isModern && dept
+    ? { borderColor: dept.border, borderWidth: 3, background: dept.bg }
+    : isFlow && dept
+      ? { borderLeftColor: dept.border, borderLeftWidth: 4, background: "white" }
+      : dept
+        ? { borderLeftColor: dept.border, borderLeftWidth: 3, background: "white" }
+        : undefined;
+
+  const handlePos = isFlow
+    ? { target: Position.Left, source: Position.Right }
+    : { target: Position.Top, source: Position.Bottom };
 
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!bg-transparent !border-0 !w-0 !h-0" />
+      <Handle type="target" position={handlePos.target} className="!bg-transparent !border-0 !w-0 !h-0" />
       <div
         className={`flex flex-col items-center rounded-2xl border-2 bg-white px-3 py-3 shadow-sm transition-shadow hover:shadow-lg ${
-          d.isMe ? "border-[var(--brand)] ring-2 ring-[var(--brand)]/25" : "border-[#e2e7e2]"
-        }`}
-        style={{ width: NODE_WIDTH, minHeight: 90 }}
+          d.isMe ? "ring-2 ring-[var(--brand)]/30" : "border-[#e2e7e2]"
+        } ${isModern ? "border-[3px]" : ""}`}
+        style={{ width: NODE_WIDTH, minHeight: 90, ...borderStyle }}
       >
+        {isModern && dept && (
+          <span
+            className="mb-2 w-full rounded-lg py-1 text-center text-[10px] font-bold uppercase tracking-wide"
+            style={{ background: dept.border, color: "#fff" }}
+          >
+            {d.deptName ?? "—"}
+          </span>
+        )}
         <Avatar firstName={d.firstName} lastName={d.lastName} avatarUrl={d.avatarUrl} size="lg" />
         <p className={`mt-2 text-center text-sm font-semibold leading-tight ${d.isMe ? "text-[var(--brand)]" : "text-[var(--text)]"}`}>
           {d.firstName} {d.lastName}
@@ -83,19 +115,21 @@ function OrgNodeCustom({ data }: NodeProps) {
         <p className="mt-0.5 text-center text-[11px] leading-tight text-[color:rgba(11,11,11,0.55)]">
           {d.jobTitle || "\u2014"}
         </p>
-        {d.deptName && d.deptColor && (
+        {d.deptName && dept && !isModern && (
           <span
-            className="mt-1.5 inline-block rounded-lg px-2 py-0.5 text-[10px] font-semibold"
-            style={{ background: d.deptColor.bg, color: d.deptColor.text }}
+            className="mt-1.5 inline-block rounded-lg px-2.5 py-0.5 text-[10px] font-semibold"
+            style={{ background: dept.bg, color: dept.text, border: `1px solid ${dept.border}40` }}
           >
             {d.deptName}
           </span>
         )}
         {d.salaryVisible && d.salaryLabel && (
-          <p className="mt-1 text-xs font-semibold text-[var(--brand)]">{d.salaryLabel}</p>
+          <p className="mt-1 text-xs font-semibold" style={{ color: dept?.text ?? "var(--brand)" }}>
+            {d.salaryLabel}
+          </p>
         )}
       </div>
-      <Handle type="source" position={Position.Bottom} className="!bg-transparent !border-0 !w-0 !h-0" />
+      <Handle type="source" position={handlePos.source} className="!bg-transparent !border-0 !w-0 !h-0" />
     </>
   );
 }
@@ -109,7 +143,13 @@ function getLayoutedElements(
 ): { nodes: Node[]; edges: Edge[] } {
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: direction, nodesep: 60, ranksep: 100, marginx: 40, marginy: 40 });
+  g.setGraph({
+    rankdir: direction,
+    nodesep: direction === "LR" ? 80 : 60,
+    ranksep: direction === "LR" ? 120 : 100,
+    marginx: 40,
+    marginy: 40,
+  });
 
   nodes.forEach((node) => {
     g.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
@@ -208,6 +248,7 @@ function OrganigrammeFlowInner({
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
   const [scope, setScope] = useState<OrgScope>("full");
+  const [visualStyle, setVisualStyle] = useState<OrgVisualStyle>("tree");
   const scopeFilterable = !!currentEmployeeId && employees.length > 1;
 
   const displayEmployees = useMemo(() => {
@@ -233,6 +274,9 @@ function OrganigrammeFlowInner({
   }, [departments]);
 
   const { initialNodes, initialEdges } = useMemo(() => {
+    const layoutDir: "TB" | "LR" = visualStyle === "flow" ? "LR" : "TB";
+    const edgeType = visualStyle === "flow" ? "default" : "smoothstep";
+
     const nodes: Node[] = displayEmployees.map((emp) => ({
       id: emp.id,
       type: "orgNode",
@@ -244,28 +288,32 @@ function OrganigrammeFlowInner({
         avatarUrl: emp.avatar_url,
         deptName: emp.current_department_id ? deptMap.get(emp.current_department_id) ?? null : null,
         deptColor: emp.current_department_id ? deptColorMap.get(emp.current_department_id) ?? null : null,
-        salary: emp.annual_salary_brut ?? null,
         salaryLabel: salaryLabelForNode(emp, salaryVisible, salaryDisclosureMode, departmentAverages, currentEmployeeId),
         salaryVisible,
         isMe: emp.id === currentEmployeeId,
+        visualStyle,
       },
     }));
 
     const employeeIdSet = new Set(displayEmployees.map((e) => e.id));
     const edges: Edge[] = displayEmployees
       .filter((emp) => emp.manager_id && employeeIdSet.has(emp.manager_id))
-      .map((emp) => ({
-        id: `${emp.manager_id}-${emp.id}`,
-        source: emp.manager_id!,
-        target: emp.id,
-        type: "smoothstep",
-        style: { stroke: "#CFCFCF", strokeWidth: 2 },
-        animated: false,
-      }));
+      .map((emp) => {
+        const deptColor = emp.current_department_id ? deptColorMap.get(emp.current_department_id) : null;
+        const stroke = visualStyle !== "tree" && deptColor ? deptColor.border : "#CFCFCF";
+        return {
+          id: `${emp.manager_id}-${emp.id}`,
+          source: emp.manager_id!,
+          target: emp.id,
+          type: edgeType,
+          style: { stroke, strokeWidth: visualStyle === "modern" ? 2.5 : 2 },
+          animated: visualStyle === "flow",
+        };
+      });
 
-    const laid = getLayoutedElements(nodes, edges);
+    const laid = getLayoutedElements(nodes, edges, layoutDir);
     return { initialNodes: laid.nodes, initialEdges: laid.edges };
-  }, [displayEmployees, deptMap, deptColorMap, salaryVisible, salaryDisclosureMode, departmentAverages, currentEmployeeId]);
+  }, [displayEmployees, deptMap, deptColorMap, salaryVisible, salaryDisclosureMode, departmentAverages, currentEmployeeId, visualStyle]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -347,12 +395,12 @@ function OrganigrammeFlowInner({
       await Promise.all(promises);
 
       const link = document.createElement("a");
-      link.download = "organigramme.png";
+      link.download = `organigramme-${visualStyle}.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
     };
     img.src = dataUrl;
-  }, [nodes, companyLogoUrl]);
+  }, [nodes, companyLogoUrl, visualStyle]);
 
   const deptLegend = useMemo(() => {
     const seen = new Set<string>();
@@ -376,6 +424,26 @@ function OrganigrammeFlowInner({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1 rounded-xl border border-[#e2e7e2] bg-[#f8faf8] p-1">
+          <span className="px-2 text-[10px] font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.45)]">
+            Style
+          </span>
+          {STYLE_OPTIONS.map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              title={opt.hint}
+              onClick={() => setVisualStyle(opt.id)}
+              className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                visualStyle === opt.id
+                  ? "bg-white text-[var(--brand)] shadow-sm ring-1 ring-[var(--brand)]/20"
+                  : "text-[color:rgba(11,11,11,0.65)] hover:bg-white/70"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
         <button type="button" onClick={handleFitView} className="cursor-pointer rounded-full border border-[#e2e7e2] bg-white px-3 py-1.5 text-xs font-medium text-[var(--text)] transition hover:bg-[#f8faf8]">
           Voir tout
         </button>
@@ -446,7 +514,11 @@ function OrganigrammeFlowInner({
           nodesConnectable={false}
           elementsSelectable={false}
         >
-          <Background gap={24} size={1} color="rgba(0,0,0,0.04)" />
+          <Background
+            gap={visualStyle === "modern" ? 32 : 24}
+            size={1}
+            color={visualStyle === "modern" ? "rgba(0,0,0,0.03)" : "rgba(0,0,0,0.04)"}
+          />
           <Controls showInteractive={false} className="!rounded-xl !border-[#e2e7e2] !shadow-sm" />
           <MiniMap
             nodeStrokeWidth={3}
