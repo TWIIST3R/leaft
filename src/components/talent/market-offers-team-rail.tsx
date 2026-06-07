@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import type { SalaryDisclosureMode } from "@/lib/organization/salary-transparency-shared";
 import type { MarketTeamPeer } from "@/lib/talent/market-team-peer-types";
@@ -31,6 +31,24 @@ function PeerHoverCard({ peer, isMe }: { peer: MarketTeamPeer; isMe: boolean }) 
       )}
     </div>
   );
+}
+
+function buildSalaryAxis(values: number[]) {
+  const filtered = values.filter((v) => Number.isFinite(v) && v > 0);
+  if (!filtered.length) return { axisLo: 0, axisHi: 1, posPct: () => 50 };
+
+  const rawLo = Math.min(...filtered);
+  const rawHi = Math.max(...filtered);
+  const span = Math.max(rawHi - rawLo, 1);
+  const pad = span * 0.08;
+  const axisLo = rawLo - pad;
+  const axisHi = rawHi + pad;
+
+  return {
+    axisLo,
+    axisHi,
+    posPct: (sal: number) => Math.max(3, Math.min(97, ((sal - axisLo) / (axisHi - axisLo)) * 100)),
+  };
 }
 
 /**
@@ -71,28 +89,10 @@ export function MarketOffersTeamRail({
     : withSalary;
 
   const salaries = peersToShow.map((p) => Number(p.annual_salary_brut));
-  const mePeer = peersToShow.find((p) => p.id === currentEmployeeId);
-  const meSal =
-    mePeer?.annual_salary_brut != null
-      ? Number(mePeer.annual_salary_brut)
-      : salaries.length
-        ? salaries[Math.floor(salaries.length / 2)]!
-        : p50;
-
-  const allAxisValues = [p25, p50, p75, ...salaries];
-  const maxDist = Math.max(...allAxisValues.map((v) => Math.abs(v - meSal)), (p75 - p25) / 2);
-  const halfSpan = Math.max(maxDist * 1.15, (p75 - p25) * 0.55, 1);
-  const axisLo = meSal - halfSpan;
-  const axisHi = meSal + halfSpan;
-  const axisSpan = axisHi - axisLo;
-
-  const posPct = (sal: number) => ((sal - axisLo) / axisSpan) * 100;
-
-  const MARKER_LEFT: Record<string, number> = {
-    "Fourchette basse": 22,
-    "Médiane marché": 50,
-    "Fourchette haute": 78,
-  };
+  const { posPct } = useMemo(
+    () => buildSalaryAxis([p25, p50, p75, ...salaries]),
+    [p25, p50, p75, salaries],
+  );
 
   const markers = [
     { label: "Fourchette basse", value: p25, tone: "muted" as const },
@@ -108,7 +108,7 @@ export function MarketOffersTeamRail({
     let stack = 0;
     for (let j = 0; j < i; j++) {
       const pj = posPct(Number(sorted[j]!.annual_salary_brut));
-      if (Math.abs(p - pj) < 3.2) stack = Math.max(stack, (stackAt[j] ?? 0) + 1);
+      if (Math.abs(p - pj) < 4) stack = Math.max(stack, (stackAt[j] ?? 0) + 1);
     }
     stackAt[i] = stack;
   }
@@ -123,7 +123,7 @@ export function MarketOffersTeamRail({
       <div className="relative mt-10 min-h-[128px] rounded-2xl border border-[#e2e7e2] bg-gradient-to-r from-[#f4f1ea] via-[#eef5ee] to-[#e8f0e8] px-4 pt-3 pb-16">
         <div className="absolute inset-x-6 top-10 h-4 rounded-full bg-white/85 shadow-inner ring-1 ring-[#e2e7e2]/80" />
         {markers.map((mk) => {
-          const left = MARKER_LEFT[mk.label] ?? 50;
+          const left = posPct(mk.value);
           return (
             <div
               key={mk.label}
@@ -143,7 +143,7 @@ export function MarketOffersTeamRail({
 
         {sorted.map((peer, i) => {
           const sal = Number(peer.annual_salary_brut);
-          const left = Math.max(4, Math.min(96, posPct(sal)));
+          const left = posPct(sal);
           const stack = stackAt[i] ?? 0;
           const isMe = peer.id === currentEmployeeId;
           const isDeptAvg = !!peer.is_department_average;
@@ -159,6 +159,11 @@ export function MarketOffersTeamRail({
             >
               {isMe && (
                 <span className="mb-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--brand)]">Vous</span>
+              )}
+              {isDeptAvg && (
+                <span className="mb-0.5 max-w-[72px] text-center text-[9px] font-semibold leading-tight text-[color:rgba(11,11,11,0.55)]">
+                  Moy. {peer.department_name ?? "dép."}
+                </span>
               )}
               <button
                 type="button"

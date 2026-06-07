@@ -1,6 +1,10 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import {
+  computeDepartmentSalaryAverages,
+  getDepartmentAverageForEmployee,
+} from "@/lib/organization/department-salary-averages";
 import { EspaceTalentClient } from "./espace-talent-client";
 
 async function getData(userId: string, orgId: string | null, userEmail: string | null) {
@@ -96,6 +100,18 @@ async function getData(userId: string, orgId: string | null, userEmail: string |
         .order("order")
     : { data: [] };
 
+  const [{ data: orgEmployees }, { data: allDepartments }] = await Promise.all([
+    supabase
+      .from("employees")
+      .select("current_department_id, annual_salary_brut")
+      .eq("organization_id", organizationId),
+    supabase.from("departments").select("id, name").eq("organization_id", organizationId),
+  ]);
+
+  const deptNameMap = new Map((allDepartments ?? []).map((d) => [d.id, d.name]));
+  const deptAverages = computeDepartmentSalaryAverages(orgEmployees ?? [], deptNameMap);
+  const employeeDeptAvg = getDepartmentAverageForEmployee(employee.current_department_id, deptAverages);
+
   const { data: positionHistory } = await supabase
     .from("employee_position_history")
     .select("id, start_date, end_date, job_title, annual_salary_brut, level_id, department_id, effective_date, annual_salary, reason")
@@ -113,7 +129,10 @@ async function getData(userId: string, orgId: string | null, userEmail: string |
   const currentLevel = levelResult?.data;
   const midSalary = currentLevel?.mid_salary ? Number(currentLevel.mid_salary) : null;
   const salary = employee.annual_salary_brut != null ? Number(employee.annual_salary_brut) : null;
-  const compaRatio = salary && midSalary && midSalary > 0 ? Math.round((salary / midSalary) * 100) : null;
+  const salaryVsDeptPct =
+    salary && employeeDeptAvg && employeeDeptAvg.average_annual_brut > 0
+      ? Math.round((salary / employeeDeptAvg.average_annual_brut) * 100)
+      : null;
 
   return {
     orgName: org?.name ?? "",
@@ -130,7 +149,8 @@ async function getData(userId: string, orgId: string | null, userEmail: string |
     ancienneteLevel: ancName,
     salaryVisible: org?.salary_transparency_enabled ?? false,
     interviews: interviews ?? [],
-    compaRatio,
+    salaryVsDeptPct,
+    departmentAverageBrut: employeeDeptAvg?.average_annual_brut ?? null,
     deptLevels: (deptLevels ?? []).map((l) => ({ id: l.id, name: l.name, montant_annuel: l.montant_annuel ? Number(l.montant_annuel) : 0, mid_salary: l.mid_salary ? Number(l.mid_salary) : null })),
     benchmark: benchmarks ? { p25: Number(benchmarks.p25), p50: Number(benchmarks.p50), p75: Number(benchmarks.p75), source: benchmarks.source, updated_at: benchmarks.updated_at } : null,
     positionHistory: (positionHistory ?? [])

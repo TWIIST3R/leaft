@@ -60,7 +60,8 @@ type TalentData = {
   ancienneteLevel: string | null;
   salaryVisible: boolean;
   interviews: Interview[];
-  compaRatio: number | null;
+  salaryVsDeptPct: number | null;
+  departmentAverageBrut: number | null;
   deptLevels: DeptLevel[];
   benchmark: { p25: number; p50: number; p75: number; source: string; updated_at: string } | null;
   positionHistory: PositionEntry[];
@@ -411,12 +412,16 @@ export function EspaceTalentClient({ data }: { data: TalentData }) {
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-white/70">Position dans la grille</p>
-                {data.compaRatio != null ? (
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-white/70">Vs moyenne département</p>
+                {data.salaryVsDeptPct != null && data.department ? (
                   <>
-                    <p className="mt-1 text-3xl font-bold tabular-nums">{data.compaRatio} %</p>
+                    <p className="mt-1 text-3xl font-bold tabular-nums">{data.salaryVsDeptPct} %</p>
                     <p className="mt-1 text-xs text-white/75">
-                      Par rapport au midpoint de votre niveau dans la grille entreprise.
+                      Par rapport à la moyenne du département {data.department}
+                      {data.departmentAverageBrut != null && (
+                        <> ({data.departmentAverageBrut.toLocaleString("fr-FR")} € brut / an)</>
+                      )}
+                      .
                     </p>
                   </>
                 ) : (
