@@ -225,6 +225,97 @@ export function OrgChartDemo() {
   );
 }
 
+/* ----------------------- Transparence salariale ----------------------- */
+
+export function TransparencyDemo() {
+  const [enabled, setEnabled] = useState(true);
+  const [mode, setMode] = useState<"department_average" | "exact">("department_average");
+
+  return (
+    <div className={CARD}>
+      <div className="flex items-center justify-between border-b border-[#e2e7e2] bg-[#f8faf8] px-5 py-3.5">
+        <p className="text-sm font-semibold text-[var(--text)]">Paramètres · Transparence salariale</p>
+        <span className="rounded-lg bg-[var(--brand)]/10 px-2.5 py-1 text-xs font-medium text-[var(--brand)]">
+          Option
+        </span>
+      </div>
+      <div className="space-y-4 p-5">
+        {/* Interrupteur */}
+        <div className="flex items-center justify-between rounded-2xl border border-[#e2e7e2] bg-[#f8faf8] px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold text-[var(--text)]">Activer la transparence</p>
+            <p className="text-xs text-[color:rgba(11,11,11,0.55)]">Visible par les managers et les talents</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={enabled}
+            onClick={() => setEnabled((v) => !v)}
+            className={`relative h-7 w-12 shrink-0 rounded-full transition ${enabled ? "bg-[var(--brand)]" : "bg-[#cfd6cf]"}`}
+          >
+            <span
+              className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${enabled ? "left-6" : "left-1"}`}
+            />
+          </button>
+        </div>
+
+        {/* Modes */}
+        <div className={`space-y-3 transition ${enabled ? "opacity-100" : "pointer-events-none opacity-40"}`}>
+          {[
+            {
+              key: "department_average" as const,
+              title: "Moyenne du département",
+              tag: "Recommandé",
+              desc: "Chacun voit sa rémunération et la moyenne de son service, sans exposer les salaires individuels.",
+            },
+            {
+              key: "exact" as const,
+              title: "Salaires exacts",
+              tag: "Optionnel",
+              desc: "Le salaire brut annuel de chaque collègue est visible. Non requis par la loi.",
+            },
+          ].map((m) => (
+            <button
+              key={m.key}
+              type="button"
+              onClick={() => setMode(m.key)}
+              className={`flex w-full gap-3 rounded-2xl border-2 p-3.5 text-left transition ${
+                mode === m.key ? "border-[var(--brand)] bg-[var(--brand)]/5" : "border-[#e2e7e2] bg-white"
+              }`}
+            >
+              <span
+                className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
+                  mode === m.key ? "border-[var(--brand)]" : "border-[#cfd6cf]"
+                }`}
+              >
+                {mode === m.key && <span className="h-2 w-2 rounded-full bg-[var(--brand)]" />}
+              </span>
+              <div>
+                <p className="flex items-center gap-2 text-sm font-semibold text-[var(--text)]">
+                  {m.title}
+                  <span className="rounded-full bg-[var(--brand)]/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--brand)]">
+                    {m.tag}
+                  </span>
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-[color:rgba(11,11,11,0.6)]">{m.desc}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Aperçu */}
+        <div className="rounded-2xl bg-[#eef3ec] px-4 py-3 text-sm text-[var(--brand)]">
+          {!enabled
+            ? "Les rémunérations restent entièrement masquées."
+            : mode === "department_average"
+              ? "Vos talents voient : leur salaire + la moyenne de leur département."
+              : "Vos talents voient : le salaire brut de chaque collègue."}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ----------------------- Statistiques / équité ----------------------- */
 
 const PIE_H = "#3b82f6";

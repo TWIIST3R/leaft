@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Hero } from "@/components/marketing/hero";
 import { HeroSimulator } from "@/components/marketing/hero-simulator";
-import { SalaryGridDemo, OrgChartDemo, EquityDemo } from "@/components/marketing/feature-demos";
+import { SalaryGridDemo, OrgChartDemo, EquityDemo, TransparencyDemo } from "@/components/marketing/feature-demos";
 import { CalendlyEmbed } from "@/components/marketing/calendly-embed";
 import { Reveal } from "@/components/marketing/reveal";
 
@@ -75,9 +75,9 @@ export default function Home() {
   return (
     <main className="bg-white">
       {/* HERO — une seule feature : projeter une augmentation vs marché */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-[color:rgba(9,82,40,0.1)] via-white to-muted" />
-        <div className="absolute -right-32 -top-32 -z-10 h-96 w-96 rounded-full bg-[color:rgba(9,82,40,0.12)] blur-3xl" />
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#e7f0e6] via-[#eef3ec] to-[#f3f7f2]">
+        <div className="absolute -right-32 -top-32 -z-10 h-96 w-96 rounded-full bg-[color:rgba(9,82,40,0.14)] blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 -z-10 h-80 w-80 rounded-full bg-[color:rgba(161,182,141,0.25)] blur-3xl" />
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 pb-16 pt-16 sm:px-10 lg:grid-cols-2 lg:gap-12 lg:px-16 lg:pb-24 lg:pt-24">
           <Hero
             eyebrow="Rémunération équitable & transparente"
@@ -98,9 +98,9 @@ export default function Home() {
       </section>
 
       {/* BANDEAU CONFIANCE */}
-      <section className="border-y border-border bg-[var(--text)] text-white">
+      <section className="border-y border-border bg-white">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-6 py-10 text-center sm:px-10 lg:flex-row lg:justify-between lg:px-16 lg:text-left">
-          <p className="max-w-md text-sm font-medium text-white/70">
+          <p className="max-w-md text-sm font-medium text-[color:rgba(11,11,11,0.6)]">
             Pensé pour les PME et scale-ups qui veulent gérer la carrière de leurs équipes avec éthique.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-8">
@@ -110,8 +110,8 @@ export default function Home() {
               { value: "3 espaces", label: "RH, managers, employés" },
             ].map((s) => (
               <div key={s.label} className="text-center">
-                <p className="text-2xl font-semibold text-[#7fce9e]">{s.value}</p>
-                <p className="text-xs uppercase tracking-wide text-white/55">{s.label}</p>
+                <p className="text-2xl font-semibold text-[var(--brand)]">{s.value}</p>
+                <p className="text-xs uppercase tracking-wide text-[color:rgba(11,11,11,0.5)]">{s.label}</p>
               </div>
             ))}
           </div>
@@ -248,6 +248,54 @@ export default function Home() {
         </div>
       </section>
 
+      {/* TRANSPARENCE SALARIALE (option) */}
+      <section className="bg-[#eef3ec]">
+        <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-20 sm:px-10 lg:grid-cols-2 lg:px-16">
+          <Reveal delay={120} className="lg:order-2">
+            <TransparencyDemo />
+          </Reveal>
+          <Reveal className="lg:order-1">
+            <div>
+              <span className="inline-flex items-center gap-2 rounded-full border border-[var(--brand)]/20 bg-white px-4 py-1 text-sm font-medium text-[color:var(--brand)]">
+                Option · Conforme à la directive européenne
+              </span>
+              <h2 className="mt-5 text-3xl font-semibold text-[var(--text)] sm:text-4xl">
+                Anticipez la transparence salariale
+              </h2>
+              <p className="mt-4 text-lg leading-relaxed text-[color:rgba(11,11,11,0.72)]">
+                La directive européenne sur la transparence des rémunérations doit être transposée en droit français
+                d'ici le 7 juin 2026. Vos collaborateurs ont désormais le droit de connaître les critères qui fixent
+                les salaires, les niveaux et la progression — sans pour autant voir le salaire de leurs collègues.
+              </p>
+              <p className="mt-3 text-lg leading-relaxed text-[color:rgba(11,11,11,0.72)]">
+                Leaft inclut une <strong className="text-[var(--text)]">option de transparence</strong> que vous
+                activez quand vous êtes prêt, et à votre rythme.
+              </p>
+              <ul className="mt-6 space-y-3">
+                {[
+                  "Activable en un clic, désactivable à tout moment",
+                  "Mode « moyenne par département » recommandé : pas de salaires individuels exposés",
+                  "Critères de rémunération et de progression documentés et partagés",
+                ].map((t) => (
+                  <li key={t} className="flex items-start gap-3 text-sm text-[color:rgba(11,11,11,0.8)]">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[color:rgba(9,82,40,0.12)] text-[var(--brand)]">
+                      {checkIcon}
+                    </span>
+                    {t}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/contact"
+                className="mt-7 inline-flex items-center justify-center rounded-full bg-[var(--brand)] px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110"
+              >
+                Préparer ma mise en conformité
+              </Link>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
       {/* COMMENT CA MARCHE */}
       <section className="bg-white">
         <div className="mx-auto max-w-6xl px-6 py-20 sm:px-10 lg:px-16">
@@ -276,14 +324,17 @@ export default function Home() {
       </section>
 
       {/* CITATION / EQUITE */}
-      <section className="bg-[var(--text)] text-white">
+      <section className="bg-[#eef3ec]">
         <div className="mx-auto max-w-4xl px-6 py-20 text-center sm:px-10 lg:px-16">
           <Reveal>
-            <p className="text-2xl font-medium leading-relaxed sm:text-3xl">
-              « La transparence salariale n'est pas un risque. C'est le moyen le plus efficace de gagner la confiance de
-              son équipe et de retenir ses meilleurs talents. »
+            <svg className="mx-auto mb-6 h-10 w-10 text-[var(--brand)]/40" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M7 7h4v4c0 2.21-1.79 4-4 4v-2c1.1 0 2-.9 2-2H7V7Zm8 0h4v4c0 2.21-1.79 4-4 4v-2c1.1 0 2-.9 2-2h-2V7Z" />
+            </svg>
+            <p className="text-2xl font-medium leading-relaxed text-[var(--text)] sm:text-3xl">
+              La transparence salariale n'est pas un risque. C'est le moyen le plus efficace de gagner la confiance de
+              son équipe et de retenir ses meilleurs talents.
             </p>
-            <p className="mt-6 text-sm font-medium text-white/60">Notre conviction chez Leaft</p>
+            <p className="mt-6 text-sm font-medium text-[color:rgba(11,11,11,0.5)]">Notre conviction chez Leaft</p>
           </Reveal>
         </div>
       </section>
