@@ -163,9 +163,23 @@ export async function PATCH(
           .eq("organization_id", organizationId)
           .eq("manager_id", id);
       } else if (Array.isArray(body.subordinate_ids)) {
-        const desired = (body.subordinate_ids as unknown[]).filter(
+        const requested = (body.subordinate_ids as unknown[]).filter(
           (x): x is string => typeof x === "string" && x !== id
         );
+        // Sécurité anti-cycle : on retire tout talent situé au-dessus de ce manager
+        // dans la chaîne managériale (un ascendant ne peut pas devenir subordonné).
+        const { data: allEmps } = await supabase
+          .from("employees")
+          .select("id, manager_id")
+          .eq("organization_id", organizationId);
+        const mgrOf = new Map((allEmps ?? []).map((e) => [e.id, e.manager_id as string | null]));
+        const ancestors = new Set<string>();
+        let cur: string | null = mgrOf.get(id) ?? null;
+        while (cur && !ancestors.has(cur)) {
+          ancestors.add(cur);
+          cur = mgrOf.get(cur) ?? null;
+        }
+        const desired = requested.filter((d) => !ancestors.has(d));
         if (desired.length > 0) {
           await supabase
             .from("employees")

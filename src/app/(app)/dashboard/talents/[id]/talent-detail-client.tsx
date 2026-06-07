@@ -110,10 +110,30 @@ export function TalentDetailClient({
   const [loc, setLoc] = useState(employee.location ?? "");
   const [hireDate, setHireDate] = useState(employee.hire_date);
 
-  // Candidats : talents sans manager + ceux déjà rattachés à ce manager (hors lui-même).
+  // Chaîne des managers (ascendants) du talent édité, pour éviter les cycles :
+  // un talent situé au-dessus ne peut pas devenir le subordonné de ce talent.
+  const empById = useMemo(() => new Map(employees.map((e) => [e.id, e])), [employees]);
+  const ancestorIds = useMemo(() => {
+    const set = new Set<string>();
+    let cur: string | null = managerId || null;
+    while (cur && !set.has(cur)) {
+      set.add(cur);
+      cur = empById.get(cur)?.manager_id ?? null;
+    }
+    return set;
+  }, [managerId, empById]);
+
+  // Candidats : talents sans manager + ceux déjà rattachés à ce manager (hors lui-même
+  // et hors chaîne ascendante).
   const subordinateCandidates = useMemo(
-    () => employees.filter((e) => e.id !== employee.id && (!e.manager_id || e.manager_id === employee.id)),
-    [employees, employee.id]
+    () =>
+      employees.filter(
+        (e) =>
+          e.id !== employee.id &&
+          !ancestorIds.has(e.id) &&
+          (!e.manager_id || e.manager_id === employee.id)
+      ),
+    [employees, employee.id, ancestorIds]
   );
 
   const filteredLevels = departmentId ? levels.filter((l) => l.department_id === departmentId) : [];
@@ -227,7 +247,9 @@ export function TalentDetailClient({
           salary_adjustment: adj,
           manager_id: managerId || null,
           is_manager: isManager,
-          subordinate_ids: isManager ? subordinateIds : [],
+          subordinate_ids: isManager
+            ? subordinateIds.filter((sid) => subordinateCandidates.some((c) => c.id === sid))
+            : [],
           location: loc.trim() || null,
           hire_date: hireDate,
         }),

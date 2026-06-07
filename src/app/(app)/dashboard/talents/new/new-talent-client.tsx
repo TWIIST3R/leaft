@@ -57,10 +57,23 @@ export function NewTalentClient({
   const [location, setLocation] = useState("");
   const [hireDate, setHireDate] = useState("");
 
-  // Talents sans manager : candidats à rattacher sous ce nouveau manager.
+  // Chaîne des managers (ascendants) à partir du manager sélectionné, pour éviter les
+  // cycles : on ne peut pas faire manager d'un talent qui est au-dessus de lui.
+  const empById = useMemo(() => new Map(employees.map((e) => [e.id, e])), [employees]);
+  const ancestorIds = useMemo(() => {
+    const set = new Set<string>();
+    let cur: string | null = managerId || null;
+    while (cur && !set.has(cur)) {
+      set.add(cur);
+      cur = empById.get(cur)?.manager_id ?? null;
+    }
+    return set;
+  }, [managerId, empById]);
+
+  // Talents sans manager (hors chaîne ascendante) : candidats à rattacher sous ce nouveau manager.
   const subordinateCandidates = useMemo(
-    () => employees.filter((e) => !e.manager_id),
-    [employees]
+    () => employees.filter((e) => !e.manager_id && !ancestorIds.has(e.id)),
+    [employees, ancestorIds]
   );
 
   useEffect(() => {
@@ -150,7 +163,9 @@ export function NewTalentClient({
           salary_adjustment: adj,
           manager_id: managerId || null,
           is_manager: isManager,
-          subordinate_ids: isManager ? subordinateIds : [],
+          subordinate_ids: isManager
+            ? subordinateIds.filter((sid) => subordinateCandidates.some((c) => c.id === sid))
+            : [],
           location: location.trim() || null,
           hire_date: hireDate,
         }),
