@@ -6,10 +6,11 @@ import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { Modal } from "@/components/ui/modal";
 import { LineChart } from "@/components/charts/line-chart";
+import { SubordinatePicker } from "@/components/talents/subordinate-picker";
 
 type Dept = { id: string; name: string };
 type Level = { id: string; name: string; department_id: string; montant_annuel: number | null };
-type Emp = { id: string; first_name: string; last_name: string; is_manager?: boolean };
+type Emp = { id: string; first_name: string; last_name: string; is_manager?: boolean; manager_id?: string | null; current_job_title?: string | null };
 type ExtraLevel = { id: string; name: string; type: string; montant_annuel: number | null };
 type Interview = {
   id: string;
@@ -101,8 +102,19 @@ export function TalentDetailClient({
   const [adjustment, setAdjustment] = useState(String(employee.salary_adjustment ?? 0));
   const [managerId, setManagerId] = useState(employee.manager_id ?? "");
   const [isManager, setIsManager] = useState(employee.is_manager ?? false);
+  const currentReportIds = useMemo(
+    () => employees.filter((e) => e.manager_id === employee.id).map((e) => e.id),
+    [employees, employee.id]
+  );
+  const [subordinateIds, setSubordinateIds] = useState<string[]>(currentReportIds);
   const [loc, setLoc] = useState(employee.location ?? "");
   const [hireDate, setHireDate] = useState(employee.hire_date);
+
+  // Candidats : talents sans manager + ceux déjà rattachés à ce manager (hors lui-même).
+  const subordinateCandidates = useMemo(
+    () => employees.filter((e) => e.id !== employee.id && (!e.manager_id || e.manager_id === employee.id)),
+    [employees, employee.id]
+  );
 
   const filteredLevels = departmentId ? levels.filter((l) => l.department_id === departmentId) : [];
   const deptName = departments.find((d) => d.id === employee.current_department_id)?.name;
@@ -187,6 +199,7 @@ export function TalentDetailClient({
     setAdjustment(String(employee.salary_adjustment ?? 0));
     setManagerId(employee.manager_id ?? "");
     setIsManager(employee.is_manager ?? false);
+    setSubordinateIds(currentReportIds);
     setLoc(employee.location ?? "");
     setHireDate(employee.hire_date);
   }
@@ -214,6 +227,7 @@ export function TalentDetailClient({
           salary_adjustment: adj,
           manager_id: managerId || null,
           is_manager: isManager,
+          subordinate_ids: isManager ? subordinateIds : [],
           location: loc.trim() || null,
           hire_date: hireDate,
         }),
@@ -327,6 +341,16 @@ export function TalentDetailClient({
                 </button>
                 <label className="cursor-pointer text-sm font-medium text-[var(--text)]" onClick={() => !loading && setIsManager(!isManager)}>Ce talent est un manager</label>
               </div>
+              {isManager && (
+                <div className="sm:col-span-2">
+                  <SubordinatePicker
+                    candidates={subordinateCandidates}
+                    selectedIds={subordinateIds}
+                    onChange={setSubordinateIds}
+                    disabled={loading}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="mt-6 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 px-5 py-4">

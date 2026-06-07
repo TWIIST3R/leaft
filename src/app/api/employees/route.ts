@@ -151,6 +151,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Rattacher les talents sélectionnés sous ce nouveau manager.
+    if (insert.is_manager && Array.isArray(body.subordinate_ids) && body.subordinate_ids.length > 0) {
+      const subIds = (body.subordinate_ids as unknown[]).filter(
+        (x): x is string => typeof x === "string" && x !== data.id
+      );
+      if (subIds.length > 0) {
+        const { error: subErr } = await supabase
+          .from("employees")
+          .update({ manager_id: data.id })
+          .eq("organization_id", organizationId)
+          .in("id", subIds);
+        if (subErr) console.error("Error assigning subordinates (non-blocking):", subErr);
+      }
+    }
+
     const clerkOrgId = orgId ?? await getClerkOrgId(organizationId);
     if (clerkOrgId && email) {
       try {

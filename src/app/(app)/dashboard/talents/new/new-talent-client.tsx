@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import gsap from "gsap";
 import { Modal } from "@/components/ui/modal";
+import { SubordinatePicker } from "@/components/talents/subordinate-picker";
 
 type Dept = { id: string; name: string };
 type Level = { id: string; name: string; department_id: string; montant_annuel: number | null };
-type Employee = { id: string; first_name: string; last_name: string; is_manager?: boolean };
+type Employee = { id: string; first_name: string; last_name: string; is_manager?: boolean; manager_id?: string | null; current_job_title?: string | null };
 type ExtraLevel = { id: string; name: string; type: string; montant_annuel: number | null };
 
 const GENDER_OPTIONS = [
@@ -52,8 +53,15 @@ export function NewTalentClient({
   const [adjustment, setAdjustment] = useState("");
   const [managerId, setManagerId] = useState("");
   const [isManager, setIsManager] = useState(false);
+  const [subordinateIds, setSubordinateIds] = useState<string[]>([]);
   const [location, setLocation] = useState("");
   const [hireDate, setHireDate] = useState("");
+
+  // Talents sans manager : candidats à rattacher sous ce nouveau manager.
+  const subordinateCandidates = useMemo(
+    () => employees.filter((e) => !e.manager_id),
+    [employees]
+  );
 
   useEffect(() => {
     if (!formRef.current) return;
@@ -142,6 +150,7 @@ export function NewTalentClient({
           salary_adjustment: adj,
           manager_id: managerId || null,
           is_manager: isManager,
+          subordinate_ids: isManager ? subordinateIds : [],
           location: location.trim() || null,
           hire_date: hireDate,
         }),
@@ -301,6 +310,17 @@ export function NewTalentClient({
               Ce talent est un manager
             </label>
           </div>
+
+          {isManager && (
+            <div className="sm:col-span-2">
+              <SubordinatePicker
+                candidates={subordinateCandidates}
+                selectedIds={subordinateIds}
+                onChange={setSubordinateIds}
+                disabled={loading}
+              />
+            </div>
+          )}
         </div>
 
         <div className="mt-6 rounded-xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 px-5 py-4">

@@ -152,6 +152,42 @@ export async function PATCH(
     }
     if (!data) return NextResponse.json({ error: "Talent introuvable" }, { status: 404 });
 
+    // Réconciliation des talents managés.
+    // - is_manager === false → on détache tous ses subordonnés.
+    // - subordinate_ids fourni → on rattache la liste et on détache ceux qui n'y sont plus.
+    try {
+      if (body.is_manager === false) {
+        await supabase
+          .from("employees")
+          .update({ manager_id: null })
+          .eq("organization_id", organizationId)
+          .eq("manager_id", id);
+      } else if (Array.isArray(body.subordinate_ids)) {
+        const desired = (body.subordinate_ids as unknown[]).filter(
+          (x): x is string => typeof x === "string" && x !== id
+        );
+        if (desired.length > 0) {
+          await supabase
+            .from("employees")
+            .update({ manager_id: id })
+            .eq("organization_id", organizationId)
+            .in("id", desired);
+        }
+        // Détacher ceux qui pointaient vers ce manager mais ne sont plus sélectionnés.
+        let clearQuery = supabase
+          .from("employees")
+          .update({ manager_id: null })
+          .eq("organization_id", organizationId)
+          .eq("manager_id", id);
+        if (desired.length > 0) {
+          clearQuery = clearQuery.not("id", "in", `(${desired.join(",")})`);
+        }
+        await clearQuery;
+      }
+    } catch (subErr) {
+      console.error("Error reconciling subordinates (non-blocking):", subErr);
+    }
+
     const invalidateMarket =
       updates.annual_salary_brut !== undefined ||
       updates.current_job_title !== undefined ||
