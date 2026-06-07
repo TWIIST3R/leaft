@@ -60,6 +60,21 @@ const GENDER_OPTIONS = [
   { value: "Préfère ne pas dire", label: "Préfère ne pas dire" },
 ];
 
+const RDV_INTERVIEW_TYPES = [
+  { value: "Entretien annuel", label: "Entretien annuel" },
+  { value: "Entretien semestriel", label: "Entretien semestriel" },
+  { value: "Entretien ponctuel", label: "Entretien ponctuel" },
+  { value: "Rémunération & avantages", label: "Rémunération & avantages" },
+  { value: "Évolution de carrière", label: "Évolution de carrière" },
+  { value: "Performance & objectifs", label: "Performance & objectifs" },
+] as const;
+
+const emptyRdvSlots = () => [
+  { date: "", time: "", durationMin: 45 },
+  { date: "", time: "", durationMin: 45 },
+  { date: "", time: "", durationMin: 45 },
+];
+
 export function TalentDetailClient({
   employee: initialEmployee,
   departments,
@@ -88,6 +103,58 @@ export function TalentDetailClient({
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+
+  // Demande de rendez-vous (RH → talent), même logique que l'espace Talent.
+  const [showRdvModal, setShowRdvModal] = useState(false);
+  const [rdvType, setRdvType] = useState<string>(RDV_INTERVIEW_TYPES[0].value);
+  const [rdvSlots, setRdvSlots] = useState(emptyRdvSlots());
+  const [rdvNote, setRdvNote] = useState("");
+  const [rdvLoading, setRdvLoading] = useState(false);
+  const [rdvSuccess, setRdvSuccess] = useState<string | null>(null);
+  const [rdvError, setRdvError] = useState<string | null>(null);
+
+  async function handleRdvSubmit() {
+    setRdvLoading(true);
+    setRdvError(null);
+    try {
+      const filledSlots = rdvSlots
+        .filter((s) => s.date && s.time)
+        .map((s) => {
+          const start = new Date(`${s.date}T${s.time}`);
+          const end = new Date(start.getTime() + s.durationMin * 60_000);
+          return { starts_at: start.toISOString(), ends_at: end.toISOString() };
+        });
+
+      const res = await fetch("/api/meeting-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requested_to: [`talent:${employee.id}`],
+          interview_type: rdvType,
+          note: rdvNote || null,
+          slots: filledSlots,
+          target_employee_id: employee.id,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || "Erreur lors de l'envoi");
+      }
+
+      setRdvSuccess("Demande envoyée !");
+      setRdvSlots(emptyRdvSlots());
+      setRdvNote("");
+      setTimeout(() => {
+        setShowRdvModal(false);
+        setRdvSuccess(null);
+      }, 1500);
+    } catch (e) {
+      setRdvError(e instanceof Error ? e.message : "Erreur inconnue");
+    } finally {
+      setRdvLoading(false);
+    }
+  }
 
   const [firstName, setFirstName] = useState(employee.first_name);
   const [lastName, setLastName] = useState(employee.last_name);
@@ -318,7 +385,10 @@ export function TalentDetailClient({
           </div>
         </div>
         {!editing && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => { setRdvError(null); setRdvSuccess(null); setShowRdvModal(true); }} className="cursor-pointer rounded-full border border-[var(--brand)]/30 bg-[var(--brand)]/5 px-5 py-2 text-sm font-semibold text-[var(--brand)] transition hover:bg-[var(--brand)]/10">
+              Demander un RDV
+            </button>
             <button type="button" onClick={() => setEditing(true)} className="cursor-pointer rounded-full bg-[var(--brand)] px-5 py-2 text-sm font-semibold text-white transition hover:brightness-110">
               Modifier
             </button>
@@ -654,6 +724,93 @@ export function TalentDetailClient({
         <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">
           Cette action est irréversible. Votre abonnement sera ajusté et un crédit au prorata sera appliqué sur votre prochaine facture. Un email récapitulatif vous sera envoyé.
         </p>
+      </Modal>
+
+      <Modal
+        open={showRdvModal}
+        onClose={() => { setShowRdvModal(false); setRdvError(null); setRdvSuccess(null); }}
+        title={`Demander un RDV avec ${employee.first_name}`}
+      >
+        {rdvSuccess ? (
+          <div className="mt-4 rounded-xl bg-green-50 p-4 text-center text-sm font-medium text-green-700">{rdvSuccess}</div>
+        ) : (
+          <div className="mt-4 space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[var(--text)]">Type d&apos;entretien</label>
+              <select
+                value={rdvType}
+                onChange={(e) => setRdvType(e.target.value)}
+                className="w-full cursor-pointer rounded-xl border border-[#e2e7e2] bg-white px-3 py-2.5 text-sm"
+              >
+                {RDV_INTERVIEW_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[var(--text)]">Proposer des créneaux (2–3)</label>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {rdvSlots.map((s, idx) => (
+                  <div key={idx} className="rounded-2xl border border-[#e2e7e2] bg-white p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.45)]">Créneau {idx + 1}</p>
+                    <div className="mt-2 grid gap-2">
+                      <input
+                        type="date"
+                        value={s.date}
+                        onChange={(e) => setRdvSlots((prev) => prev.map((p, i) => i === idx ? { ...p, date: e.target.value } : p))}
+                        className="w-full rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="time"
+                          value={s.time}
+                          onChange={(e) => setRdvSlots((prev) => prev.map((p, i) => i === idx ? { ...p, time: e.target.value } : p))}
+                          className="w-full rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
+                        />
+                        <select
+                          value={s.durationMin}
+                          onChange={(e) => setRdvSlots((prev) => prev.map((p, i) => i === idx ? { ...p, durationMin: Number(e.target.value) } : p))}
+                          className="w-full cursor-pointer rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
+                        >
+                          <option value={30}>30 min</option>
+                          <option value={45}>45 min</option>
+                          <option value={60}>60 min</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-[color:rgba(11,11,11,0.55)]">
+                Le talent recevra la demande et choisira (ou refusera) l&apos;un des créneaux proposés.
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[var(--text)]">Note (optionnel)</label>
+              <textarea
+                value={rdvNote}
+                onChange={(e) => setRdvNote(e.target.value)}
+                rows={2}
+                className="w-full rounded-xl border border-[#e2e7e2] bg-white px-3 py-2.5 text-sm"
+                placeholder="Contexte ou objectif du rendez-vous..."
+              />
+            </div>
+
+            {rdvError && (
+              <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{rdvError}</div>
+            )}
+
+            <button
+              onClick={handleRdvSubmit}
+              disabled={rdvLoading || rdvSlots.filter((s) => s.date && s.time).length === 0}
+              className="w-full cursor-pointer rounded-full bg-[var(--brand)] py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {rdvLoading ? "Envoi…" : "Envoyer la demande"}
+            </button>
+          </div>
+        )}
       </Modal>
     </div>
   );

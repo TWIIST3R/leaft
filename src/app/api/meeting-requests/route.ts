@@ -192,17 +192,20 @@ export async function POST(request: NextRequest) {
       .select("id, first_name, last_name, manager_id, is_manager, email, clerk_user_id")
       .eq("organization_id", organizationId)
       .eq("clerk_user_id", userId)
-      .single();
+      .maybeSingle();
 
-    if (!requester) return NextResponse.json({ error: "Profil introuvable" }, { status: 404 });
+    // L'utilisateur est-il un administrateur RH de l'organisation (Owner/RH/Admin) ?
+    const { data: roleRow } = await supabase
+      .from("user_organizations")
+      .select("role")
+      .eq("organization_id", organizationId)
+      .eq("clerk_user_id", userId)
+      .maybeSingle();
+    const isOrgAdmin = !!roleRow && ["Owner", "RH", "Admin", "admin"].includes(roleRow.role);
 
     const isManagerRequest = !!target_employee_id;
 
     if (isManagerRequest) {
-      if (!requester.is_manager) {
-        return NextResponse.json({ error: "Seuls les managers peuvent demander un RDV à un subordonné" }, { status: 403 });
-      }
-
       const { data: targetEmp } = await supabase
         .from("employees")
         .select("id, first_name, last_name, email, clerk_user_id, manager_id")
@@ -211,9 +214,18 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (!targetEmp) return NextResponse.json({ error: "Talent cible introuvable" }, { status: 404 });
-      if (targetEmp.manager_id !== requester.id) {
-        return NextResponse.json({ error: "Vous n'êtes pas le manager de ce talent" }, { status: 403 });
+
+      // Autorisé si : manager direct du talent, OU administrateur RH de l'organisation.
+      const isDirectManager = !!requester && requester.is_manager && targetEmp.manager_id === requester.id;
+      if (!isDirectManager && !isOrgAdmin) {
+        return NextResponse.json({ error: "Vous n'êtes pas autorisé à demander un RDV à ce talent" }, { status: 403 });
       }
+
+      // Côté manager → "manager" ; côté RH/admin → "rh" (pour router les notifications de suivi).
+      const requestedToValue = isDirectManager ? "manager" : "rh";
+      const requesterName = requester
+        ? `${requester.first_name} ${requester.last_name}`.trim()
+        : "L'équipe RH";
 
       const groupId = crypto.randomUUID();
       const typeLabel = typeof interview_type === "string" && interview_type.trim() ? interview_type.trim() : null;
@@ -223,7 +235,7 @@ export async function POST(request: NextRequest) {
         .insert({
           employee_id: targetEmp.id,
           organization_id: organizationId,
-          requested_to: "manager",
+          requested_to: requestedToValue,
           note: note || null,
           group_id: groupId,
           interview_type: typeLabel,
@@ -266,7 +278,6 @@ export async function POST(request: NextRequest) {
       }
 
       if (targetEmail) {
-        const managerName = `${requester.first_name} ${requester.last_name}`;
         const slotRows = normalizedSlots.slice(0, 3);
         const slotsHtml = slotRows.length > 0
           ? `<ul style="margin:0 0 10px;font-size:14px;padding-left:18px;">
@@ -281,11 +292,11 @@ export async function POST(request: NextRequest) {
 
         await sendEmail({
           to: targetEmail,
-          subject: `Demande d'entretien${typeLabel ? ` (${typeLabel})` : ""} de ${managerName}`,
+          subject: `Demande d'entretien${typeLabel ? ` (${typeLabel})` : ""} de ${requesterName}`,
           html: emailLayout("", `
             <h2 style="margin:0 0 12px;font-size:18px;color:#0B0B0B;">Demande de rendez-vous</h2>
             <p style="margin:0 0 10px;font-size:14px;color:rgba(11,11,11,0.75);">
-              Votre manager <strong>${managerName}</strong> souhaite planifier un rendez-vous avec vous.
+              <strong>${requesterName}</strong> souhaite planifier un rendez-vous avec vous.
             </p>
             ${typeLabel ? `<p style="margin:0 0 10px;font-size:14px;"><strong>Type :</strong> ${typeLabel}</p>` : ""}
             ${slotRows.length > 0 ? `<p style="margin:0 0 6px;font-size:14px;"><strong>Créneaux proposés :</strong></p>${slotsHtml}` : ""}
@@ -303,6 +314,8 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Standard talent → manager/rh request ---
+    if (!requester) return NextResponse.json({ error: "Profil introuvable" }, { status: 404 });
+
     const requestedList: string[] = Array.isArray(requested_to) ? requested_to : [requested_to];
     const cleaned = requestedList.filter(Boolean).map((s) => String(s).trim()).filter((s) => s.length > 0);
     const unique = Array.from(new Set(cleaned));
