@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useRef, useState, useEffect, type CSSProperties } from "react";
+import { useMemo, useCallback, useRef, useState, useEffect } from "react";
 import Image from "next/image";
 import {
   ReactFlow,
@@ -9,9 +9,13 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
+  useInternalNode,
+  getStraightPath,
+  BaseEdge,
   type Node,
   type Edge,
   type NodeProps,
+  type EdgeProps,
   Handle,
   Position,
   ReactFlowProvider,
@@ -51,91 +55,125 @@ const DEPT_COLORS = [
   { bg: "#eef0f3", ring: "#bcc4d1", border: "#dbe0e7", text: "#566174", pill: "#e2e6ec" },
 ];
 
-export type OrgVisualStyle = "tree" | "flow" | "modern";
+export type OrgVisualStyle = "radial" | "tree" | "flow";
 
 const STYLE_OPTIONS: { id: OrgVisualStyle; label: string; hint: string }[] = [
+  { id: "radial", label: "Rayonnant", hint: "Disposition circulaire autour du dirigeant" },
   { id: "tree", label: "Arbre", hint: "Hiérarchie verticale classique" },
   { id: "flow", label: "Horizontal", hint: "Branches latérales, lecture gauche → droite" },
-  { id: "modern", label: "Coloré", hint: "Cartes par département, bordures accentuées" },
 ];
 
-const NODE_WIDTH = 200;
-const NODE_HEIGHT = 120;
+const NODE_WIDTH = 168;
+const NODE_HEIGHT = 150;
+
+// Décalage vertical du centre du cercle (avatar) par rapport au haut du node.
+// Sert à tracer les liens d'un cercle à l'autre (mode rayonnant).
+const circleCenterOffsetY = (isRoot: boolean) => (isRoot ? 6 + 3 + 40 : 4 + 3 + 28);
+
+type OrgNodeData = {
+  firstName: string;
+  lastName: string;
+  jobTitle: string;
+  avatarUrl: string | null;
+  deptName: string | null;
+  deptColor: (typeof DEPT_COLORS)[0] | null;
+  salaryLabel: string | null;
+  salaryVisible: boolean;
+  isMe: boolean;
+  isRoot: boolean;
+  visualStyle: OrgVisualStyle;
+};
 
 function OrgNodeCustom({ data }: NodeProps) {
-  const d = data as {
-    firstName: string;
-    lastName: string;
-    jobTitle: string;
-    avatarUrl: string | null;
-    deptName: string | null;
-    deptColor: (typeof DEPT_COLORS)[0] | null;
-    salaryLabel: string | null;
-    salaryVisible: boolean;
-    isMe: boolean;
-    visualStyle: OrgVisualStyle;
-  };
+  const d = data as OrgNodeData;
 
   const dept = d.deptColor;
-  const ring = dept?.ring ?? "#a1b68d";
-  const isModern = d.visualStyle === "modern";
+  const ring = d.isMe ? "var(--brand)" : dept?.ring ?? "#a1b68d";
   const isFlow = d.visualStyle === "flow";
 
   const handlePos = isFlow
     ? { target: Position.Left, source: Position.Right }
     : { target: Position.Top, source: Position.Bottom };
 
-  const cardStyle: CSSProperties = isModern
-    ? { width: NODE_WIDTH, minHeight: 96, background: dept?.bg ?? "#fff", borderColor: dept?.border ?? "#e2e7e2" }
-    : { width: NODE_WIDTH, minHeight: 96, background: "#fff", borderColor: d.isMe ? "var(--brand)" : "#eaece9" };
+  const ringPad = d.isRoot ? 6 : 4;
 
   return (
     <>
-      <Handle type="target" position={handlePos.target} className="!bg-transparent !border-0 !w-0 !h-0" />
-      <div
-        className={`group flex flex-col items-center rounded-[20px] border px-3 pb-3 pt-5 text-center shadow-[0_8px_24px_rgba(17,27,24,0.06)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgba(17,27,24,0.12)] ${
-          d.isMe ? "ring-2 ring-[var(--brand)]/30" : ""
-        }`}
-        style={cardStyle}
-      >
-        {/* Avatar avec anneau pastel */}
+      <Handle type="target" position={handlePos.target} className="!bg-transparent !border-0 !w-0 !h-0 !min-w-0 !min-h-0" />
+      <div className="group flex flex-col items-center text-center" style={{ width: NODE_WIDTH }}>
+        {/* Avatar entouré d'un anneau pastel (couleur du département) */}
         <span
-          className="rounded-full p-[3px]"
-          style={{ background: d.isMe ? "var(--brand)" : ring }}
+          className="rounded-full transition-transform duration-200 group-hover:scale-[1.06]"
+          style={{
+            padding: ringPad,
+            background: ring,
+            boxShadow: d.isRoot
+              ? "0 12px 30px rgba(17,27,24,0.16)"
+              : "0 8px 20px rgba(17,27,24,0.10)",
+          }}
         >
-          <span className="block rounded-full bg-white p-[2px]">
-            <Avatar firstName={d.firstName} lastName={d.lastName} avatarUrl={d.avatarUrl} size="lg" />
+          <span className="block rounded-full bg-white p-[3px]">
+            <Avatar
+              firstName={d.firstName}
+              lastName={d.lastName}
+              avatarUrl={d.avatarUrl}
+              size={d.isRoot ? "xl" : "lg"}
+            />
           </span>
         </span>
 
-        <p className={`mt-2.5 text-sm font-semibold leading-tight ${d.isMe ? "text-[var(--brand)]" : "text-[var(--text)]"}`}>
-          {d.firstName} {d.lastName}
-          {d.isMe && <span className="ml-1 text-[10px] font-medium text-[var(--brand)]">(vous)</span>}
-        </p>
-        <p className="mt-0.5 text-[11px] leading-tight text-[color:rgba(11,11,11,0.5)]">
-          {d.jobTitle || "\u2014"}
-        </p>
-
-        {d.deptName && dept && (
-          <span
-            className="mt-2 inline-block rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
-            style={{ background: dept.pill, color: dept.text }}
-          >
-            {d.deptName}
-          </span>
-        )}
-        {d.salaryVisible && d.salaryLabel && (
-          <p className="mt-1.5 text-xs font-bold tabular-nums" style={{ color: dept?.text ?? "var(--brand)" }}>
-            {d.salaryLabel}
+        <div className="mt-2.5 flex flex-col items-center gap-1">
+          <p className={`text-[13px] font-semibold leading-tight ${d.isMe ? "text-[var(--brand)]" : "text-[var(--text)]"}`}>
+            {d.firstName} {d.lastName}
+            {d.isMe && <span className="ml-1 text-[10px] font-medium text-[var(--brand)]">(vous)</span>}
           </p>
-        )}
+          <p className="text-[11px] leading-tight text-[color:rgba(11,11,11,0.5)]">
+            {d.jobTitle || "\u2014"}
+          </p>
+
+          {d.deptName && dept && (
+            <span
+              className="mt-0.5 inline-block rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
+              style={{ background: dept.pill, color: dept.text }}
+            >
+              {d.deptName}
+            </span>
+          )}
+          {d.salaryVisible && d.salaryLabel && (
+            <p className="text-[11px] font-bold tabular-nums" style={{ color: dept?.text ?? "var(--brand)" }}>
+              {d.salaryLabel}
+            </p>
+          )}
+        </div>
       </div>
-      <Handle type="source" position={handlePos.source} className="!bg-transparent !border-0 !w-0 !h-0" />
+      <Handle type="source" position={handlePos.source} className="!bg-transparent !border-0 !w-0 !h-0 !min-w-0 !min-h-0" />
     </>
   );
 }
 
 const nodeTypes = { orgNode: OrgNodeCustom };
+
+// Lien droit "flottant" reliant le centre des cercles (mode rayonnant).
+function RadialEdge({ id, source, target, style }: EdgeProps) {
+  const sourceNode = useInternalNode(source);
+  const targetNode = useInternalNode(target);
+  if (!sourceNode || !targetNode) return null;
+
+  const sw = sourceNode.measured?.width ?? NODE_WIDTH;
+  const tw = targetNode.measured?.width ?? NODE_WIDTH;
+  const sIsRoot = (sourceNode.data as OrgNodeData)?.isRoot ?? false;
+  const tIsRoot = (targetNode.data as OrgNodeData)?.isRoot ?? false;
+
+  const sourceX = sourceNode.internals.positionAbsolute.x + sw / 2;
+  const sourceY = sourceNode.internals.positionAbsolute.y + circleCenterOffsetY(sIsRoot);
+  const targetX = targetNode.internals.positionAbsolute.x + tw / 2;
+  const targetY = targetNode.internals.positionAbsolute.y + circleCenterOffsetY(tIsRoot);
+
+  const [path] = getStraightPath({ sourceX, sourceY, targetX, targetY });
+  return <BaseEdge id={id} path={path} style={style} />;
+}
+
+const edgeTypes = { radial: RadialEdge };
 
 function getLayoutedElements(
   nodes: Node[],
@@ -166,6 +204,84 @@ function getLayoutedElements(
     return {
       ...node,
       position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 },
+    };
+  });
+
+  return { nodes: layoutedNodes, edges };
+}
+
+// Disposition rayonnante (radiale) : le dirigeant au centre, les branches
+// rayonnent vers l'extérieur par anneaux successifs. L'angle alloué à chaque
+// sous-arbre est proportionnel à son nombre de feuilles → pas de chevauchement.
+function getRadialLayout(nodes: Node[], edges: Edge[]): { nodes: Node[]; edges: Edge[] } {
+  const childrenMap = new Map<string, string[]>();
+  const parentOf = new Map<string, string>();
+  nodes.forEach((n) => childrenMap.set(n.id, []));
+  edges.forEach((e) => {
+    childrenMap.get(e.source)?.push(e.target);
+    parentOf.set(e.target, e.source);
+  });
+
+  const roots = nodes.filter((n) => !parentOf.has(n.id)).map((n) => n.id);
+
+  const leaves = new Map<string, number>();
+  const countLeaves = (id: string): number => {
+    const kids = childrenMap.get(id) ?? [];
+    if (kids.length === 0) {
+      leaves.set(id, 1);
+      return 1;
+    }
+    let sum = 0;
+    for (const k of kids) sum += countLeaves(k);
+    leaves.set(id, sum);
+    return sum;
+  };
+  roots.forEach(countLeaves);
+
+  const depthOf = new Map<string, number>();
+  const angleOf = new Map<string, number>();
+  let maxDepth = 0;
+
+  const assign = (id: string, depth: number, start: number, end: number) => {
+    depthOf.set(id, depth);
+    angleOf.set(id, (start + end) / 2);
+    if (depth > maxDepth) maxDepth = depth;
+    const kids = childrenMap.get(id) ?? [];
+    const total = leaves.get(id) ?? 1;
+    let a = start;
+    for (const k of kids) {
+      const span = (end - start) * ((leaves.get(k) ?? 1) / total);
+      assign(k, depth + 1, a, a + span);
+      a += span;
+    }
+  };
+
+  const totalLeaves = roots.reduce((s, r) => s + (leaves.get(r) ?? 1), 0) || 1;
+  if (roots.length === 1) {
+    assign(roots[0], 0, 0, Math.PI * 2);
+  } else {
+    let a = 0;
+    for (const r of roots) {
+      const span = Math.PI * 2 * ((leaves.get(r) ?? 1) / totalLeaves);
+      assign(r, 1, a, a + span);
+      a += span;
+    }
+  }
+
+  // Rayon entre anneaux : assez grand pour que l'anneau extérieur accueille
+  // toutes les feuilles sans collision.
+  const ringGap = Math.max(280, (totalLeaves * 150) / (2 * Math.PI * Math.max(1, maxDepth)));
+
+  const layoutedNodes = nodes.map((node) => {
+    const depth = depthOf.get(node.id) ?? 0;
+    const angle = angleOf.get(node.id) ?? 0;
+    const r = depth * ringGap;
+    return {
+      ...node,
+      position: {
+        x: r * Math.cos(angle) - NODE_WIDTH / 2,
+        y: r * Math.sin(angle) - circleCenterOffsetY((node.data as OrgNodeData)?.isRoot ?? false),
+      },
     };
   });
 
@@ -249,7 +365,7 @@ function OrganigrammeFlowInner({
   const { fitView } = useReactFlow();
   const flowRef = useRef<HTMLDivElement>(null);
   const [scope, setScope] = useState<OrgScope>("full");
-  const [visualStyle, setVisualStyle] = useState<OrgVisualStyle>("tree");
+  const [visualStyle, setVisualStyle] = useState<OrgVisualStyle>("radial");
   const scopeFilterable = !!currentEmployeeId && employees.length > 1;
 
   const displayEmployees = useMemo(() => {
@@ -275,8 +391,8 @@ function OrganigrammeFlowInner({
   }, [departments]);
 
   const { initialNodes, initialEdges } = useMemo(() => {
-    const layoutDir: "TB" | "LR" = visualStyle === "flow" ? "LR" : "TB";
-    const edgeType = visualStyle === "flow" ? "default" : "smoothstep";
+    const employeeIdSet = new Set(displayEmployees.map((e) => e.id));
+    const edgeType = visualStyle === "radial" ? "radial" : visualStyle === "flow" ? "default" : "smoothstep";
 
     const nodes: Node[] = displayEmployees.map((emp) => ({
       id: emp.id,
@@ -292,27 +408,30 @@ function OrganigrammeFlowInner({
         salaryLabel: salaryLabelForNode(emp, salaryVisible, salaryDisclosureMode, departmentAverages, currentEmployeeId),
         salaryVisible,
         isMe: emp.id === currentEmployeeId,
+        isRoot: !emp.manager_id || !employeeIdSet.has(emp.manager_id),
         visualStyle,
       },
     }));
 
-    const employeeIdSet = new Set(displayEmployees.map((e) => e.id));
     const edges: Edge[] = displayEmployees
       .filter((emp) => emp.manager_id && employeeIdSet.has(emp.manager_id))
       .map((emp) => {
         const deptColor = emp.current_department_id ? deptColorMap.get(emp.current_department_id) : null;
-        const stroke = visualStyle !== "tree" && deptColor ? deptColor.ring : "#d4dbcf";
+        const stroke = deptColor ? deptColor.ring : "#cdd5c8";
         return {
           id: `${emp.manager_id}-${emp.id}`,
           source: emp.manager_id!,
           target: emp.id,
           type: edgeType,
-          style: { stroke, strokeWidth: visualStyle === "modern" ? 2.5 : 2 },
+          style: { stroke, strokeWidth: 2 },
           animated: visualStyle === "flow",
         };
       });
 
-    const laid = getLayoutedElements(nodes, edges, layoutDir);
+    const laid =
+      visualStyle === "radial"
+        ? getRadialLayout(nodes, edges)
+        : getLayoutedElements(nodes, edges, visualStyle === "flow" ? "LR" : "TB");
     return { initialNodes: laid.nodes, initialEdges: laid.edges };
   }, [displayEmployees, deptMap, deptColorMap, salaryVisible, salaryDisclosureMode, departmentAverages, currentEmployeeId, visualStyle]);
 
@@ -507,6 +626,7 @@ function OrganigrammeFlowInner({
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           fitView
           fitViewOptions={{ padding: 0.15 }}
           minZoom={0.1}
@@ -516,11 +636,7 @@ function OrganigrammeFlowInner({
           nodesConnectable={false}
           elementsSelectable={false}
         >
-          <Background
-            gap={visualStyle === "modern" ? 32 : 24}
-            size={1}
-            color={visualStyle === "modern" ? "rgba(0,0,0,0.03)" : "rgba(0,0,0,0.04)"}
-          />
+          <Background gap={28} size={1} color="rgba(0,0,0,0.035)" />
           <Controls showInteractive={false} className="!rounded-xl !border-[#e2e7e2] !shadow-sm" />
           <MiniMap
             nodeStrokeWidth={3}
