@@ -70,7 +70,7 @@ async function getOrganizationData() {
     supabase.from("departments").select("id, name").eq("organization_id", organization.id),
     supabase
       .from("interviews")
-      .select("id, interview_date, type, employee_id")
+      .select("id, interview_date, start_time, type, employee_id")
       .eq("organization_id", organization.id)
       .neq("status", "termine")
       .gte("interview_date", new Date().toISOString().slice(0, 10))
@@ -106,6 +106,7 @@ async function getOrganizationData() {
     return {
       id: iv.id,
       date: iv.interview_date,
+      time: (iv as { start_time?: string | null }).start_time ?? null,
       type: iv.type,
       employeeName: emp ? `${emp.first_name} ${emp.last_name}` : "—",
     };

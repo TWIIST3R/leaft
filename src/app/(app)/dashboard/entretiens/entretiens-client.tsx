@@ -24,6 +24,8 @@ type Interview = {
   id: string;
   employee_id: string;
   interview_date: string;
+  start_time?: string | null;
+  end_time?: string | null;
   type: string;
   notes: string | null;
   justification: string | null;
@@ -765,6 +767,11 @@ export function EntretiensClient({
                       </td>
                       <td className="px-6 py-4 text-[color:rgba(11,11,11,0.75)]">
                         {new Date(iv.interview_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
+                        {iv.start_time && (
+                          <span className="ml-1 font-medium text-[var(--text)]">
+                            · {iv.start_time.slice(0, 5)}{iv.end_time ? `–${iv.end_time.slice(0, 5)}` : ""}
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${typeBadge(iv.type)}`}>

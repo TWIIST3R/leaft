@@ -15,6 +15,8 @@ type ExtraLevel = { id: string; name: string; type: string; montant_annuel: numb
 type Interview = {
   id: string;
   interview_date: string;
+  start_time?: string | null;
+  end_time?: string | null;
   type: string;
   notes: string | null;
   justification: string | null;
@@ -584,6 +586,11 @@ export function TalentDetailClient({
                           </span>
                           <span className="text-sm text-[color:rgba(11,11,11,0.65)]">
                             {new Date(iv.interview_date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                            {iv.start_time && (
+                              <span className="ml-1 font-medium text-[var(--text)]">
+                                · {iv.start_time.slice(0, 5)}{iv.end_time ? `–${iv.end_time.slice(0, 5)}` : ""}
+                              </span>
+                            )}
                           </span>
                         </div>
                         {iv.salary_adjustment != null && (
@@ -750,34 +757,32 @@ export function TalentDetailClient({
 
             <div>
               <label className="mb-1 block text-sm font-medium text-[var(--text)]">Proposer des créneaux (2–3)</label>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-2">
                 {rdvSlots.map((s, idx) => (
                   <div key={idx} className="rounded-2xl border border-[#e2e7e2] bg-white p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.45)]">Créneau {idx + 1}</p>
-                    <div className="mt-2 grid gap-2">
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.45)]">Créneau {idx + 1}</p>
+                    <div className="flex flex-wrap items-center gap-2">
                       <input
                         type="date"
                         value={s.date}
                         onChange={(e) => setRdvSlots((prev) => prev.map((p, i) => i === idx ? { ...p, date: e.target.value } : p))}
-                        className="w-full rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
+                        className="min-w-0 flex-1 rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
                       />
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="time"
-                          value={s.time}
-                          onChange={(e) => setRdvSlots((prev) => prev.map((p, i) => i === idx ? { ...p, time: e.target.value } : p))}
-                          className="w-full rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
-                        />
-                        <select
-                          value={s.durationMin}
-                          onChange={(e) => setRdvSlots((prev) => prev.map((p, i) => i === idx ? { ...p, durationMin: Number(e.target.value) } : p))}
-                          className="w-full cursor-pointer rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
-                        >
-                          <option value={30}>30 min</option>
-                          <option value={45}>45 min</option>
-                          <option value={60}>60 min</option>
-                        </select>
-                      </div>
+                      <input
+                        type="time"
+                        value={s.time}
+                        onChange={(e) => setRdvSlots((prev) => prev.map((p, i) => i === idx ? { ...p, time: e.target.value } : p))}
+                        className="min-w-0 flex-1 rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
+                      />
+                      <select
+                        value={s.durationMin}
+                        onChange={(e) => setRdvSlots((prev) => prev.map((p, i) => i === idx ? { ...p, durationMin: Number(e.target.value) } : p))}
+                        className="shrink-0 cursor-pointer rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
+                      >
+                        <option value={30}>30 min</option>
+                        <option value={45}>45 min</option>
+                        <option value={60}>60 min</option>
+                      </select>
                     </div>
                   </div>
                 ))}

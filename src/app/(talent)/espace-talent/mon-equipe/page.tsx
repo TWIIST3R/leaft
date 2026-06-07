@@ -42,7 +42,7 @@ async function getData(userId: string, orgId: string | null) {
   const { data: interviews } = teamIds.length > 0
     ? await supabase
         .from("interviews")
-        .select("id, employee_id, interview_date, type, notes, salary_adjustment")
+        .select("id, employee_id, interview_date, start_time, end_time, type, notes, salary_adjustment")
         .in("employee_id", teamIds)
         .order("interview_date", { ascending: false })
         .limit(20)

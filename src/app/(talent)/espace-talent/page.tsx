@@ -87,7 +87,7 @@ async function getData(userId: string, orgId: string | null, userEmail: string |
 
   const { data: interviews } = await supabase
     .from("interviews")
-    .select("id, interview_date, type, notes, justification, salary_adjustment")
+    .select("id, interview_date, start_time, end_time, type, notes, justification, salary_adjustment")
     .eq("employee_id", employee.id)
     .eq("organization_id", organizationId)
     .order("interview_date", { ascending: false });

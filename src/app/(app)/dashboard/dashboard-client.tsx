@@ -19,7 +19,7 @@ type DashboardData = {
   genderOther: number;
   newestHire: { name: string; date: string | null } | null;
   deptDistribution: { label: string; value: number }[];
-  upcomingInterviews: { id: string; date: string; type: string; employeeName: string }[];
+  upcomingInterviews: { id: string; date: string; time?: string | null; type: string; employeeName: string }[];
 };
 
 const CARD = "rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]";
@@ -250,6 +250,7 @@ export function DashboardClient({ initialData }: { initialData: DashboardData })
                 </div>
                 <span className="text-sm font-medium text-[color:rgba(11,11,11,0.6)]">
                   {new Date(iv.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                  {iv.time ? ` · ${iv.time.slice(0, 5)}` : ""}
                 </span>
               </div>
             ))}

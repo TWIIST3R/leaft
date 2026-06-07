@@ -7,6 +7,12 @@ import crypto from "crypto";
 import { clientEnv } from "@/env";
 import { emailLayout } from "@/lib/email";
 
+// Fuseau de référence (produit FR) pour dériver la date et l'heure d'un créneau
+// quel que soit le fuseau du serveur.
+const TZ = "Europe/Paris";
+const toLocalDate = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: TZ }); // YYYY-MM-DD
+const toLocalTime = (d: Date) => d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: TZ }); // HH:MM
+
 async function getOrganizationId(userId: string, orgId: string | null) {
   const supabase = supabaseAdmin();
   if (orgId) {
@@ -675,11 +681,11 @@ export async function PATCH(request: NextRequest) {
 
         const startsAt = new Date(chosenSlot.starts_at);
         const endsAt = new Date(chosenSlot.ends_at);
-        const interviewDate = startsAt.toISOString().slice(0, 10);
+        const interviewDate = toLocalDate(startsAt);
         const type = interviewType?.trim() || "Entretien";
         const note = (reqRows[0] as any).note as string | null;
-        const timeLabel = `${startsAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}–${endsAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
-        const dateLabel = startsAt.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+        const timeLabel = `${toLocalTime(startsAt)}–${toLocalTime(endsAt)}`;
+        const dateLabel = startsAt.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: TZ });
 
         const { data: createdInterview, error: interviewErr } = await supabase
           .from("interviews")
@@ -687,8 +693,10 @@ export async function PATCH(request: NextRequest) {
             organization_id: organizationId,
             employee_id: employeeId,
             interview_date: interviewDate,
+            start_time: toLocalTime(startsAt),
+            end_time: toLocalTime(endsAt),
             type,
-            notes: note ? `Créneau validé: ${dateLabel} • ${timeLabel}\n\n${note}` : `Créneau validé: ${dateLabel} • ${timeLabel}`,
+            notes: note || null,
             status: "en_cours",
             created_by: userId,
           })
@@ -874,11 +882,11 @@ export async function PATCH(request: NextRequest) {
 
       const startsAt = new Date(chosenSlot.starts_at);
       const endsAt = new Date(chosenSlot.ends_at);
-      const interviewDate = startsAt.toISOString().slice(0, 10);
+      const interviewDate = toLocalDate(startsAt);
       const type = interviewType?.trim() || "Entretien";
       const note = (reqRows[0] as any).note as string | null;
-      const timeLabel = `${startsAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}–${endsAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
-      const dateLabel = startsAt.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+      const timeLabel = `${toLocalTime(startsAt)}–${toLocalTime(endsAt)}`;
+      const dateLabel = startsAt.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: TZ });
 
       const { data: createdInterview, error: interviewErr } = await supabase
         .from("interviews")
@@ -886,8 +894,10 @@ export async function PATCH(request: NextRequest) {
           organization_id: organizationId,
           employee_id: employeeId,
           interview_date: interviewDate,
+          start_time: toLocalTime(startsAt),
+          end_time: toLocalTime(endsAt),
           type,
-          notes: note ? `Créneau validé: ${dateLabel} • ${timeLabel}\n\n${note}` : `Créneau validé: ${dateLabel} • ${timeLabel}`,
+          notes: note || null,
           status: "en_cours",
           created_by: userId,
         })

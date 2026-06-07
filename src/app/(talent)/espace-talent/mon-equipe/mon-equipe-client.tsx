@@ -23,6 +23,8 @@ type Interview = {
   id: string;
   employee_id: string;
   interview_date: string;
+  start_time?: string | null;
+  end_time?: string | null;
   type: string;
   notes: string | null;
   salary_adjustment: number | null;
@@ -186,6 +188,7 @@ export function MonEquipeClient({ data }: Props) {
                 </div>
                 <span className="rounded-lg bg-[var(--brand)]/10 px-3 py-1 text-sm font-medium text-[var(--brand)]">
                   {new Date(iv.interview_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
+                  {iv.start_time ? ` · ${iv.start_time.slice(0, 5)}` : ""}
                 </span>
               </div>
             ))}
@@ -206,6 +209,7 @@ export function MonEquipeClient({ data }: Props) {
                   </div>
                   <span className="text-xs text-[color:rgba(11,11,11,0.5)]">
                     {new Date(iv.interview_date).toLocaleDateString("fr-FR")}
+                    {iv.start_time ? ` · ${iv.start_time.slice(0, 5)}` : ""}
                   </span>
                 </div>
                 {iv.notes && <p className="mt-2 text-sm text-[color:rgba(11,11,11,0.65)]">{iv.notes}</p>}
