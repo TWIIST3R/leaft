@@ -7,7 +7,7 @@ const isPublicRoute = createRouteMatcher([
   "/",
   "/pricing",
   "/contact",
-  "/resources",
+  "/resources(.*)",
   "/legal",
   "/privacy",
   "/sign-in(.*)",
@@ -18,6 +18,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/stripe/verify-session",
   "/api/onboarding(.*)",
   "/api/stripe/checkout",
+  "/api/contact",
 ]);
 
 const isDashboardRoute = createRouteMatcher(["/dashboard(.*)"]);

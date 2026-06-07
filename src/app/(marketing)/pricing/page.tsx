@@ -26,118 +26,63 @@ export const metadata = {
     "Découvrez la tarification Leaft : formules mensuelles et annuelles pour structurer vos politiques salariales.",
 };
 
+const STARTER_FEATURES = [
+  "Grilles de salaires par métier et niveau",
+  "Positionnement de chacun (compa-ratio)",
+  "Suivi des entretiens et augmentations",
+  "Organigramme automatique",
+  "Espace personnel pour chaque collaborateur",
+  "Repères marché et support par email",
+];
+
+const GROWTH_FEATURES = [
+  "Tout ce qui est inclus dans l'offre précédente",
+  "Statistiques d'équité (parité, écarts, niveaux)",
+  "Comptes RH et managers illimités",
+  "Exports CSV & PDF de vos données",
+  "Accompagnement à la prise en main",
+];
+
+const SCALE_FEATURES = [
+  "Tout ce qui est inclus dans l'offre précédente",
+  "Tableaux de bord adaptés à votre organisation",
+  "Gestion fine des rôles et permissions",
+  "Interlocuteur dédié à vos côtés",
+  "Support prioritaire",
+];
+
+const ENTERPRISE_FEATURES = [
+  "Tout ce qui est inclus dans l'offre précédente",
+  "Gouvernance multi-entités",
+  "Plan de déploiement sur mesure",
+  "Accompagnement dédié au lancement",
+  "Support prioritaire renforcé",
+];
+
 const plans: PricingPlan[] = [
   {
     range: "1 à 5 talents",
     annualDiscountPercent: 17, // 9€/mois × 12 = 108€, 90€/an → économie 17%
-    monthly: {
-      perSeat: "9€",
-      suffix: "/mois / talent",
-      ctaLabel: "Essai gratuit",
-      features: [
-        "Grilles salariales et compa-ratio",
-        "Jusqu'à 3 comptes utilisateurs",
-        "Suivi des entretiens & exports CSV",
-        "Benchmarks HasData/Indeed",
-        "Support email",
-      ],
-    },
-    annual: {
-      perSeat: "90€",
-      suffix: "/an / talent",
-      ctaLabel: "Essai gratuit",
-      features: [
-        "Grilles salariales et compa-ratio",
-        "Jusqu'à 3 comptes utilisateurs",
-        "Suivi des entretiens & exports CSV",
-        "Benchmarks HasData/Indeed",
-        "Support email",
-      ],
-    },
+    monthly: { perSeat: "9€", suffix: "/mois / talent", ctaLabel: "Choisir ce plan", features: STARTER_FEATURES },
+    annual: { perSeat: "90€", suffix: "/an / talent", ctaLabel: "Choisir ce plan", features: STARTER_FEATURES },
   },
   {
     range: "6 à 19 talents",
     annualDiscountPercent: 17,
-    monthly: {
-      perSeat: "8€",
-      suffix: "/mois / talent",
-      ctaLabel: "Essai gratuit",
-      features: [
-        "Toutes les fonctionnalités Starter",
-        "Analytics People avancés",
-        "Utilisateurs illimités",
-        "Support multi-devises",
-        "Documentation API",
-      ],
-    },
-    annual: {
-      perSeat: "80€",
-      suffix: "/an / talent",
-      ctaLabel: "Essai gratuit",
-      features: [
-        "Toutes les fonctionnalités Starter",
-        "Analytics People avancés",
-        "Utilisateurs illimités",
-        "Support multi-devises",
-        "Documentation API",
-      ],
-    },
+    monthly: { perSeat: "8€", suffix: "/mois / talent", ctaLabel: "Choisir ce plan", features: GROWTH_FEATURES },
+    annual: { perSeat: "80€", suffix: "/an / talent", ctaLabel: "Choisir ce plan", features: GROWTH_FEATURES },
   },
   {
     range: "20 à 99 talents",
     annualDiscountPercent: 17,
-    monthly: {
-      perSeat: "7€",
-      suffix: "/mois / talent",
-      ctaLabel: "Essai gratuit",
-      features: [
-        "Toutes les fonctionnalités Growth",
-        "Automatisation organigramme & promotions",
-        "Tableaux de bord personnalisables",
-        "Intégration API workflows",
-        "Customer Success dédié",
-      ],
-    },
-    annual: {
-      perSeat: "70€",
-      suffix: "/an / talent",
-      ctaLabel: "Essai gratuit",
-      features: [
-        "Toutes les fonctionnalités Growth",
-        "Automatisation organigramme & promotions",
-        "Tableaux de bord personnalisables",
-        "Intégration API workflows",
-        "Customer Success dédié",
-      ],
-    },
+    monthly: { perSeat: "7€", suffix: "/mois / talent", ctaLabel: "Choisir ce plan", features: SCALE_FEATURES },
+    annual: { perSeat: "70€", suffix: "/an / talent", ctaLabel: "Choisir ce plan", features: SCALE_FEATURES },
   },
   {
     range: "100+ talents",
     annualDiscountPercent: 17,
-    monthly: {
-      perSeat: "6€",
-      suffix: "/mois / talent",
-      ctaLabel: "Essai gratuit",
-      features: [
-        "Toutes les fonctionnalités Pro",
-        "Gouvernance multi-organisations",
-        "Plan de déploiement dédié",
-        "SLA & support prioritaire",
-        "Intégrations personnalisées",
-      ],
-    },
-    annual: {
-      perSeat: "60€",
-      suffix: "/an / talent",
-      ctaLabel: "Essai gratuit",
-      features: [
-        "Toutes les fonctionnalités Pro",
-        "Gouvernance multi-organisations",
-        "Plan de déploiement dédié",
-        "SLA & support prioritaire",
-        "Intégrations personnalisées",
-      ],
-    },
+    monthly: { perSeat: "6€", suffix: "/mois / talent", ctaLabel: "Choisir ce plan", features: ENTERPRISE_FEATURES },
+    annual: { perSeat: "60€", suffix: "/an / talent", ctaLabel: "Choisir ce plan", features: ENTERPRISE_FEATURES },
   },
 ];
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 const footerLinks = [
   { href: "/pricing", label: "Prix" },
+  { href: "/resources", label: "Ressources" },
   { href: "/contact", label: "Contact" },
   { href: "/legal", label: "Mentions légales" },
   { href: "/privacy", label: "Confidentialité" },
