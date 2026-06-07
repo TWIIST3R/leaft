@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useRef, useState, useEffect } from "react";
+import { useMemo, useCallback, useRef, useState, useEffect, type CSSProperties } from "react";
 import Image from "next/image";
 import {
   ReactFlow,
@@ -38,15 +38,17 @@ export type OrgEmployee = {
 };
 export type OrgDept = { id: string; name: string };
 
+// Palette pastel moderne — "ring" = anneau autour de l'avatar, "bg" = fond doux de carte,
+// "text" = couleur lisible pour les libellés. Le vert Leaft reste la première couleur.
 const DEPT_COLORS = [
-  { bg: "rgba(9,82,40,0.12)", border: "#095228", text: "#095228", accent: "#a1b68d" },
-  { bg: "rgba(59,130,246,0.12)", border: "#2563eb", text: "#1d4ed8", accent: "#93c5fd" },
-  { bg: "rgba(245,158,11,0.14)", border: "#d97706", text: "#b45309", accent: "#fcd34d" },
-  { bg: "rgba(139,92,246,0.12)", border: "#7c3aed", text: "#6d28d9", accent: "#c4b5fd" },
-  { bg: "rgba(239,68,68,0.12)", border: "#dc2626", text: "#b91c1c", accent: "#fca5a5" },
-  { bg: "rgba(16,185,129,0.12)", border: "#059669", text: "#047857", accent: "#6ee7b7" },
-  { bg: "rgba(236,72,153,0.12)", border: "#db2777", text: "#be185d", accent: "#f9a8d4" },
-  { bg: "rgba(107,114,128,0.12)", border: "#6b7280", text: "#4b5563", accent: "#d1d5db" },
+  { bg: "#eef3ec", ring: "#a1b68d", border: "#cdd9c4", text: "#3f6b4a", pill: "#dde7d6" },
+  { bg: "#eaf1f7", ring: "#9ec5e8", border: "#cfe0ef", text: "#3a6b97", pill: "#dbeaf6" },
+  { bg: "#fbf2e6", ring: "#ecc79b", border: "#f0ddc2", text: "#9a6b32", pill: "#f6e8d4" },
+  { bg: "#f1ecf7", ring: "#c2b0e0", border: "#ddd2ef", text: "#6f4f9e", pill: "#e7def4" },
+  { bg: "#fbecef", ring: "#e6a3b6", border: "#f1cdd7", text: "#a9445f", pill: "#f6dde4" },
+  { bg: "#e9f5f1", ring: "#94d2bd", border: "#cce9df", text: "#357f68", pill: "#d8ede6" },
+  { bg: "#fbeef4", ring: "#eaa7c9", border: "#f3d3e3", text: "#a84a7c", pill: "#f6dfeb" },
+  { bg: "#eef0f3", ring: "#bcc4d1", border: "#dbe0e7", text: "#566174", pill: "#e2e6ec" },
 ];
 
 export type OrgVisualStyle = "tree" | "flow" | "modern";
@@ -75,56 +77,55 @@ function OrgNodeCustom({ data }: NodeProps) {
   };
 
   const dept = d.deptColor;
+  const ring = dept?.ring ?? "#a1b68d";
   const isModern = d.visualStyle === "modern";
   const isFlow = d.visualStyle === "flow";
-
-  const borderStyle = isModern && dept
-    ? { borderColor: dept.border, borderWidth: 3, background: dept.bg }
-    : isFlow && dept
-      ? { borderLeftColor: dept.border, borderLeftWidth: 4, background: "white" }
-      : dept
-        ? { borderLeftColor: dept.border, borderLeftWidth: 3, background: "white" }
-        : undefined;
 
   const handlePos = isFlow
     ? { target: Position.Left, source: Position.Right }
     : { target: Position.Top, source: Position.Bottom };
 
+  const cardStyle: CSSProperties = isModern
+    ? { width: NODE_WIDTH, minHeight: 96, background: dept?.bg ?? "#fff", borderColor: dept?.border ?? "#e2e7e2" }
+    : { width: NODE_WIDTH, minHeight: 96, background: "#fff", borderColor: d.isMe ? "var(--brand)" : "#eaece9" };
+
   return (
     <>
       <Handle type="target" position={handlePos.target} className="!bg-transparent !border-0 !w-0 !h-0" />
       <div
-        className={`flex flex-col items-center rounded-2xl border-2 bg-white px-3 py-3 shadow-sm transition-shadow hover:shadow-lg ${
-          d.isMe ? "ring-2 ring-[var(--brand)]/30" : "border-[#e2e7e2]"
-        } ${isModern ? "border-[3px]" : ""}`}
-        style={{ width: NODE_WIDTH, minHeight: 90, ...borderStyle }}
+        className={`group flex flex-col items-center rounded-[20px] border px-3 pb-3 pt-5 text-center shadow-[0_8px_24px_rgba(17,27,24,0.06)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgba(17,27,24,0.12)] ${
+          d.isMe ? "ring-2 ring-[var(--brand)]/30" : ""
+        }`}
+        style={cardStyle}
       >
-        {isModern && dept && (
-          <span
-            className="mb-2 w-full rounded-lg py-1 text-center text-[10px] font-bold uppercase tracking-wide"
-            style={{ background: dept.border, color: "#fff" }}
-          >
-            {d.deptName ?? "—"}
+        {/* Avatar avec anneau pastel */}
+        <span
+          className="rounded-full p-[3px]"
+          style={{ background: d.isMe ? "var(--brand)" : ring }}
+        >
+          <span className="block rounded-full bg-white p-[2px]">
+            <Avatar firstName={d.firstName} lastName={d.lastName} avatarUrl={d.avatarUrl} size="lg" />
           </span>
-        )}
-        <Avatar firstName={d.firstName} lastName={d.lastName} avatarUrl={d.avatarUrl} size="lg" />
-        <p className={`mt-2 text-center text-sm font-semibold leading-tight ${d.isMe ? "text-[var(--brand)]" : "text-[var(--text)]"}`}>
+        </span>
+
+        <p className={`mt-2.5 text-sm font-semibold leading-tight ${d.isMe ? "text-[var(--brand)]" : "text-[var(--text)]"}`}>
           {d.firstName} {d.lastName}
           {d.isMe && <span className="ml-1 text-[10px] font-medium text-[var(--brand)]">(vous)</span>}
         </p>
-        <p className="mt-0.5 text-center text-[11px] leading-tight text-[color:rgba(11,11,11,0.55)]">
+        <p className="mt-0.5 text-[11px] leading-tight text-[color:rgba(11,11,11,0.5)]">
           {d.jobTitle || "\u2014"}
         </p>
-        {d.deptName && dept && !isModern && (
+
+        {d.deptName && dept && (
           <span
-            className="mt-1.5 inline-block rounded-lg px-2.5 py-0.5 text-[10px] font-semibold"
-            style={{ background: dept.bg, color: dept.text, border: `1px solid ${dept.border}40` }}
+            className="mt-2 inline-block rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
+            style={{ background: dept.pill, color: dept.text }}
           >
             {d.deptName}
           </span>
         )}
         {d.salaryVisible && d.salaryLabel && (
-          <p className="mt-1 text-xs font-semibold" style={{ color: dept?.text ?? "var(--brand)" }}>
+          <p className="mt-1.5 text-xs font-bold tabular-nums" style={{ color: dept?.text ?? "var(--brand)" }}>
             {d.salaryLabel}
           </p>
         )}
@@ -300,7 +301,7 @@ function OrganigrammeFlowInner({
       .filter((emp) => emp.manager_id && employeeIdSet.has(emp.manager_id))
       .map((emp) => {
         const deptColor = emp.current_department_id ? deptColorMap.get(emp.current_department_id) : null;
-        const stroke = visualStyle !== "tree" && deptColor ? deptColor.border : "#CFCFCF";
+        const stroke = visualStyle !== "tree" && deptColor ? deptColor.ring : "#d4dbcf";
         return {
           id: `${emp.manager_id}-${emp.id}`,
           source: emp.manager_id!,
@@ -367,7 +368,7 @@ function OrganigrammeFlowInner({
       canvas.height = h;
       const ctx = canvas.getContext("2d")!;
 
-      ctx.fillStyle = "#f8faf8";
+      ctx.fillStyle = "#f7faf6";
       ctx.fillRect(0, 0, w, h);
       ctx.drawImage(img, 0, 0);
 
@@ -485,9 +486,10 @@ function OrganigrammeFlowInner({
           {deptLegend.map((d) => (
             <span
               key={d.name}
-              className="rounded-lg px-2.5 py-1 text-[11px] font-semibold"
-              style={{ background: d.color.bg, color: d.color.text, border: `1px solid ${d.color.border}` }}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold"
+              style={{ background: d.color.pill, color: d.color.text }}
             >
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: d.color.ring }} />
               {d.name}
             </span>
           ))}
@@ -496,7 +498,7 @@ function OrganigrammeFlowInner({
 
       <div
         ref={flowRef}
-        className="rounded-3xl border border-[#e2e7e2] bg-[#f8faf8] shadow-[0_24px_60px_rgba(17,27,24,0.06)]"
+        className="overflow-hidden rounded-3xl border border-[#e8ebe6] bg-gradient-to-br from-[#fbfcfa] via-[#f7faf6] to-[#f3f6f1] shadow-[0_24px_60px_rgba(17,27,24,0.06)]"
         style={{ height: "70vh", minHeight: 400 }}
       >
         <ReactFlow
@@ -525,7 +527,7 @@ function OrganigrammeFlowInner({
             pannable
             zoomable
             className="!rounded-xl !border-[#e2e7e2]"
-            maskColor="rgba(248,250,248,0.8)"
+            maskColor="rgba(247,250,246,0.85)"
           />
 
           {companyLogoUrl && (
