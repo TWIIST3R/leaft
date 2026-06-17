@@ -30,7 +30,11 @@ export function Hero({ eyebrow, title, description, ctas = [], align = "start", 
       {eyebrow ? <span className={eyebrowClasses}>{eyebrow}</span> : null}
       <div className="space-y-4">
         <h1 className={`text-balance text-4xl font-semibold leading-tight ${titleColor} sm:text-5xl`}>{title}</h1>
-        {description ? <p className={`max-w-2xl text-pretty text-lg ${descriptionColor}`}>{description}</p> : null}
+        {description ? (
+          <p className={`max-w-2xl text-pretty text-lg ${descriptionColor} ${align === "center" ? "mx-auto" : ""}`}>
+            {description}
+          </p>
+        ) : null}
       </div>
 
       {ctas.length > 0 ? (

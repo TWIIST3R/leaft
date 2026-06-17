@@ -16,6 +16,10 @@ export const metadata: Metadata = {
   title: "Leaft – Transparence salariale et parcours collaborateurs",
   description:
     "Leaft aide les équipes People à structurer les grilles salariales, suivre les évolutions et offrir un espace employé complet.",
+  icons: {
+    icon: "/favicon.png",
+    apple: "/favicon.png",
+  },
 };
 
 export default function RootLayout({

@@ -35,6 +35,24 @@ type GrilleExtraItem = {
   created_at: string;
 };
 
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+      <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </svg>
+  );
+}
+
+const BTN_ADD_TIER =
+  "inline-flex cursor-pointer items-center gap-2 rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50";
+
+const BTN_DELETE =
+  "inline-flex cursor-pointer items-center justify-center rounded-lg p-2 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50";
+
 function PalierForm({
   onAdd,
   loading,
@@ -399,21 +417,24 @@ function GrilleExtraSection({
 
   return (
     <section data-animate-section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
-      <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">{title}</h2>
-      <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">{description}</p>
-      {error && <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      <div className="mt-4 overflow-hidden rounded-xl border border-[#e2e7e2] bg-[#f8faf8]">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">{title}</h2>
+          <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">{description}</p>
+        </div>
         <button
           type="button"
           onClick={() => setAddOpen((o) => !o)}
-          className="flex w-full cursor-pointer items-center justify-between px-4 py-3.5 text-left font-medium text-[var(--text)] transition hover:bg-[#f2f5f2]"
+          className={BTN_ADD_TIER}
         >
-          <span className="text-[var(--brand)]">+ Ajouter un palier</span>
-          <span className="text-[color:rgba(11,11,11,0.5)]">{addOpen ? "−" : "+"}</span>
+          <span className="text-lg leading-none">+</span>
+          Ajouter un palier
         </button>
-        <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${addOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-          <div className="min-h-0 overflow-hidden">
-          <form onSubmit={(e) => { handleSubmit(e); setAddOpen(false); }} className="space-y-4 border-t border-[#e2e7e2] p-4">
+      </div>
+      {error && <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      <div className={`mt-4 grid transition-[grid-template-rows] duration-300 ease-out ${addOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+        <div className="min-h-0 overflow-hidden">
+          <form onSubmit={(e) => { handleSubmit(e); setAddOpen(false); }} className="space-y-4 rounded-2xl border border-[#e2e7e2] bg-[#f8faf8] p-4">
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder={namePlaceholder} className="w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} required />
             <textarea value={details} onChange={(e) => setDetails(e.target.value)} placeholder="Détails" rows={2} className="w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
             <div className="flex flex-wrap items-center gap-4">
@@ -421,7 +442,6 @@ function GrilleExtraSection({
               <button type="submit" disabled={loading} className="cursor-pointer rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">Ajouter</button>
             </div>
           </form>
-          </div>
         </div>
       </div>
       <div className="mt-4 space-y-2">
@@ -448,9 +468,11 @@ function GrilleExtraSection({
                     </span>
                   )}
                 </div>
-                <div className="flex gap-1">
-                  <button type="button" onClick={() => setEditing(item.id, type)} disabled={loading} className="cursor-pointer rounded px-2 py-1 text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand)]/10">Modifier</button>
-                  <button type="button" onClick={() => onDelete(item.id)} disabled={loading} className="cursor-pointer rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50">Supprimer</button>
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={() => setEditing(item.id, type)} disabled={loading} className="cursor-pointer rounded-lg px-2 py-1 text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand)]/10">Modifier</button>
+                  <button type="button" onClick={() => onDelete(item.id)} disabled={loading} className={BTN_DELETE} title="Supprimer">
+                    <TrashIcon />
+                  </button>
                 </div>
               </div>
             )
@@ -1160,9 +1182,10 @@ export function GrillesClient({
                             type="button"
                             onClick={() => handleDeleteDept(d.id)}
                             disabled={loading}
-                            className="cursor-pointer rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                            className={BTN_DELETE}
+                            title="Supprimer"
                           >
-                            Supprimer
+                            <TrashIcon />
                           </button>
                         </div>
                       </>
@@ -1177,10 +1200,14 @@ export function GrillesClient({
 
       {/* Paliers par département */}
       <section data-animate-section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
-        <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Paliers par département</h2>
-        <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
-          Sélectionnez un département pour gérer ses paliers. Chaque palier requiert des critères (objectifs, compétences, ancienneté) pour définir les conditions d&apos;accès.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="border-l-4 border-[var(--brand)] pl-4 text-lg font-semibold text-[var(--text)]">Paliers par département</h2>
+            <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.65)]">
+              Sélectionnez un département pour gérer ses paliers. Chaque palier requiert des critères (objectifs, compétences, ancienneté) pour définir les conditions d&apos;accès.
+            </p>
+          </div>
+        </div>
         {paliersError && (
           <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{paliersError}</p>
         )}
@@ -1206,6 +1233,24 @@ export function GrillesClient({
               if (!dept) return null;
               return (
                 <div className="mt-5">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-[var(--text)]">{dept.name}</p>
+                    <button
+                      type="button"
+                      onClick={() => setAddPalierOpenDeptId((id) => (id === dept.id ? null : dept.id))}
+                      className={BTN_ADD_TIER}
+                    >
+                      <span className="text-lg leading-none">+</span>
+                      Ajouter un palier
+                    </button>
+                  </div>
+                  <div className={`mb-4 grid transition-[grid-template-rows] duration-300 ease-out ${addPalierOpenDeptId === dept.id ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                    <div className="min-h-0 overflow-hidden">
+                      <div className="rounded-2xl border border-[#e2e7e2] bg-[#f8faf8] p-4">
+                        <PalierForm ancienneteItems={ancienneteItems} onAdd={(data) => { handleCreatePalier(dept.id, data); setAddPalierOpenDeptId(null); }} loading={loading} />
+                      </div>
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     {(dept.paliers ?? []).length === 0 ? (
                       <p className="text-sm text-[color:rgba(11,11,11,0.5)]">Aucun palier pour ce département.</p>
@@ -1284,8 +1329,8 @@ export function GrillesClient({
                                         <button type="button" onClick={() => setEditingPalierId(p.id)} disabled={loading} className="cursor-pointer rounded-lg px-2 py-1 text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand)]/10">
                                           Modifier
                                         </button>
-                                        <button type="button" onClick={() => handleDeletePalier(dept.id, p.id)} disabled={loading} className="cursor-pointer rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50">
-                                          Supprimer
+                                        <button type="button" onClick={() => handleDeletePalier(dept.id, p.id)} disabled={loading} className={BTN_DELETE} title="Supprimer">
+                                          <TrashIcon />
                                         </button>
                                       </div>
                                     </div>
@@ -1298,24 +1343,8 @@ export function GrillesClient({
                       })
                     )}
                   </div>
-                  <div className="mt-4 overflow-hidden rounded-xl border border-[#e2e7e2] bg-[#f8faf8]">
-                    <button
-                      type="button"
-                      onClick={() => setAddPalierOpenDeptId((id) => (id === dept.id ? null : dept.id))}
-                      className="flex w-full cursor-pointer items-center justify-between px-4 py-3.5 text-left font-medium text-[var(--text)] transition hover:bg-[#f2f5f2]"
-                    >
-                      <span className="font-semibold text-[var(--brand)]">+ Ajouter un palier</span>
-                      <span className="text-[color:rgba(11,11,11,0.5)]">{addPalierOpenDeptId === dept.id ? "−" : "+"}</span>
-                    </button>
-                    <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${addPalierOpenDeptId === dept.id ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-                      <div className="min-h-0 overflow-hidden">
-                        <div className="border-t border-[#e2e7e2] p-4">
-                          <PalierForm ancienneteItems={ancienneteItems} onAdd={(data) => { handleCreatePalier(dept.id, data); setAddPalierOpenDeptId(null); }} loading={loading} />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <button type="button" onClick={() => handleDeleteDept(dept.id)} disabled={loading} className="cursor-pointer mt-4 text-xs font-medium text-red-600 hover:underline disabled:opacity-50">
+                  <button type="button" onClick={() => handleDeleteDept(dept.id)} disabled={loading} className={`${BTN_DELETE} mt-4 gap-1.5 px-3 py-1.5 text-xs font-medium`} title="Supprimer ce département">
+                    <TrashIcon />
                     Supprimer ce département
                   </button>
                 </div>
@@ -1323,7 +1352,7 @@ export function GrillesClient({
             })()}
           </>
         )}
-                                                                                                                          </section>
+      </section>
 
       {/* Avantages en nature */}
       <section data-animate-section className="rounded-3xl border border-[#e2e7e2] bg-white p-6 shadow-[0_24px_60px_rgba(17,27,24,0.06)]">
@@ -1429,8 +1458,8 @@ export function GrillesClient({
                     <button type="button" onClick={() => setEditingAvantageId(a.id)} disabled={loading} className="cursor-pointer rounded px-2 py-1 text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand)]/10">
                       Modifier
                     </button>
-                    <button type="button" onClick={() => handleDeleteAvantage(a.id)} disabled={loading} className="cursor-pointer rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50">
-                      Supprimer
+                    <button type="button" onClick={() => handleDeleteAvantage(a.id)} disabled={loading} className={BTN_DELETE} title="Supprimer">
+                      <TrashIcon />
                     </button>
                   </div>
                 </div>

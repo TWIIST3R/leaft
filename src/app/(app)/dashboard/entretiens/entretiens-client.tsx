@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import gsap from "gsap";
+import { INTERVIEW_TYPES, emptyRdvSlots, buildSlotsPayload, type RdvSlotForm } from "@/lib/interviews/meeting-form-shared";
 
 type Employee = {
   id: string;
@@ -40,13 +40,7 @@ type Interview = {
   pending_salary_adjustment?: number | null;
 };
 
-const TYPES = [
-  { value: "Entretien annuel", label: "Entretien annuel" },
-  { value: "Entretien semestriel", label: "Entretien semestriel" },
-  { value: "Entretien de suivi mensuel", label: "Entretien de suivi mensuel" },
-  { value: "Entretien de performance", label: "Entretien de performance" },
-  { value: "Entretien ponctuel", label: "Entretien ponctuel" },
-];
+const TYPES = INTERVIEW_TYPES.map((t) => ({ value: t.value, label: t.label }));
 
 const CARD = "rounded-3xl border border-[#e2e7e2] bg-white shadow-[0_24px_60px_rgba(17,27,24,0.06)]";
 const INPUT = "w-full rounded-xl border border-[#e2e7e2] bg-white px-4 py-2.5 text-sm text-[var(--text)] cursor-text transition hover:border-[color:rgba(9,82,40,0.3)] focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20";
@@ -105,17 +99,23 @@ export function EntretiensClient({
   };
   const [meetingRequests, setMeetingRequests] = useState<MeetingRequest[]>([]);
   const [counterForGroup, setCounterForGroup] = useState<string | null>(null);
-  const [counterSlots, setCounterSlots] = useState<{ starts_at: string; ends_at: string }[]>([
-    { starts_at: "", ends_at: "" },
-    { starts_at: "", ends_at: "" },
-    { starts_at: "", ends_at: "" },
-  ]);
+  const [counterSlots, setCounterSlots] = useState<RdvSlotForm[]>(emptyRdvSlots());
+  const [rdvSlots, setRdvSlots] = useState<RdvSlotForm[]>(emptyRdvSlots);
+  const [rdvNote, setRdvNote] = useState("");
+  const [rdvFormError, setRdvFormError] = useState<string | null>(null);
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    employee_id: string;
+    interview_date: string;
+    type: string;
+    email_subject: string;
+    notes: string;
+    justification: string;
+  }>({
     employee_id: "",
     interview_date: new Date().toISOString().split("T")[0],
-    type: "Entretien annuel",
-    email_subject: "Entretien annuel",
+    type: INTERVIEW_TYPES[0].value,
+    email_subject: INTERVIEW_TYPES[0].value,
     notes: "",
     justification: "",
   });
@@ -211,10 +211,7 @@ export function EntretiensClient({
   }
 
   async function handleCounterPropose(groupId: string) {
-    const slots = counterSlots
-      .map((s) => ({ starts_at: s.starts_at, ends_at: s.ends_at }))
-      .filter((s) => s.starts_at && s.ends_at)
-      .slice(0, 3);
+    const slots = buildSlotsPayload(counterSlots).slice(0, 3);
     if (slots.length === 0) return;
     const res = await fetch("/api/meeting-requests", {
       method: "PATCH",
@@ -223,7 +220,7 @@ export function EntretiensClient({
     });
     if (res.ok) {
       setCounterForGroup(null);
-      setCounterSlots([{ starts_at: "", ends_at: "" }, { starts_at: "", ends_at: "" }, { starts_at: "", ends_at: "" }]);
+      setCounterSlots(emptyRdvSlots());
       fetch("/api/meeting-requests?admin=true")
         .then((r) => r.json())
         .then((d) => { if (Array.isArray(d)) setMeetingRequests(d); })
@@ -250,51 +247,80 @@ export function EntretiensClient({
   });
 
   const resetForm = useCallback(() => {
-    setForm({ employee_id: "", interview_date: new Date().toISOString().split("T")[0], type: "Entretien annuel", email_subject: "Entretien annuel", notes: "", justification: "" });
+    setForm({ employee_id: "", interview_date: new Date().toISOString().split("T")[0], type: INTERVIEW_TYPES[0].value, email_subject: INTERVIEW_TYPES[0].value, notes: "", justification: "" });
     setSalaryForm({ apply_salary_changes: false, new_level_id: "", new_management_id: "", new_anciennete_id: "", new_salary_adjustment: "" });
+    setRdvSlots(emptyRdvSlots());
+    setRdvNote("");
+    setRdvFormError(null);
     setEditingId(null);
     setShowForm(false);
   }, []);
 
+  const handleCreateRdv = async () => {
+    if (!form.employee_id) return;
+    const filledSlots = buildSlotsPayload(rdvSlots);
+    if (filledSlots.length === 0) {
+      setRdvFormError("Proposez au moins un créneau (date + heure).");
+      return;
+    }
+    setLoading(true);
+    setRdvFormError(null);
+    try {
+      const res = await fetch("/api/meeting-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requested_to: [`talent:${form.employee_id}`],
+          interview_type: form.type,
+          note: rdvNote || null,
+          slots: filledSlots,
+          target_employee_id: form.employee_id,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || "Erreur lors de l'envoi");
+      }
+      setRdvSlots(emptyRdvSlots());
+      setRdvNote("");
+      resetForm();
+      fetch("/api/meeting-requests?admin=true")
+        .then((r) => r.json())
+        .then((d) => { if (Array.isArray(d)) setMeetingRequests(d); })
+        .catch(() => {});
+    } catch (e) {
+      setRdvFormError(e instanceof Error ? e.message : "Erreur inconnue");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
-    if (!form.employee_id || !form.interview_date || !form.type) return;
+    if (!editingId || !form.employee_id || !form.interview_date || !form.type) return;
     setLoading(true);
 
     try {
-      if (editingId) {
-        const payload = {
-          ...form,
-          ...(salaryForm.apply_salary_changes
-            ? {
-                apply_salary_changes: true,
-                new_level_id: salaryForm.new_level_id || undefined,
-                new_management_id: salaryForm.new_management_id || undefined,
-                new_anciennete_id: salaryForm.new_anciennete_id || undefined,
-                new_salary_adjustment: salaryForm.new_salary_adjustment !== "" ? Number(salaryForm.new_salary_adjustment) : undefined,
-              }
-            : { apply_salary_changes: false }),
-        };
-        const res = await fetch(`/api/interviews/${editingId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (res.ok) {
-          const updated = await res.json();
-          setInterviews((prev) => prev.map((i) => (i.id === editingId ? updated : i)));
-          resetForm();
-        }
-      } else {
-        const res = await fetch("/api/interviews", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
-        });
-        if (res.ok) {
-          const created = await res.json();
-          setInterviews((prev) => [created, ...prev]);
-          resetForm();
-        }
+      const payload = {
+        ...form,
+        ...(salaryForm.apply_salary_changes
+          ? {
+              apply_salary_changes: true,
+              new_level_id: salaryForm.new_level_id || undefined,
+              new_management_id: salaryForm.new_management_id || undefined,
+              new_anciennete_id: salaryForm.new_anciennete_id || undefined,
+              new_salary_adjustment: salaryForm.new_salary_adjustment !== "" ? Number(salaryForm.new_salary_adjustment) : undefined,
+            }
+          : { apply_salary_changes: false }),
+      };
+      const res = await fetch(`/api/interviews/${editingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setInterviews((prev) => prev.map((i) => (i.id === editingId ? updated : i)));
+        resetForm();
       }
     } finally {
       setLoading(false);
@@ -394,11 +420,107 @@ export function EntretiensClient({
         return (
         <div ref={formRef} className={`${CARD} p-6`}>
           <h3 className="text-lg font-semibold text-[var(--text)]">
-            {editingId ? (isReadOnly ? "Détail de l\u2019entretien" : "Modifier l\u2019entretien") : "Nouvel entretien"}
+            {editingId ? (isReadOnly ? "Détail de l\u2019entretien" : "Modifier l\u2019entretien") : "Planifier un entretien"}
           </h3>
+          {!editingId && (
+            <p className="mt-1 text-sm text-[color:rgba(11,11,11,0.6)]">
+              Proposez des créneaux au collaborateur. Il choisira celui qui lui convient — comme dans l&apos;espace Talent.
+            </p>
+          )}
           {isReadOnly && (
             <p className="mt-1 text-xs text-[color:rgba(11,11,11,0.5)]">Cet entretien est terminé. Consultation seule.</p>
           )}
+
+          {!editingId ? (
+            <div className="mt-4 space-y-4">
+              <div>
+                <label htmlFor="iv-emp" className={LABEL}>Collaborateur</label>
+                <select
+                  id="iv-emp"
+                  value={form.employee_id}
+                  onChange={(e) => setForm((f) => ({ ...f, employee_id: e.target.value }))}
+                  className={`${INPUT} cursor-pointer`}
+                >
+                  <option value="">Sélectionner...</option>
+                  {employees.map((e) => (
+                    <option key={e.id} value={e.id}>{e.first_name} {e.last_name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="iv-type" className={LABEL}>Type d&apos;entretien</label>
+                <select
+                  id="iv-type"
+                  value={form.type}
+                  onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
+                  className={`${INPUT} cursor-pointer`}
+                >
+                  {INTERVIEW_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={LABEL}>Proposer des créneaux (2–3)</label>
+                <div className="space-y-2">
+                  {rdvSlots.map((s, idx) => (
+                    <div key={idx} className="rounded-2xl border border-[#e2e7e2] bg-white p-3">
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.45)]">Créneau {idx + 1}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          type="date"
+                          value={s.date}
+                          onChange={(e) => setRdvSlots((prev) => prev.map((p, i) => i === idx ? { ...p, date: e.target.value } : p))}
+                          className="min-w-0 flex-1 rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
+                        />
+                        <input
+                          type="time"
+                          value={s.time}
+                          onChange={(e) => setRdvSlots((prev) => prev.map((p, i) => i === idx ? { ...p, time: e.target.value } : p))}
+                          className="min-w-0 flex-1 rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
+                        />
+                        <select
+                          value={s.durationMin}
+                          onChange={(e) => setRdvSlots((prev) => prev.map((p, i) => i === idx ? { ...p, durationMin: Number(e.target.value) } : p))}
+                          className="shrink-0 cursor-pointer rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
+                        >
+                          <option value={30}>30 min</option>
+                          <option value={45}>45 min</option>
+                          <option value={60}>60 min</option>
+                        </select>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-[color:rgba(11,11,11,0.55)]">
+                  Le talent recevra la demande et choisira (ou refusera) l&apos;un des créneaux proposés.
+                </p>
+              </div>
+              <div>
+                <label htmlFor="iv-rdv-note" className={LABEL}>Note (optionnel)</label>
+                <textarea
+                  id="iv-rdv-note"
+                  rows={2}
+                  value={rdvNote}
+                  onChange={(e) => setRdvNote(e.target.value)}
+                  className={INPUT}
+                  placeholder="Contexte ou objectif du rendez-vous..."
+                />
+              </div>
+              {rdvFormError && (
+                <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{rdvFormError}</div>
+              )}
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={handleCreateRdv}
+                  disabled={loading || !form.employee_id || rdvSlots.filter((s) => s.date && s.time).length === 0}
+                  className={BTN_PRIMARY}
+                >
+                  {loading ? "Envoi…" : "Envoyer la demande"}
+                </button>
+                <button onClick={resetForm} className={BTN_SECONDARY}>Annuler</button>
+              </div>
+            </div>
+          ) : (
+          <>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
               <label htmlFor="iv-emp" className={LABEL}>Collaborateur</label>
@@ -580,10 +702,10 @@ export function EntretiensClient({
             ) : (
               <>
                 <button onClick={handleSubmit} disabled={loading || !form.employee_id} className={BTN_PRIMARY}>
-                  {loading ? "Enregistrement..." : editingId ? "Mettre à jour" : "Créer l\u2019entretien"}
+                  {loading ? "Enregistrement..." : "Mettre à jour"}
                 </button>
                 <button onClick={resetForm} className={BTN_SECONDARY}>Annuler</button>
-                {editingId && interviews.find((i) => i.id === editingId)?.status !== "termine" && (
+                {interviews.find((i) => i.id === editingId)?.status !== "termine" && (
                   <button
                     type="button"
                     onClick={handleFinishInterview}
@@ -596,6 +718,8 @@ export function EntretiensClient({
               </>
             )}
           </div>
+          </>
+          )}
         </div>
         );
       })() }
@@ -684,21 +808,33 @@ export function EntretiensClient({
                   {counterForGroup === groupId && (
                     <div className="mt-4 rounded-2xl border border-[var(--brand)]/15 bg-[var(--brand)]/5 p-4">
                       <p className="text-sm font-semibold text-[var(--text)]">Contre-proposer des créneaux (2–3)</p>
-                      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                      <div className="mt-3 space-y-2">
                         {counterSlots.map((s, idx) => (
-                          <div key={idx} className="space-y-2">
-                            <input
-                              type="datetime-local"
-                              value={s.starts_at}
-                              onChange={(e) => setCounterSlots((prev) => prev.map((p, i) => i === idx ? { ...p, starts_at: e.target.value } : p))}
-                              className="w-full rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
-                            />
-                            <input
-                              type="datetime-local"
-                              value={s.ends_at}
-                              onChange={(e) => setCounterSlots((prev) => prev.map((p, i) => i === idx ? { ...p, ends_at: e.target.value } : p))}
-                              className="w-full rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
-                            />
+                          <div key={idx} className="rounded-2xl border border-[#e2e7e2] bg-white p-3">
+                            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[color:rgba(11,11,11,0.45)]">Créneau {idx + 1}</p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <input
+                                type="date"
+                                value={s.date}
+                                onChange={(e) => setCounterSlots((prev) => prev.map((p, i) => i === idx ? { ...p, date: e.target.value } : p))}
+                                className="min-w-0 flex-1 rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
+                              />
+                              <input
+                                type="time"
+                                value={s.time}
+                                onChange={(e) => setCounterSlots((prev) => prev.map((p, i) => i === idx ? { ...p, time: e.target.value } : p))}
+                                className="min-w-0 flex-1 rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
+                              />
+                              <select
+                                value={s.durationMin}
+                                onChange={(e) => setCounterSlots((prev) => prev.map((p, i) => i === idx ? { ...p, durationMin: Number(e.target.value) } : p))}
+                                className="shrink-0 cursor-pointer rounded-xl border border-[#e2e7e2] bg-white px-3 py-2 text-sm"
+                              >
+                                <option value={30}>30 min</option>
+                                <option value={45}>45 min</option>
+                                <option value={60}>60 min</option>
+                              </select>
+                            </div>
                           </div>
                         ))}
                       </div>

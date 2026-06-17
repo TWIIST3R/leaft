@@ -3,8 +3,16 @@ import { emailLayout } from "@/lib/email";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL = process.env.RESEND_FROM || "Leaft <info@leaft.io>";
-// Adresse qui reçoit les demandes du formulaire de contact.
-const CONTACT_TO = process.env.CONTACT_TO || "contact@leaft.io";
+// Destinataires des demandes du formulaire de contact (séparés par des virgules dans CONTACT_TO).
+const DEFAULT_CONTACT_RECIPIENTS = ["info@leaft.io", "pierre-loic@leaft.io", "chloe@leaft.io"];
+
+function getContactRecipients(): string[] {
+  const raw = process.env.CONTACT_TO;
+  if (raw?.trim()) {
+    return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  }
+  return DEFAULT_CONTACT_RECIPIENTS;
+}
 
 const COMPANY_SIZES = ["1 – 5", "6 – 19", "20 – 99", "100+"];
 
@@ -18,7 +26,7 @@ function escapeHtml(value: string): string {
 }
 
 async function sendViaResend(payload: {
-  to: string;
+  to: string | string[];
   subject: string;
   html: string;
   text: string;
@@ -28,6 +36,7 @@ async function sendViaResend(payload: {
     console.warn("[contact] RESEND_API_KEY non défini – email non envoyé à", payload.to);
     return false;
   }
+  const recipients = Array.isArray(payload.to) ? payload.to : [payload.to];
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -37,7 +46,7 @@ async function sendViaResend(payload: {
       },
       body: JSON.stringify({
         from: FROM_EMAIL,
-        to: [payload.to],
+        to: recipients,
         subject: payload.subject,
         html: payload.html,
         text: payload.text,
@@ -79,6 +88,7 @@ export async function POST(request: Request) {
   }
   const size = COMPANY_SIZES.includes(companySize) ? companySize : "Non précisé";
   const fullName = `${firstName} ${lastName}`;
+  const contactRecipients = getContactRecipients();
 
   // 1) Notification interne (équipe Leaft)
   const internalHtml = emailLayout(
@@ -99,7 +109,7 @@ export async function POST(request: Request) {
   const internalText = `Nouvelle demande de contact\n\nNom : ${fullName}\nEmail : ${email}\nTaille : ${size}\n\nMessage :\n${message || "(aucun message)"}`;
 
   const internalSent = await sendViaResend({
-    to: CONTACT_TO,
+    to: contactRecipients,
     subject: `Nouveau contact – ${fullName} (${size})`,
     html: internalHtml,
     text: internalText,
@@ -129,7 +139,6 @@ export async function POST(request: Request) {
   });
 
   if (!internalSent && !RESEND_API_KEY) {
-    // En l'absence de clé API, on ne bloque pas l'utilisateur mais on le signale en logs.
     return NextResponse.json({ ok: true, warning: "email_not_configured" });
   }
 
