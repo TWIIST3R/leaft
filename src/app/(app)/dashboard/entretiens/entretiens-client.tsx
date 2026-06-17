@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
+import gsap from "gsap";
 import { INTERVIEW_TYPES, emptyRdvSlots, buildSlotsPayload, type RdvSlotForm } from "@/lib/interviews/meeting-form-shared";
 
 type Employee = {
