@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Hero } from "@/components/marketing/hero";
-import { HeroSimulator } from "@/components/marketing/hero-simulator";
+import { HeroDashboardPreview } from "@/components/marketing/hero-dashboard-preview";
 import { SalaryGridDemo, OrgChartDemo, EquityDemo, TransparencyDemo } from "@/components/marketing/feature-demos";
 import { CalendlyEmbed } from "@/components/marketing/calendly-embed";
 import { Reveal } from "@/components/marketing/reveal";
@@ -77,7 +77,7 @@ const checkIcon = (
 export default function Home() {
   return (
     <main className="bg-white">
-      {/* HERO — une seule feature : projeter une augmentation vs marché */}
+      {/* HERO — aperçu du dashboard */}
       <section className="relative overflow-hidden bg-gradient-to-b from-[#e7f0e6] via-[#eef3ec] to-[#f3f7f2]">
         <div className="absolute -right-32 -top-32 -z-10 h-96 w-96 rounded-full bg-[color:rgba(9,82,40,0.14)] blur-3xl" />
         <div className="absolute -bottom-24 -left-24 -z-10 h-80 w-80 rounded-full bg-[color:rgba(161,182,141,0.25)] blur-3xl" />
@@ -92,9 +92,9 @@ export default function Home() {
             ]}
           />
           <Reveal delay={120} className="lg:pl-4">
-            <HeroSimulator />
+            <HeroDashboardPreview />
             <p className="mt-3 text-center text-xs text-[color:rgba(11,11,11,0.5)]">
-              Exemple interactif — projetez une augmentation et voyez l'impact en direct.
+              Votre espace RH — grilles, talents, entretiens et statistiques en un seul endroit.
             </p>
           </Reveal>
         </div>
