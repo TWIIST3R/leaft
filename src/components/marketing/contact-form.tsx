@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { trackContactFormSubmit } from "@/lib/analytics/data-layer";
 
 const COMPANY_SIZES = ["1 – 5", "6 – 19", "20 – 99", "100+"];
 
@@ -13,6 +14,7 @@ export function ContactForm() {
     firstName: "",
     lastName: "",
     email: "",
+    phone: "",
     companySize: COMPANY_SIZES[0],
     message: "",
   });
@@ -39,6 +41,13 @@ export function ContactForm() {
         setStatus("error");
         return;
       }
+      await trackContactFormSubmit({
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        phone: form.phone,
+        companySize: form.companySize,
+      });
       setStatus("success");
     } catch {
       setError("Impossible d'envoyer votre demande pour le moment. Merci de réessayer.");
@@ -79,6 +88,18 @@ export function ContactForm() {
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium">Email professionnel</label>
         <input type="email" required value={form.email} onChange={update("email")} className={inputClass} />
+      </div>
+      <div className="flex flex-col gap-2">
+        <label className="text-sm font-medium">Téléphone</label>
+        <input
+          type="tel"
+          required
+          value={form.phone}
+          onChange={update("phone")}
+          className={inputClass}
+          placeholder="06 12 34 56 78"
+          autoComplete="tel"
+        />
       </div>
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium">Taille de l'entreprise</label>

@@ -16,7 +16,7 @@ export function HeroDashboardPreview() {
             <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
           </div>
           <div className="flex min-w-0 flex-1 items-center justify-center">
-            <div className="flex w-full max-w-sm items-center gap-2 rounded-lg border border-[#e2e7e2] bg-white px-3 py-1.5 text-xs text-[color:rgba(11,11,11,0.55)]">
+            <div className="flex w-full max-w-md items-center gap-2 rounded-lg border border-[#e2e7e2] bg-white px-3 py-1.5 text-xs text-[color:rgba(11,11,11,0.55)]">
               <svg
                 width="12"
                 height="12"
@@ -38,16 +38,16 @@ export function HeroDashboardPreview() {
           <div className="hidden w-[52px] shrink-0 sm:block" aria-hidden />
         </div>
 
-        {/* Capture dashboard */}
+        {/* Capture dashboard — 16:9 */}
         <div className="relative bg-[#f3f5f3]">
           <Image
             src="/marketing/hero-dashboard.png"
             alt="Aperçu du dashboard Leaft — pilotage des talents, grilles salariales et statistiques"
             width={1024}
-            height={851}
+            height={569}
             priority
             className="h-auto w-full"
-            sizes="(max-width: 1024px) 100vw, 560px"
+            sizes="(max-width: 1024px) 100vw, 600px"
           />
         </div>
       </div>

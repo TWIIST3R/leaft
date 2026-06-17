@@ -5,6 +5,7 @@ import { frFR } from "@clerk/localizations";
 import "./globals.css";
 import { clientEnv } from "@/env";
 import { ConditionalLayoutClient } from "./conditional-layout-client";
+import { GoogleTagManagerHead, GoogleTagManagerNoScript } from "@/components/analytics/google-tag-manager";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -33,7 +34,11 @@ export default function RootLayout({
       localization={frFR}
     >
       <html lang="fr">
+        <head>
+          <GoogleTagManagerHead />
+        </head>
         <body className={`${inter.variable} antialiased bg-[var(--bg)] text-[var(--text)]`}>
+          <GoogleTagManagerNoScript />
           <ConditionalLayout>{children}</ConditionalLayout>
         </body>
       </html>

@@ -76,11 +76,19 @@ export async function POST(request: Request) {
   const firstName = typeof data.firstName === "string" ? data.firstName.trim() : "";
   const lastName = typeof data.lastName === "string" ? data.lastName.trim() : "";
   const email = typeof data.email === "string" ? data.email.trim() : "";
+  const phone = typeof data.phone === "string" ? data.phone.trim() : "";
   const companySize = typeof data.companySize === "string" ? data.companySize.trim() : "";
   const message = typeof data.message === "string" ? data.message.trim() : "";
 
-  if (!firstName || !lastName || !email) {
-    return NextResponse.json({ error: "Merci de renseigner votre nom, prénom et email." }, { status: 400 });
+  if (!firstName || !lastName || !email || !phone) {
+    return NextResponse.json(
+      { error: "Merci de renseigner votre nom, prénom, email et téléphone." },
+      { status: 400 },
+    );
+  }
+  const phoneValid = /^[\d\s+().-]{8,20}$/.test(phone);
+  if (!phoneValid) {
+    return NextResponse.json({ error: "Numéro de téléphone invalide." }, { status: 400 });
   }
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   if (!emailValid) {
@@ -99,6 +107,7 @@ export async function POST(request: Request) {
         <ul style="margin:0;padding-left:18px;font-size:14px;">
           <li style="margin:6px 0;">Nom : <strong>${escapeHtml(fullName)}</strong></li>
           <li style="margin:6px 0;">Email : <strong>${escapeHtml(email)}</strong></li>
+          <li style="margin:6px 0;">Téléphone : <strong>${escapeHtml(phone)}</strong></li>
           <li style="margin:6px 0;">Taille de l'entreprise : <strong>${escapeHtml(size)}</strong></li>
         </ul>
       </div>
@@ -106,7 +115,7 @@ export async function POST(request: Request) {
       <p style="margin:0;font-size:14px;white-space:pre-wrap;color:#333;">${message ? escapeHtml(message) : "<em>(aucun message)</em>"}</p>
     `,
   );
-  const internalText = `Nouvelle demande de contact\n\nNom : ${fullName}\nEmail : ${email}\nTaille : ${size}\n\nMessage :\n${message || "(aucun message)"}`;
+  const internalText = `Nouvelle demande de contact\n\nNom : ${fullName}\nEmail : ${email}\nTéléphone : ${phone}\nTaille : ${size}\n\nMessage :\n${message || "(aucun message)"}`;
 
   const internalSent = await sendViaResend({
     to: contactRecipients,
