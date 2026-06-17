@@ -44,12 +44,6 @@ const GRID_PEOPLE = [
 ];
 
 export function SalaryGridDemo() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setMounted(true), 80);
-    return () => clearTimeout(t);
-  }, []);
-
   return (
     <div className={CARD}>
       <div className="flex items-center justify-between border-b border-[#e2e7e2] bg-[#f8faf8] px-5 py-3.5">
@@ -58,68 +52,47 @@ export function SalaryGridDemo() {
           24 talents
         </span>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[460px] text-left text-sm">
-          <thead>
-            <tr className="border-b border-[#e2e7e2] bg-[#f8faf8] text-[color:rgba(11,11,11,0.55)]">
-              <th className="px-5 py-3 font-semibold">Nom</th>
-              <th className="px-5 py-3 font-semibold">Département</th>
-              <th className="px-5 py-3 font-semibold">Rémunération</th>
-              <th className="px-5 py-3 font-semibold">Positionnement</th>
-            </tr>
-          </thead>
-          <tbody>
-            {GRID_PEOPLE.map((p) => {
-              const ratio = p.salary / p.mid;
-              const pos = Math.max(0, Math.min(1, (ratio - 0.8) / 0.4));
-              const dept = DEPT_COLORS[p.deptIdx % DEPT_COLORS.length];
-              return (
-                <tr key={p.name} className="border-b border-[#eef2ee] last:border-0">
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--brand)]/15 text-xs font-semibold text-[var(--brand)]">
-                        {initials(p.name)}
-                      </span>
-                      <div className="leading-tight">
-                        <p className="font-medium text-[var(--text)]">{p.name}</p>
-                        <p className="text-xs text-[color:rgba(11,11,11,0.5)]">{p.level}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3">
+      <div className="divide-y divide-[#eef2ee]">
+        {GRID_PEOPLE.map((p) => {
+          const ratio = p.salary / p.mid;
+          const dept = DEPT_COLORS[p.deptIdx % DEPT_COLORS.length];
+          return (
+            <div key={p.name} className="flex items-center gap-3 px-4 py-3 sm:px-5">
+              {/* Identité */}
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--brand)]/15 text-xs font-semibold text-[var(--brand)]">
+                  {initials(p.name)}
+                </span>
+                <div className="min-w-0 leading-tight">
+                  <p className="truncate text-sm font-medium text-[var(--text)]">{p.name}</p>
+                  <div className="mt-0.5 flex items-center gap-2">
                     <span
-                      className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                      className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
                       style={{ backgroundColor: dept.pill, color: dept.text }}
                     >
                       {p.dept}
                     </span>
-                  </td>
-                  <td className="px-5 py-3 tabular-nums text-[color:rgba(11,11,11,0.78)]">
-                    {p.salary.toLocaleString("fr-FR")} €
-                  </td>
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="relative hidden h-2 w-24 rounded-full bg-muted sm:block">
-                        <span className="absolute top-1/2 left-1/2 h-3.5 w-px -translate-x-1/2 -translate-y-1/2 bg-[color:rgba(11,11,11,0.2)]" />
-                        <span
-                          className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow transition-all duration-700 ease-out"
-                          style={{ left: mounted ? `${pos * 100}%` : "50%", backgroundColor: compaColor(ratio) }}
-                        />
-                      </div>
-                      <span
-                        className="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums"
-                        style={{ backgroundColor: `${compaColor(ratio)}1a`, color: compaColor(ratio) }}
-                        title={compaLabel(ratio)}
-                      >
-                        {(ratio * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    <span className="truncate text-xs text-[color:rgba(11,11,11,0.5)]">{p.level}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Salaire */}
+              <span className="shrink-0 text-sm tabular-nums text-[color:rgba(11,11,11,0.78)]">
+                {(p.salary / 1000).toFixed(0)}k€
+              </span>
+
+              {/* Positionnement */}
+              <span
+                className="inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums"
+                style={{ backgroundColor: `${compaColor(ratio)}1a`, color: compaColor(ratio) }}
+                title={compaLabel(ratio)}
+              >
+                {(ratio * 100).toFixed(0)}%
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

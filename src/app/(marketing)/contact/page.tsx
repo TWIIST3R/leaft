@@ -1,6 +1,9 @@
 import { Hero } from "@/components/marketing/hero";
 import { ContactForm } from "@/components/marketing/contact-form";
 import { CalendlyEmbed } from "@/components/marketing/calendly-embed";
+import { SecurityBand } from "@/components/marketing/trust";
+import { Faq } from "@/components/marketing/faq";
+import { FAQ_SECURITY } from "@/components/marketing/faq-items";
 
 export const metadata = {
   title: "Leaft – Contact & démo",
@@ -31,6 +34,31 @@ export default function ContactPage() {
             </p>
           </div>
           <CalendlyEmbed />
+        </div>
+      </section>
+
+      {/* SÉCURITÉ */}
+      <section className="border-t border-border bg-muted">
+        <div className="mx-auto max-w-6xl px-6 py-16 sm:px-10 lg:px-16">
+          <div className="mx-auto mb-10 max-w-2xl text-center">
+            <h2 className="text-2xl font-semibold text-[var(--text)] sm:text-3xl">
+              Vos données sont protégées
+            </h2>
+            <p className="mt-3 text-[color:rgba(11,11,11,0.7)]">
+              Les salaires font partie des données les plus sensibles. Voici comment nous les sécurisons.
+            </p>
+          </div>
+          <SecurityBand />
+        </div>
+      </section>
+
+      {/* FAQ sécurité */}
+      <section className="border-t border-border bg-white">
+        <div className="mx-auto max-w-6xl px-6 py-16 sm:px-10 lg:px-16">
+          <h2 className="mb-10 text-center text-2xl font-semibold text-[var(--text)] sm:text-3xl">
+            Questions fréquentes sur vos données
+          </h2>
+          <Faq items={FAQ_SECURITY} />
         </div>
       </section>
     </main>

@@ -4,6 +4,9 @@ import { HeroSimulator } from "@/components/marketing/hero-simulator";
 import { SalaryGridDemo, OrgChartDemo, EquityDemo, TransparencyDemo } from "@/components/marketing/feature-demos";
 import { CalendlyEmbed } from "@/components/marketing/calendly-embed";
 import { Reveal } from "@/components/marketing/reveal";
+import { SecurityBand, Testimonials } from "@/components/marketing/trust";
+import { Faq } from "@/components/marketing/faq";
+import { FAQ_ITEMS } from "@/components/marketing/faq-items";
 
 export const metadata = {
   title: "Leaft – Des salaires justes, une équipe qui progresse",
@@ -335,6 +338,74 @@ export default function Home() {
               son équipe et de retenir ses meilleurs talents.
             </p>
             <p className="mt-6 text-sm font-medium text-[color:rgba(11,11,11,0.5)]">Notre conviction chez Leaft</p>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* TÉMOIGNAGES */}
+      <section className="bg-white">
+        <div className="mx-auto max-w-6xl px-6 py-20 sm:px-10 lg:px-16">
+          <Reveal>
+            <div className="mx-auto mb-12 max-w-2xl text-center">
+              <span className="inline-flex items-center gap-2 rounded-full border border-border bg-muted px-4 py-1 text-sm font-medium text-[color:var(--brand)]">
+                Ils nous font confiance
+              </span>
+              <h2 className="mt-5 text-3xl font-semibold text-[var(--text)] sm:text-4xl">
+                Des équipes qui pilotent enfin leurs salaires sereinement
+              </h2>
+            </div>
+          </Reveal>
+          <Reveal delay={90}>
+            <Testimonials />
+          </Reveal>
+        </div>
+      </section>
+
+      {/* SÉCURITÉ & CONFIANCE */}
+      <section className="bg-muted">
+        <div className="mx-auto max-w-6xl px-6 py-20 sm:px-10 lg:px-16">
+          <Reveal>
+            <div className="mx-auto mb-12 max-w-2xl text-center">
+              <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-4 py-1 text-sm font-medium text-[color:var(--brand)]">
+                Sécurité & confidentialité
+              </span>
+              <h2 className="mt-5 text-3xl font-semibold text-[var(--text)] sm:text-4xl">
+                Vos données sensibles entre de bonnes mains
+              </h2>
+              <p className="mt-4 text-lg text-[color:rgba(11,11,11,0.7)]">
+                Les salaires comptent parmi les données les plus sensibles d'une entreprise. Nous les protégeons en
+                conséquence.
+              </p>
+            </div>
+          </Reveal>
+          <Reveal delay={90}>
+            <SecurityBand />
+          </Reveal>
+          <Reveal delay={150}>
+            <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-[color:rgba(11,11,11,0.6)]">
+              Pour en savoir plus, consultez notre{" "}
+              <Link href="/privacy" className="font-semibold text-[var(--brand)] underline">
+                politique de confidentialité
+              </Link>
+              .
+            </p>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="bg-white">
+        <div className="mx-auto max-w-6xl px-6 py-20 sm:px-10 lg:px-16">
+          <Reveal>
+            <div className="mx-auto mb-12 max-w-2xl text-center">
+              <h2 className="text-3xl font-semibold text-[var(--text)] sm:text-4xl">Questions fréquentes</h2>
+              <p className="mt-4 text-lg text-[color:rgba(11,11,11,0.7)]">
+                Tout ce que vous devez savoir avant de vous lancer.
+              </p>
+            </div>
+          </Reveal>
+          <Reveal delay={90}>
+            <Faq items={FAQ_ITEMS} />
           </Reveal>
         </div>
       </section>

@@ -142,7 +142,7 @@ function PalierForm({
           disabled={loading}
           className="cursor-pointer rounded-full bg-[var(--brand)] px-4 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50"
         >
-          Ajouter palier
+          Enregistrer
         </button>
       </div>
       <div className="rounded-lg border border-[#e2e7e2] bg-[#f8faf8] px-3 py-3 text-sm">
@@ -439,7 +439,7 @@ function GrilleExtraSection({
             <textarea value={details} onChange={(e) => setDetails(e.target.value)} placeholder="Détails" rows={2} className="w-full rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
             <div className="flex flex-wrap items-center gap-4">
               <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="Montant annuel (€)" min={0} step={100} className="w-44 rounded-lg border border-[#e2e7e2] px-3 py-2 text-sm" disabled={loading} />
-              <button type="submit" disabled={loading} className="cursor-pointer rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">Ajouter</button>
+              <button type="submit" disabled={loading} className="cursor-pointer rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">Enregistrer</button>
             </div>
           </form>
         </div>
