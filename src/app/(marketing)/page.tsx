@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Hero } from "@/components/marketing/hero";
-import { HeroDashboardPreview } from "@/components/marketing/hero-dashboard-preview";
+import { HeroDashboardShowcase } from "@/components/marketing/hero-dashboard-showcase";
 import { SalaryGridDemo, OrgChartDemo, EquityDemo, TransparencyDemo } from "@/components/marketing/feature-demos";
 import { CalendlyEmbed } from "@/components/marketing/calendly-embed";
 import { Reveal } from "@/components/marketing/reveal";
@@ -77,27 +77,33 @@ const checkIcon = (
 export default function Home() {
   return (
     <main className="bg-white">
-      {/* HERO — aperçu du dashboard */}
+      {/* HERO — texte + aperçu dashboard pleine largeur */}
       <section className="relative overflow-hidden bg-gradient-to-b from-[#e7f0e6] via-[#eef3ec] to-[#f3f7f2]">
         <div className="absolute -right-32 -top-32 -z-10 h-96 w-96 rounded-full bg-[color:rgba(9,82,40,0.14)] blur-3xl" />
         <div className="absolute -bottom-24 -left-24 -z-10 h-80 w-80 rounded-full bg-[color:rgba(161,182,141,0.25)] blur-3xl" />
-        <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 pb-16 pt-16 sm:px-10 lg:grid-cols-2 lg:gap-12 lg:px-16 lg:pb-24 lg:pt-24">
-          <Hero
-            eyebrow="Rémunération équitable & transparente"
-            title="Des salaires justes. Une équipe qui progresse."
-            description="Leaft aide les dirigeants à construire des grilles de salaires équitables, à suivre la progression de chacun et à instaurer une vraie transparence — sans tableur ni casse-tête."
-            ctas={[
-              { href: "/contact", label: "Demander une démo", variant: "primary" },
-              { href: "/pricing", label: "Voir les tarifs", variant: "secondary" },
-            ]}
-          />
-          <Reveal delay={120} className="lg:pl-4">
-            <HeroDashboardPreview />
-            <p className="mt-3 text-center text-xs text-[color:rgba(11,11,11,0.5)]">
-              Votre espace RH — grilles, talents, entretiens et statistiques en un seul endroit.
-            </p>
+
+        <div className="mx-auto max-w-6xl px-6 pt-16 sm:px-10 lg:px-16 lg:pt-24">
+          <Reveal>
+            <Hero
+              eyebrow="Rémunération équitable & transparente"
+              title="Des salaires justes. Une équipe qui progresse."
+              description="Leaft aide les dirigeants à construire des grilles de salaires équitables, à suivre la progression de chacun et à instaurer une vraie transparence — sans tableur ni casse-tête."
+              ctas={[
+                { href: "/contact", label: "Demander une démo", variant: "primary" },
+                { href: "/pricing", label: "Voir les tarifs", variant: "secondary" },
+              ]}
+            />
           </Reveal>
         </div>
+
+        <div className="relative mt-10 lg:mt-14">
+          <HeroDashboardShowcase />
+          <p className="mx-auto mt-5 max-w-xl px-6 text-center text-xs text-[color:rgba(11,11,11,0.5)] sm:px-10">
+            Votre espace RH — grilles, talents, entretiens et statistiques en un seul endroit.
+          </p>
+        </div>
+
+        <div className="h-10 lg:h-16" aria-hidden />
       </section>
 
       {/* BANDEAU CONFIANCE */}

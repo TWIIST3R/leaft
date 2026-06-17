@@ -39,6 +39,26 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+@keyframes hero-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.hero-dashboard-float {
+  animation: hero-float 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-dashboard-float {
+    animation: none !important;
+  }
+}
+
 a {
   text-decoration: none;
 }
